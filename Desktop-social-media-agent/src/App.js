@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Calendar, Upload, Copy, Share, Target, FileText, ChefHat, Dumbbell, Camera, Lightbulb, X, Eye, Edit2, Check, Plane, Smartphone, DollarSign, Sparkles, Heart, Building, Coffee, ChevronDown, Download, Home, GraduationCap, Zap } from 'lucide-react';
+import { Calendar, Copy, Share, Target, FileText, ChefHat, Dumbbell, Lightbulb, X, Plane, Smartphone, DollarSign, Sparkles, Heart, Building, Coffee, ChevronDown, Download, Home, GraduationCap, Zap, Trash2 } from 'lucide-react';
 
 function PreBuffer() {
   // State initialization
@@ -12,6 +11,11 @@ function PreBuffer() {
   const [motivationalContent, setMotivationalContent] = useState([]);
   const [contentCalendar, setContentCalendar] = useState([]);
   
+  // Debug: Track contentCalendar changes
+  React.useEffect(() => {
+    console.log('📅 Content calendar updated:', contentCalendar.length, 'items');
+  }, [contentCalendar]);
+  
   // New specialized categories
   const [travelContent, setTravelContent] = useState([]);
   const [techContent, setTechContent] = useState([]);
@@ -22,6 +26,85 @@ function PreBuffer() {
   const [lifestyleContent, setLifestyleContent] = useState([]);
   
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Day-specific topic selections and content
+  const [dayTopicSelections, setDayTopicSelections] = useState({
+    monday: 'recipes',
+    tuesday: 'workouts', 
+    wednesday: 'realestate',
+    thursday: 'mindfulness',
+    friday: 'travel',
+    saturday: 'tech',
+    sunday: 'finance'
+  });
+  
+  // Day-specific content arrays
+  const [dayContent, setDayContent] = useState({
+    monday: [],
+    tuesday: [],
+    wednesday: [],
+    thursday: [],
+    friday: [],
+    saturday: [],
+    sunday: []
+  });
+  
+  // Topic bank for storing pre-written posts by topic (no day assignment needed)
+  const [topicBank, setTopicBank] = useState({
+    recipes: [],
+    workouts: [],
+    realEstate: [],
+    mindfulness: [],
+    educational: [],
+    motivational: [],
+    travel: [],
+    tech: [],
+    finance: [],
+    beauty: [],
+    parenting: [],
+    business: [],
+    lifestyle: []
+  });
+
+  // Topic bank dashboard management state
+  const [selectedBankTopic, setSelectedBankTopic] = useState('recipes');
+  const [bankInputs, setBankInputs] = useState({ 
+    title: '', 
+    content: '', 
+    tags: '', 
+    url: '', 
+    inputMethod: 'manual',
+    isUrlLoading: false,
+    urlError: null
+  });
+  
+  // Day-specific input states
+  const [dayInputs, setDayInputs] = useState({
+    monday: { title: '', content: '', url: '', field1: '', field2: '' },
+    tuesday: { title: '', content: '', url: '', field1: '', field2: '' },
+    wednesday: { title: '', content: '', url: '', field1: '', field2: '' },
+    thursday: { title: '', content: '', url: '', field1: '', field2: '' },
+    friday: { title: '', content: '', url: '', field1: '', field2: '' },
+    saturday: { title: '', content: '', url: '', field1: '', field2: '' },
+    sunday: { title: '', content: '', url: '', field1: '', field2: '' }
+  });
+  
+  // Available topic options for each day
+  const topicOptions = [
+    { value: 'recipes', label: '🍳 Recipes', icon: ChefHat },
+    { value: 'workouts', label: '💪 Workouts', icon: Dumbbell },
+    { value: 'realestate', label: '🏡 Real Estate', icon: Building },
+    { value: 'mindfulness', label: '🧘 Mindfulness', icon: Heart },
+    { value: 'travel', label: '✈️ Travel', icon: Plane },
+    { value: 'tech', label: '💻 Tech', icon: Smartphone },
+    { value: 'finance', label: '💰 Finance', icon: DollarSign },
+    { value: 'beauty', label: '✨ Beauty', icon: Sparkles },
+    { value: 'parenting', label: '👶 Parenting', icon: Heart },
+    { value: 'business', label: '📈 Business', icon: Target },
+    { value: 'lifestyle', label: '☕ Lifestyle', icon: Coffee },
+    { value: 'educational', label: '📚 Educational', icon: GraduationCap },
+    { value: 'motivational', label: '⚡ Motivational', icon: Zap }
+  ];
   
   // Form states
   const [newRecipe, setNewRecipe] = useState({ title: '', ingredients: '', instructions: '', tags: '', url: '' });
@@ -41,14 +124,11 @@ function PreBuffer() {
   const [newLifestyle, setNewLifestyle] = useState({ title: '', content: '', category: '', tags: '', url: '' });
   
   // Preview and editing states
-  const [activeImageModal, setActiveImageModal] = useState(null);
   const [previewRecipe, setPreviewRecipe] = useState(null);
   const [previewWorkout, setPreviewWorkout] = useState(null);
-  const [editingRecipe, setEditingRecipe] = useState(null);
-  const [editingWorkout, setEditingWorkout] = useState(null);
   
   // Navigation state
-  const [showSpecializedDropdown, setShowSpecializedDropdown] = useState(false);
+  const [currentView, setCurrentView] = useState('day');
   
   // Calendar view state
   const [calendarView, setCalendarView] = useState('month'); // 'day', 'week', 'month'
@@ -56,10 +136,7 @@ function PreBuffer() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   
   // AI settings
-  const [apiKey, setApiKey] = useState('');
-  const [llmProvider, setLlmProvider] = useState('openai');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showApiSettings, setShowApiSettings] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState('instagram');
   const [contentComplexity, setContentComplexity] = useState('intermediate');
   const [isFetchingUrl, setIsFetchingUrl] = useState({
@@ -83,15 +160,17 @@ function PreBuffer() {
     business: true,
     lifestyle: true
   });
-  const [weeklySchedule, setWeeklySchedule] = useState({
-    monday: 'motivational',
-    tuesday: 'workout',
-    wednesday: 'mindfulness',
-    thursday: 'realEstate',
-    friday: 'educational',
-    saturday: 'recipe',
-    sunday: 'random'
-  });
+  const [numberOfWeeks, setNumberOfWeeks] = useState(1);
+  // Weekly schedule now syncs with day topic selections
+  const weeklySchedule = {
+    monday: dayTopicSelections.monday,
+    tuesday: dayTopicSelections.tuesday,
+    wednesday: dayTopicSelections.wednesday,
+    thursday: dayTopicSelections.thursday,
+    friday: dayTopicSelections.friday,
+    saturday: dayTopicSelections.saturday,
+    sunday: dayTopicSelections.sunday
+  };
   
   // Generation mode: 'calendar' for Sunday-Saturday, 'nextDay' for starting tomorrow
   const [generationMode, setGenerationMode] = useState('calendar');
@@ -100,17 +179,13 @@ function PreBuffer() {
   const recipeFileInputRef = useRef(null);
   const workoutFileInputRef = useRef(null);
 
-  // Click outside handler for dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showSpecializedDropdown && !event.target.closest('.dropdown-container')) {
-        setShowSpecializedDropdown(false);
-      }
-    };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showSpecializedDropdown]);
+
+  // Debug contentCalendar changes
+  useEffect(() => {
+    console.log('🔄 Debug: contentCalendar updated, length:', contentCalendar.length);
+    console.log('📊 Debug: contentCalendar content:', contentCalendar);
+  }, [contentCalendar]);
 
   const platforms = {
     instagram: { name: 'Instagram', color: 'bg-pink-500', icon: '📸' },
@@ -204,6 +279,96 @@ function PreBuffer() {
     mindfulness: { name: 'Mindfulness', icon: Target, color: 'text-purple-500' },
     motivational: { name: 'Motivational', icon: Target, color: 'text-pink-500' },
     educational: { name: 'Educational', icon: FileText, color: 'text-indigo-500' }
+  };
+
+  // Export Functions
+  const exportToCSV = () => {
+    if (contentCalendar.length === 0) {
+      alert('No content to export!');
+      return;
+    }
+
+    const headers = ['Date', 'Day', 'Title', 'Content', 'Type', 'Tags'];
+    const csvContent = [
+      headers.join(','),
+      ...contentCalendar.map(item => [
+        item.date,
+        item.dayName,
+        `"${item.content.title || ''}"`,
+        `"${item.content.description || item.content.content || ''}"`,
+        item.contentType,
+        `"${item.content.tags || ''}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `content-calendar-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportToJSON = () => {
+    if (contentCalendar.length === 0) {
+      alert('No content to export!');
+      return;
+    }
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      totalPosts: contentCalendar.length,
+      contentCalendar: contentCalendar
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `content-calendar-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const printCalendar = () => {
+    const printWindow = window.open('', '_blank');
+    const printContent = `
+      <html>
+        <head>
+          <title>Content Calendar</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+            .post { margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+            .date { font-weight: bold; color: #e67e22; }
+            .title { font-size: 16px; font-weight: bold; margin: 5px 0; }
+            .content { color: #555; margin: 5px 0; }
+            .meta { font-size: 12px; color: #888; }
+          </style>
+        </head>
+        <body>
+          <h1>Content Calendar - Generated ${new Date().toLocaleDateString()}</h1>
+          ${contentCalendar.length === 0 ? '<p>No content available to print.</p>' : 
+            contentCalendar
+              .sort((a, b) => new Date(a.date) - new Date(b.date))
+              .map(item => `
+                <div class="post">
+                  <div class="date">${item.dayName}, ${new Date(item.date).toLocaleDateString()}</div>
+                  <div class="title">${item.content.title || 'Untitled'}</div>
+                  <div class="content">${item.content.description || item.content.content || 'No content'}</div>
+                  <div class="meta">Type: ${item.contentType}${item.content.tags ? ` | Tags: ${item.content.tags}` : ''}</div>
+                </div>
+              `).join('')
+          }
+        </body>
+      </html>
+    `;
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
   };
 
   // Helper functions
@@ -383,229 +548,429 @@ function PreBuffer() {
     ];
     const randomPersonal = personalTouches[Math.floor(Math.random() * personalTouches.length)];
     
-    const seasonalContext = {
-      'Winter': 'cozy vibes', 'Spring': 'fresh energy', 'Summer': 'peak season', 'Fall': 'harvest time'
-    };
-    
     const variations = {
       instagram: {},
       linkedin: {},
       facebook: {}
     };
     
-    // Enhanced Instagram variations with personality and context
-    variations.instagram[type] = generateEnhancedInstagramPost(content, type, currentSeason, randomPersonal);
-    variations.linkedin[type] = generateEnhancedLinkedInPost(content, type, currentSeason, dayOfWeek);
-    variations.facebook[type] = generateEnhancedFacebookPost(content, type, currentSeason, randomPersonal);
+    // Enhanced post generation with validation
+    const instagramPost = generateEnhancedInstagramPost(content, type, currentSeason, randomPersonal);
+    const linkedinPost = generateEnhancedLinkedInPost(content, type, currentSeason, dayOfWeek);
+    const facebookPost = generateEnhancedFacebookPost(content, type, currentSeason, randomPersonal);
+    
+    // Validate posts and log quality scores
+    const instagramValidation = validatePostContent(instagramPost, 'instagram');
+    const linkedinValidation = validatePostContent(linkedinPost, 'linkedin');
+    const facebookValidation = validatePostContent(facebookPost, 'facebook');
+    
+    console.log('📊 Post Quality Scores:', {
+      instagram: instagramValidation.score,
+      linkedin: linkedinValidation.score,
+      facebook: facebookValidation.score
+    });
+    
+    if (instagramValidation.issues.length > 0) {
+      console.warn('⚠️ Instagram post issues:', instagramValidation.issues);
+    }
+    if (linkedinValidation.issues.length > 0) {
+      console.warn('⚠️ LinkedIn post issues:', linkedinValidation.issues);
+    }
+    if (facebookValidation.issues.length > 0) {
+      console.warn('⚠️ Facebook post issues:', facebookValidation.issues);
+    }
+    
+    variations.instagram[type] = instagramPost;
+    variations.linkedin[type] = linkedinPost;
+    variations.facebook[type] = facebookPost;
     
     return variations;
   };
   
   const generateEnhancedInstagramPost = (content, type, season, personal) => {
-    const typeConfigs = {
-      recipe: {
-        emoji: '🍽️', hook: `${season} cooking hits different when you discover`, 
-        cta: 'Save this for your next meal prep!', hashtags: '#healthyeating #mealprep #foodie #recipe'
-      },
-      workout: {
-        emoji: '💪', hook: `That moment when you realize`, 
-        cta: 'Tag someone who needs this energy!', hashtags: '#fitness #workout #motivation #strong'
-      },
-      travel: {
-        emoji: '✈️', hook: `${content.destination || 'This destination'} wasn't even on my radar until I discovered`, 
-        cta: 'Adding this to your bucket list?', hashtags: '#travel #wanderlust #adventure #explore'
-      },
-      tech: {
-        emoji: '📱', hook: `I've ${personal} with this ${content.category || 'tech'}.`, 
-        cta: 'Anyone else trying this?', hashtags: '#tech #innovation #gadgets #techtips'
-      },
-      finance: {
-        emoji: '💰', hook: `The ${content.type || 'money'} strategy I've ${personal}:`, 
-        cta: 'What\'s your money goal this ${season.toLowerCase()}?', hashtags: '#finance #money #investing #financialfreedom'
-      },
-      beauty: {
-        emoji: '✨', hook: `${season} glow-up starts with`, 
-        cta: 'Drop your favorite beauty hack below!', hashtags: '#beauty #skincare #selfcare #glowup'
-      },
-      parenting: {
-        emoji: '👨‍👩‍👧‍👦', hook: `Parenting ${content.ageGroup || 'kids'} taught me that`, 
-        cta: 'Other parents - can you relate?', hashtags: '#parenting #momlife #dadlife #family'
-      },
-      business: {
-        emoji: '💼', hook: `The ${content.category || 'business'} lesson I've ${personal}:`, 
-        cta: 'What business lesson changed your game?', hashtags: '#entrepreneur #business #mindset #success'
-      },
-      lifestyle: {
-        emoji: '🌟', hook: `${season} lifestyle upgrade`, 
-        cta: 'What\'s your latest lifestyle win?', hashtags: '#lifestyle #wellness #selfcare #mindful'
-      },
-      motivational: {
-        emoji: '✨', hook: `${season} motivation hits different when you discover`, 
-        cta: `What motivates you this ${season.toLowerCase()}?`, hashtags: `#motivation #mindset #${season.toLowerCase()}motivation #inspiration`
-      },
-      educational: {
-        emoji: '📚', hook: `I've ${personal} with`, 
-        cta: 'What\'s the most useful thing you learned recently?', hashtags: '#wellness #education #healthtips #learning'
-      }
+    // Create more coherent post templates with better sentence flow
+    const createPostTemplate = (content, type, season) => {
+      const templates = {
+        recipe: [
+          `Just discovered an incredible recipe that's perfect for ${season.toLowerCase()}! ${content.title} has completely changed my meal prep game.`,
+          `${season} calls for comfort food done right. This ${content.title.toLowerCase()} is exactly what I needed.`,
+          `Found the perfect ${season.toLowerCase()} recipe! ${content.title} is now on repeat in my kitchen.`
+        ],
+        workout: [
+          `That post-workout feeling hits different! Just finished ${content.title.toLowerCase()} and I'm already planning tomorrow's session.`,
+          `${season} fitness motivation: ${content.title} reminded me why I love moving my body.`,
+          `Tried something new today - ${content.title.toLowerCase()} and wow, what a game changer!`
+        ],
+        travel: [
+          `Travel dreams activated! ${content.title} just made it to the top of my bucket list.`,
+          `${season} wanderlust is real. ${content.title} looks absolutely incredible!`,
+          `Adding ${content.title.toLowerCase()} to my travel wishlist immediately.`
+        ],
+        tech: [
+          `Tech discovery of the day: ${content.title}! This is exactly what I've been looking for.`,
+          `Just learned about ${content.title.toLowerCase()} and my productivity game is about to level up.`,
+          `${season} tech update: ${content.title} is making my daily routine so much smoother.`
+        ],
+        finance: [
+          `Financial wellness check! ${content.title} just opened my eyes to some serious money insights.`,
+          `Building wealth in ${season} 2025: ${content.title.toLowerCase()} is the strategy I wish I knew earlier.`,
+          `Money mindset shift happening! ${content.title} is exactly the guidance I needed.`
+        ],
+        beauty: [
+          `Glow-up season continues! ${content.title} is the beauty secret I've been missing.`,
+          `${season} skincare discovery: ${content.title.toLowerCase()} has me feeling radiant.`,
+          `Self-care Sunday vibes with ${content.title.toLowerCase()}. My skin is already thanking me!`
+        ],
+        parenting: [
+          `Parenting win! ${content.title} just made our family routine so much better.`,
+          `Mom life update: ${content.title.toLowerCase()} is the game-changing advice every parent needs.`,
+          `${season} parenting goals: implementing ${content.title.toLowerCase()} starting today!`
+        ],
+        business: [
+          `Entrepreneur mindset shift! ${content.title} is the business insight that changed my perspective.`,
+          `Building something amazing requires the right strategies. ${content.title} just became my new playbook.`,
+          `${season} business goals: ${content.title.toLowerCase()} is exactly the direction I needed.`
+        ],
+        lifestyle: [
+          `Living my best life in ${season}! ${content.title} is the lifestyle upgrade I didn't know I needed.`,
+          `Wellness Wednesday wisdom: ${content.title.toLowerCase()} is transforming my daily routine.`,
+          `${season} intentions setting in with ${content.title.toLowerCase()}. Feeling so aligned!`
+        ],
+        motivational: [
+          `Monday motivation delivered! ${content.title} is exactly the mindset shift I needed.`,
+          `${season} energy is all about growth. ${content.title} just reminded me of my potential.`,
+          `Inspiration striking at the perfect time! ${content.title.toLowerCase()} speaks directly to my soul.`
+        ],
+        educational: [
+          `Learning something new every day! ${content.title} just blew my mind with these insights.`,
+          `Knowledge is power and ${content.title.toLowerCase()} is proof. This changes everything!`,
+          `${season} learning goals: ${content.title} is exactly the educational content I was searching for.`
+        ]
+      };
+      
+      const typeTemplates = templates[type] || templates.lifestyle;
+      return typeTemplates[Math.floor(Math.random() * typeTemplates.length)];
     };
-    
-    const config = typeConfigs[type] || typeConfigs.recipe;
-    
-    // Include URL source attribution when available
-    const sourceAttribution = content.source ? `\n\n📖 Source: ${content.source}` : '';
-    const urlLink = content.url ? `\n🔗 ${content.url}` : '';
-    
-    // Use key insights if available for richer content
-    const hasInsights = content.keyInsights && content.keyInsights.length > 0;
-    const insightText = hasInsights ? `\n\n💡 Key insight: ${content.keyInsights[0]}` : '';
-    const contentText = content.content || `I've ${personal} - it's completely shifted my ${season.toLowerCase()} routine.`;
-    
-    return `${config.emoji} ${config.hook} ${content.title}.
 
-${contentText}${insightText}
-
-${config.cta}${sourceAttribution}${urlLink}
-
-${config.hashtags}`;
-  };
-  
-  const generateEnhancedLinkedInPost = (content, type, season, day) => {
     const typeConfigs = {
       recipe: {
-        angle: 'Nutrition & Peak Performance', focus: 'workplace wellness', 
-        insight: 'What we eat directly impacts cognitive performance and leadership effectiveness.'
+        emoji: '🍽️', 
+        cta: 'Save this for your next meal prep! What\'s your favorite comfort food recipe?', 
+        hashtags: '#healthyeating #mealprep #foodie #recipe #homecooking'
       },
       workout: {
-        angle: 'Leadership Through Fitness', focus: 'executive wellness', 
-        insight: 'Physical discipline translates directly to mental resilience and decision-making clarity.'
+        emoji: '💪', 
+        cta: 'Tag someone who needs this motivation! What\'s your favorite way to move your body?', 
+        hashtags: '#fitness #workout #motivation #strong #wellness'
       },
       travel: {
-        angle: 'Global Leadership Insights', focus: 'cultural intelligence', 
-        insight: `Lessons from ${content.destination || 'international markets'} that reshape business perspective.`
+        emoji: '✈️', 
+        cta: 'Where\'s your next adventure taking you? Drop your dream destinations below!', 
+        hashtags: '#travel #wanderlust #adventure #explore #bucketlist'
       },
       tech: {
-        angle: 'Technology Strategy', focus: 'digital transformation', 
-        insight: `${content.category || 'Innovation'} is reshaping how we approach business challenges.`
+        emoji: '📱', 
+        cta: 'Anyone else loving this tech? Share your favorite productivity tools!', 
+        hashtags: '#tech #innovation #gadgets #techtips #productivity'
       },
       finance: {
-        angle: 'Financial Leadership', focus: 'strategic planning', 
-        insight: `${content.type || 'Financial'} literacy isn't just personal - it's essential for business leaders.`
+        emoji: '💰', 
+        cta: 'What\'s your top financial goal right now? Let\'s support each other!', 
+        hashtags: '#finance #money #investing #financialfreedom #wealthbuilding'
       },
       beauty: {
-        angle: 'Professional Presence', focus: 'personal branding', 
-        insight: 'Executive presence includes how we show up - confidence starts with self-care.'
+        emoji: '✨', 
+        cta: 'Drop your favorite beauty tips below! What makes you feel most confident?', 
+        hashtags: '#beauty #skincare #selfcare #glowup #confidence'
       },
       parenting: {
-        angle: 'Leadership Lessons', focus: 'work-life integration', 
-        insight: `Parenting ${content.ageGroup || 'children'} develops skills directly applicable to team management.`
+        emoji: '👨‍👩‍👧‍👦', 
+        cta: 'Other parents - what\'s your best family tip? We\'re all in this together!', 
+        hashtags: '#parenting #momlife #dadlife #family #parentingtips'
       },
       business: {
-        angle: 'Strategic Thinking', focus: 'business growth', 
-        insight: `${content.category || 'Business'} insights that drive organizational transformation.`
+        emoji: '💼', 
+        cta: 'What business lesson changed your game? Share your entrepreneur insights!', 
+        hashtags: '#entrepreneur #business #mindset #success #growthmindset'
       },
       lifestyle: {
-        angle: 'Executive Wellness', focus: 'sustainable performance', 
-        insight: 'High performance requires intentional lifestyle design, not just hard work.'
+        emoji: '🌟', 
+        cta: 'What\'s your latest lifestyle win? Celebrating the small victories!', 
+        hashtags: '#lifestyle #wellness #selfcare #mindful #intentionalliving'
       },
       motivational: {
-        angle: 'Leadership Mindset', focus: 'peak performance', 
-        insight: `${content.theme || 'Mindset'} development is the foundation of sustained professional success.`
+        emoji: '🌅', 
+        cta: `What motivates you most? Share your ${season.toLowerCase()} intentions!`, 
+        hashtags: `#motivation #mindset #inspiration #growth #${season.toLowerCase()}goals`
       },
       educational: {
-        angle: 'Professional Development', focus: 'continuous learning', 
-        insight: `Understanding ${content.category || 'industry'} insights gives professionals a competitive edge in ${season} 2025.`
-      }
-    };
-    
-    const config = typeConfigs[type] || typeConfigs.business;
-    
-    // Include URL source attribution when available  
-    const sourceAttribution = content.source ? `\n\nInsights from: ${content.source}` : '';
-    const urlLink = content.url ? `\nRead more: ${content.url}` : '';
-    const contentDescription = content.content && content.content !== content.title ? `\n\n${content.content}` : '';
-    
-    // Add key insights for professional context
-    const professionalInsight = content.keyInsights && content.keyInsights.length > 1 
-      ? `\n\n🔍 Research insight: ${content.keyInsights[1]}` 
-      : '';
-    
-    return `${config.angle}: ${content.title}
-
-${day} reflection on ${config.focus}:${contentDescription}
-
-${config.insight}${professionalInsight}
-
-The intersection of personal development and professional excellence continues to reshape how we think about leadership in ${season} 2025.
-
-What's your take on integrating ${config.focus} into leadership strategy?${sourceAttribution}${urlLink}
-
-#leadership #${type} #professionaldev`;
-  };
-  
-  const generateEnhancedFacebookPost = (content, type, season, personal) => {
-    const typeConfigs = {
-      recipe: {
-        emoji: '🥗', community: 'Food lovers', sharing: 'family meal ideas', 
-        question: 'What\'s your go-to comfort food this season?'
-      },
-      workout: {
-        emoji: '💪', community: 'Fitness friends', sharing: 'workout motivation', 
-        question: 'Who\'s your workout accountability partner?'
-      },
-      travel: {
-        emoji: '🌎', community: 'Fellow travelers', sharing: 'travel discoveries', 
-        question: `Who else is dreaming of ${content.destination || 'adventure'}?`
-      },
-      tech: {
-        emoji: '📲', community: 'Tech enthusiasts', sharing: 'tech tips', 
-        question: 'What tech discovery changed your daily routine?'
-      },
-      finance: {
-        emoji: '💳', community: 'Money-smart friends', sharing: 'financial tips', 
-        question: 'What\'s your best money-saving discovery?'
-      },
-      beauty: {
-        emoji: '💅', community: 'Beauty lovers', sharing: 'beauty discoveries', 
-        question: 'What\'s your holy grail beauty product?'
-      },
-      parenting: {
-        emoji: '👪', community: 'Parent tribe', sharing: 'parenting wins', 
-        question: `Other ${content.ageGroup || 'parents'} - can you relate to this?`
-      },
-      business: {
-        emoji: '💼', community: 'Entrepreneur network', sharing: 'business insights', 
-        question: 'What business lesson surprised you the most?'
-      },
-      lifestyle: {
-        emoji: '🌺', community: 'Lifestyle lovers', sharing: 'life improvements', 
-        question: 'What small change made the biggest impact on your daily life?'
-      },
-      motivational: {
-        emoji: '🌟', community: 'Motivation squad', sharing: 'inspiration', 
-        question: `What\'s your go-to strategy for ${content.theme || 'staying motivated'}?`
-      },
-      educational: {
-        emoji: '📖', community: 'Learning community', sharing: 'knowledge gems', 
-        question: `Anyone else surprised by ${content.category || 'wellness'} insights like this?`
+        emoji: '📚', 
+        cta: 'What\'s the most valuable thing you\'ve learned recently? Knowledge is power!', 
+        hashtags: '#learning #education #growth #knowledge #personaldevelopment'
       }
     };
     
     const config = typeConfigs[type] || typeConfigs.lifestyle;
     
-    // Include URL source attribution when available
-    const sourceAttribution = content.source ? `\n\n📚 Found this through: ${content.source}` : '';
-    const urlLink = content.url ? `\n🔗 Check it out: ${content.url}` : '';
-    const contentDescription = content.content && content.content !== content.title ? `\n\n${content.content}` : '';
+    // Generate coherent main content
+    const mainContent = createPostTemplate(content, type, season);
     
-    return `${config.emoji} ${config.community}! I've ${personal} with this: ${content.title}.${contentDescription}
+    // Add content description if available and different from title
+    const additionalContent = content.content && content.content !== content.title && !mainContent.includes(content.content) 
+      ? `\n\n${content.content}` 
+      : '';
+    
+    // Intelligently use rich content analysis for enhanced posts
+    let enrichmentText = '';
+    
+    // Use insights, quotes, or statistics based on content analysis
+    if (content.keyInsights && content.keyInsights.length > 0) {
+      enrichmentText = `\n\n💡 ${content.keyInsights[0]}`;
+    } else if (content.keyQuotes && content.keyQuotes.length > 0) {
+      enrichmentText = `\n\n"${content.keyQuotes[0]}"`;
+    } else if (content.statistics && content.statistics.length > 0) {
+      enrichmentText = `\n\n� ${content.statistics[0]}`;
+    }
+    
+    // Add sentiment-appropriate emoji based on analysis
+    const sentimentEmoji = {
+      'positive': ' ✨',
+      'negative': ' 🤔',
+      'neutral': ''
+    };
+    
+    const moodEmoji = content.sentiment ? sentimentEmoji[content.sentiment] : '';
+    
+    // Include theme-based hashtags if detected
+    const themeHashtags = content.themes ? content.themes.map(theme => `#${theme}`).join(' ') : '';
+    const combinedHashtags = themeHashtags ? `${config.hashtags} ${themeHashtags}` : config.hashtags;
+    
+    // Include URL source attribution when available
+    const sourceAttribution = content.source ? `\n\n📖 Via: ${content.source}` : '';
+    const urlLink = content.url ? `\n🔗 ${content.url}` : '';
+    
+    return `${config.emoji} ${mainContent}${additionalContent}${enrichmentText}${moodEmoji}
 
-Sharing because sometimes the best discoveries come from our community. This has been such a game-changer for my ${season.toLowerCase()} routine!
+${config.cta}${sourceAttribution}${urlLink}
 
-${config.question}
+${combinedHashtags}`;
+  };
+  
+  const generateEnhancedLinkedInPost = (content, type, season, day) => {
+    // Create professional LinkedIn templates with clear business value
+    const createLinkedInTemplate = (content, type, season, day) => {
+      const templates = {
+        recipe: [
+          `${day} leadership insight: Nutrition isn't just personal wellness—it's performance strategy.\n\n"${content.title}" reminded me that what fuels our bodies directly impacts how we lead, think, and execute.`,
+          `Peak performance starts with what's on your plate.\n\n${content.title} highlights why smart leaders prioritize nutrition as a competitive advantage, not just a lifestyle choice.`,
+          `Executive wellness insight: ${content.title}.\n\nThe most successful leaders I know understand that sustained performance requires intentional fuel choices.`
+        ],
+        workout: [
+          `${day} reflection: The discipline that builds your body also builds your leadership capacity.\n\n"${content.title}" perfectly captures why fitness isn't separate from professional success—it's foundational to it.`,
+          `Leadership lesson from the gym: ${content.title}.\n\nEvery rep teaches resilience. Every workout builds the mental toughness that shows up in boardrooms and tough decisions.`,
+          `Physical discipline = Mental clarity.\n\n${content.title} reinforces why the most effective leaders I work with prioritize their physical health as much as their business strategy.`
+        ],
+        travel: [
+          `Global perspective shifts everything in business.\n\n"${content.title}" reminded me why diverse experiences create better leaders and more innovative solutions.`,
+          `${day} insight: Cultural intelligence is the new competitive advantage.\n\n${content.title} demonstrates why exposure to different markets and mindsets elevates strategic thinking.`,
+          `Leadership development happens everywhere.\n\n${content.title} shows how stepping outside our comfort zones—geographically and mentally—expands our capacity to lead.`
+        ],
+        tech: [
+          `Technology strategy insight: ${content.title}.\n\n${day} reminder that staying ahead means constantly evaluating how innovation can serve our goals, not just our gadgets.`,
+          `Digital transformation isn't about tools—it's about mindset.\n\n"${content.title}" perfectly illustrates why successful leaders focus on solving problems, not just adopting technology.`,
+          `Innovation leadership: ${content.title}.\n\nThe future belongs to leaders who can bridge human needs with technological possibilities.`
+        ],
+        finance: [
+          `Financial leadership extends far beyond personal wealth.\n\n"${content.title}" highlights why understanding money psychology is crucial for anyone leading teams or organizations.`,
+          `${day} strategic thinking: ${content.title}.\n\nThe best business decisions come from leaders who understand both numbers and human behavior around resources.`,
+          `Executive insight: Financial literacy isn't optional for leaders.\n\n${content.title} demonstrates why money mindset directly impacts every business decision we make.`
+        ],
+        beauty: [
+          `Professional presence matters more than we might admit.\n\n"${content.title}" reminds us that confidence and self-care directly impact how others receive our leadership.`,
+          `Executive presence starts with how we show up for ourselves.\n\n${content.title} illustrates why personal care isn't vanity—it's professional strategy.`,
+          `Leadership authenticity: ${content.title}.\n\nThe most compelling leaders I know understand that genuine confidence comes from taking care of themselves inside and out.`
+        ],
+        parenting: [
+          `Parenting and leadership share more DNA than most realize.\n\n"${content.title}" perfectly captures skills that translate directly from family to boardroom.`,
+          `${day} leadership lesson from home: ${content.title}.\n\nEvery parent develops patience, strategic thinking, and crisis management—all executive essentials.`,
+          `Work-life integration insight: ${content.title}.\n\nThe best leaders I know apply family wisdom to business challenges and vice versa.`
+        ],
+        business: [
+          `${day} strategic insight: ${content.title}.\n\nThis perfectly encapsulates the kind of thinking that separates good leaders from transformational ones.`,
+          `Business growth principle: ${content.title}.\n\nSometimes the most powerful strategies are the ones that seem simple but require discipline to execute.`,
+          `Leadership development: ${content.title}.\n\nThe marketplace rewards leaders who can see opportunities others miss and execute with consistency.`
+        ],
+        lifestyle: [
+          `Sustainable leadership requires intentional design.\n\n"${content.title}" captures why high performers can't afford to leave wellness to chance.`,
+          `Executive effectiveness: ${content.title}.\n\n${day} reminder that peak performance isn't about grinding harder—it's about creating systems that support sustained excellence.`,
+          `Leadership longevity insight: ${content.title}.\n\nThe most successful leaders I work with treat their energy and focus as their most valuable business assets.`
+        ],
+        motivational: [
+          `${day} mindset shift: ${content.title}.\n\nSometimes the breakthrough we need isn't a new strategy—it's a new way of thinking about existing possibilities.`,
+          `Leadership psychology: ${content.title}.\n\nThe difference between good and great leaders often comes down to how they frame challenges and opportunities.`,
+          `Peak performance principle: ${content.title}.\n\nEvery leader I admire has mastered the art of internal motivation that doesn't depend on external circumstances.`
+        ],
+        educational: [
+          `Continuous learning isn't just professional development—it's competitive survival.\n\n"${content.title}" demonstrates why curiosity is a leadership superpower.`,
+          `${day} learning insight: ${content.title}.\n\nThe most effective leaders I know are students first, experts second.`,
+          `Knowledge application: ${content.title}.\n\nInformation is everywhere, but wisdom comes from leaders who can connect insights across disciplines.`
+        ]
+      };
+      
+      const typeTemplates = templates[type] || templates.business;
+      return typeTemplates[Math.floor(Math.random() * typeTemplates.length)];
+    };
 
-Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sourceAttribution}${urlLink}
+    const typeConfigs = {
+      recipe: { focus: 'nutrition strategy', hashtags: '#leadership #wellness #performance #nutrition' },
+      workout: { focus: 'executive fitness', hashtags: '#leadership #fitness #mentalhealth #performance' },
+      travel: { focus: 'cultural intelligence', hashtags: '#leadership #travel #globalthinking #culturalcompetence' },
+      tech: { focus: 'digital leadership', hashtags: '#leadership #technology #innovation #digitalstrategy' },
+      finance: { focus: 'financial strategy', hashtags: '#leadership #finance #strategy #businessacumen' },
+      beauty: { focus: 'professional presence', hashtags: '#leadership #professionalimage #confidence #executivepresence' },
+      parenting: { focus: 'leadership development', hashtags: '#leadership #parenting #worklifeintegration #management' },
+      business: { focus: 'business strategy', hashtags: '#leadership #business #strategy #entrepreneurship' },
+      lifestyle: { focus: 'sustainable performance', hashtags: '#leadership #wellness #sustainability #performance' },
+      motivational: { focus: 'leadership mindset', hashtags: '#leadership #motivation #mindset #growthmindset' },
+      educational: { focus: 'continuous learning', hashtags: '#leadership #learning #professionaldevelopment #growth' }
+    };
+    
+    const config = typeConfigs[type] || typeConfigs.business;
+    
+    // Generate professional LinkedIn content
+    const mainContent = createLinkedInTemplate(content, type, season, day);
+    
+    // Add content description if available and adds value
+    const additionalContent = content.content && content.content !== content.title && !mainContent.includes(content.content)
+      ? `\n\n${content.content}`
+      : '';
+    
+    // Add key insights for professional context
+    const professionalInsight = content.keyInsights && content.keyInsights.length > 0 
+      ? `\n\n� Key insight: ${content.keyInsights[0]}` 
+      : '';
+    
+    // Include URL source attribution when available
+    const sourceAttribution = content.source ? `\n\nSource: ${content.source}` : '';
+    const urlLink = content.url ? `\nRead more: ${content.url}` : '';
+    
+    return `${mainContent}${additionalContent}${professionalInsight}
 
-#community #${type} #${season.toLowerCase()}vibes`;
+What's your experience with ${config.focus}? How do you see this evolving in 2025?${sourceAttribution}${urlLink}
+
+${config.hashtags}`;
+  };
+  
+  const generateEnhancedFacebookPost = (content, type, season, personal) => {
+    // Natural Facebook-style conversational templates
+    const facebookTemplates = [
+      `Friends! Just discovered something amazing and had to share: ${content.title}! 🎉`,
+      `Okay, this is seriously cool - came across ${content.title} and I'm kind of obsessed! ✨`,
+      `Community wisdom needed! Anyone else heard about ${content.title}? Because wow! 🤔`,
+      `Real talk: ${content.title} just made my whole week better! 💕`,
+      `Dropping this gem here because you all deserve to know about ${content.title}! 💎`,
+      `Can we talk about ${content.title}? Because this is exactly what I needed! 🙌`,
+      `Found something that completely changed my perspective: ${content.title}! 🌟`,
+      `Hey everyone! Quick share - ${content.title} is absolutely worth your attention! 👀`,
+      `This caught my eye and I couldn't stop thinking about it: ${content.title}! 🤯`,
+      `Saturday wisdom drop: ${content.title} is the kind of thing that restores faith! 🌈`
+    ];
+    
+    // Type-specific community engagement questions
+    const communityQuestions = {
+      food: [
+        "Who else is trying to level up their cooking game this season? 🍳",
+        "Anyone have similar recipe wins to share? Always looking for new ideas! 🥘",
+        "What's your go-to when you want to impress with minimal effort? 👨‍🍳",
+        "Does anyone else get way too excited about discovering new flavors? 😄"
+      ],
+      travel: [
+        "Who's planning their next adventure? This got me inspired! ✈️",
+        "Anyone else adding new places to their bucket list constantly? 🗺️",
+        "What's the best travel tip you've ever received? Share the wisdom! 🎒",
+        "Does anyone else love discovering hidden gems like this? 🌍"
+      ],
+      wellness: [
+        "Anyone else on a wellness journey right now? We're in this together! 🌱",
+        "What small changes have made the biggest difference in your life? 💚",
+        "Who else believes that taking care of ourselves isn't selfish? 🧘‍♀️",
+        "Anyone have wellness wins they want to celebrate? Let's cheer each other on! 🎊"
+      ],
+      tech: [
+        "Fellow tech enthusiasts - what's blowing your mind lately? 🤖",
+        "Anyone else fascinated by how quickly technology is evolving? 📱",
+        "What's the coolest tech discovery you've made recently? Share! 💻",
+        "Who else gets excited about innovations that actually solve real problems? 🚀"
+      ],
+      fitness: [
+        "Who's keeping up with their fitness goals this season? You've got this! �",
+        "Anyone else finding new ways to stay motivated with movement? 🏃‍♀️",
+        "What's your favorite way to stay active when motivation is low? 🏋️‍♂️",
+        "Does anyone else celebrate the small fitness wins? They add up! 🎯"
+      ],
+      fashion: [
+        "Anyone else love discovering new style inspiration? Fashion is so fun! 👗",
+        "What's your go-to confidence outfit when you need a boost? ✨",
+        "Who else thinks personal style should be about feeling amazing? 💃",
+        "Anyone have fashion tips that actually work in real life? 👠"
+      ],
+      beauty: [
+        "Beauty lovers - what's your latest holy grail discovery? 💄",
+        "Anyone else believe that self-care is the best kind of care? 🛁",
+        "What beauty tip changed the game for you? Always learning! 💅",
+        "Who else thinks confidence is the best accessory? 👑"
+      ],
+      parenting: [
+        "Parents - anyone else winging it and hoping for the best? 👶",
+        "What's the best parenting advice you've actually used? Share the wisdom! 🤱",
+        "Anyone else amazed by what kids teach us every day? 👨‍👩‍👧‍👦",
+        "Who else celebrates the small parenting wins? They matter so much! 🏆"
+      ],
+      business: [
+        "Entrepreneurs - what's the best business lesson you learned the hard way? 💼",
+        "Anyone else love connecting with fellow business minds? Let's network! 🤝",
+        "What business advice do you wish you'd received sooner? 📈",
+        "Who else thinks the entrepreneurial journey is wild but worth it? 🎢"
+      ],
+      lifestyle: [
+        "Anyone else constantly trying to optimize their daily routines? 🌅",
+        "What lifestyle change surprised you with how much it improved things? 🌺",
+        "Who else believes that small improvements create big transformations? ✨",
+        "Anyone have life hacks that actually work? Always collecting tips! 📝"
+      ],
+      motivational: [
+        "Who needs some motivation today? Sending good vibes your way! 🌟",
+        "Anyone else believe that we're all capable of amazing things? 💪",
+        "What keeps you going when things get challenging? Share your secrets! 🔥",
+        "Who else thinks celebrating progress is just as important as reaching goals? 🎊"
+      ],
+      educational: [
+        "Lifelong learners - what's the most surprising thing you've discovered lately? �",
+        "Anyone else love those 'aha!' moments when something clicks? 💡",
+        "What's the best piece of knowledge that changed how you see things? 🧠",
+        "Who else thinks learning never gets old? Always growing! 🌱"
+      ]
+    };
+    
+    const template = facebookTemplates[Math.floor(Math.random() * facebookTemplates.length)];
+    const questions = communityQuestions[type] || communityQuestions.lifestyle;
+    const question = questions[Math.floor(Math.random() * questions.length)];
+    
+    // Add content description if different from title
+    const contentDescription = content.content && content.content !== content.title ? 
+      `\n\nHere's what caught my attention: ${content.content.slice(0, 200)}${content.content.length > 200 ? '...' : ''}` : '';
+    
+    // Include source attribution when available
+    const sourceAttribution = content.source ? `\n\n📚 Originally found this at: ${content.source}` : '';
+    const urlLink = content.url ? `\n\n🔗 Check it out yourself: ${content.url}` : '';
+    
+    return `${template}${contentDescription}
+
+${question}
+
+Would love to hear your thoughts in the comments - this community always has the best insights! �${sourceAttribution}${urlLink}
+
+#community #${type} #${season.toLowerCase()}discoveries #lifesharing`;
   };
   
   // Basic fallback variations as a final safety net
@@ -616,59 +981,450 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
       facebook: {}
     };
     
-    // Simple but functional variations
-    variations.instagram[type] = `✨ ${content.title}\n\nThis has been a game-changer! 🚀\n\nWhat do you think?\n\n#${type} #content #social`;
-    variations.linkedin[type] = `${content.title}\n\nSharing this valuable insight with my network.\n\n#${type} #professional`;
-    variations.facebook[type] = `Check out: ${content.title}\n\nWould love to hear your thoughts!\n\n#${type} #community`;
+    // Natural fallback variations as backup
+    const instagramFallbacks = [
+      `Just discovered something incredible: ${content.title}! ✨\n\nThis completely changed my perspective 🙌\n\nWho else has experience with this?\n\n#discovery #${type} #inspiration`,
+      `Sharing this gem because it's too good to keep to myself: ${content.title}! �\n\nSometimes the best finds come when you least expect them ✨\n\n#${type} #lifehacks #community`,
+      `Found this and couldn't stop thinking about it: ${content.title}! 🤯\n\nAnyone else love discovering new perspectives?\n\n#mindblown #${type} #growth`
+    ];
+    
+    const linkedinFallbacks = [
+      `Valuable insight worth sharing: ${content.title}\n\nIn my experience, the best discoveries often come from staying curious and open to new ideas. This is one of those moments.\n\nWhat insights have surprised you lately?\n\n#professional #learning #${type}`,
+      `Recently came across: ${content.title}\n\nThis serves as a great reminder that innovation often comes from unexpected places. Worth considering for anyone in our field.\n\n#insights #${type} #networking`,
+      `Thought leadership moment: ${content.title}\n\nThis reinforces my belief that continuous learning drives success. Sharing with my network because great ideas deserve wider reach.\n\n#leadership #${type} #growth`
+    ];
+    
+    const facebookFallbacks = [
+      `Friends, had to share this discovery: ${content.title}! 🌟\n\nSometimes you come across something that just makes sense, you know?\n\nAnyone else have similar finds they want to share?\n\n#community #${type} #lifesharing`,
+      `Quick share for my community: ${content.title}! 💕\n\nThis is exactly the kind of thing that makes my day better!\n\nWhat discoveries have brightened your week?\n\n#friends #${type} #positivity`,
+      `Community wisdom drop: ${content.title}! 🎯\n\nLove how the best insights often come from the most unexpected places!\n\nWho else believes in the power of shared knowledge?\n\n#wisdom #${type} #together`
+    ];
+    
+    variations.instagram[type] = instagramFallbacks[Math.floor(Math.random() * instagramFallbacks.length)];
+    variations.linkedin[type] = linkedinFallbacks[Math.floor(Math.random() * linkedinFallbacks.length)];
+    variations.facebook[type] = facebookFallbacks[Math.floor(Math.random() * facebookFallbacks.length)];
     
     return variations;
   };
 
+  // Content validation function to ensure quality
+  const validatePostContent = (post, platform) => {
+    if (!post || typeof post !== 'string') {
+      return { isValid: false, issues: ['Post content is empty or invalid'] };
+    }
+    
+    const issues = [];
+    const warnings = [];
+    
+    // Basic structure validation
+    if (post.length < 50) {
+      issues.push('Post is too short for meaningful engagement');
+    }
+    
+    if (post.length > 2000) {
+      warnings.push('Post might be too long for optimal engagement');
+    }
+    
+    // Check for broken placeholder patterns
+    const brokenPatterns = [
+      /\$\{[^}]+\}/g, // Unresolved template literals
+      /undefined/gi,
+      /null/gi,
+      /\[object Object\]/gi,
+      /NaN/gi
+    ];
+    
+    brokenPatterns.forEach(pattern => {
+      if (pattern.test(post)) {
+        issues.push(`Contains unresolved template or broken content: ${pattern}`);
+      }
+    });
+    
+    // Check for nonsensical sentence construction
+    const nonsensicalPatterns = [
+      /\w+ hits different when you \w+/gi, // "cooking hits different when you..."
+      /\w+ cooking hits different/gi,
+      /when you discover \$\{/gi,
+      /\w+ game is \w+ this/gi // Incomplete sentences
+    ];
+    
+    nonsensicalPatterns.forEach(pattern => {
+      if (pattern.test(post)) {
+        issues.push('Contains potentially nonsensical sentence construction');
+      }
+    });
+    
+    // Platform-specific validation
+    if (platform === 'linkedin') {
+      if (!post.includes('#')) {
+        warnings.push('LinkedIn posts typically perform better with hashtags');
+      }
+      if (!/\?/.test(post)) {
+        warnings.push('LinkedIn posts often benefit from engagement questions');
+      }
+    }
+    
+    if (platform === 'instagram') {
+      const hashtagCount = (post.match(/#\w+/g) || []).length;
+      if (hashtagCount < 3) {
+        warnings.push('Instagram posts typically benefit from more hashtags (3-10)');
+      }
+    }
+    
+    // Check for complete sentences
+    const sentences = post.split(/[.!?]+/).filter(s => s.trim().length > 5);
+    const incompleteSentences = sentences.filter(sentence => {
+      const words = sentence.trim().split(/\s+/).filter(word => word.length > 0);
+      return words.length < 3; // Very short "sentences" might be incomplete
+    });
+    
+    if (incompleteSentences.length > 0) {
+      warnings.push('Contains potentially incomplete sentences');
+    }
+    
+    return {
+      isValid: issues.length === 0,
+      issues,
+      warnings,
+      wordCount: post.split(/\s+/).length,
+      characterCount: post.length,
+      hashtagCount: (post.match(/#\w+/g) || []).length,
+      score: Math.max(0, 100 - (issues.length * 25) - (warnings.length * 5))
+    };
+  };
+
+  // Generate detailed, influencer-style content for each type
+  const generateDetailedContentByType = (contentType, dayName, date, weekNumber, dayIndex) => {
+    const contentLibrary = {
+      recipes: [
+        {
+          title: "15-Minute Mediterranean Power Bowl",
+          content: "This game-changing bowl has become my go-to when I need something nutritious but don't have time to cook. Quinoa, roasted chickpeas, cucumber, cherry tomatoes, feta, and my signature tahini dressing. The secret? Meal prepping the components on Sunday so you can literally throw this together in minutes during busy weekdays.",
+          ingredients: "quinoa, chickpeas, cucumber, cherry tomatoes, feta cheese, tahini, lemon juice, olive oil",
+          tips: "Toast the quinoa before cooking for extra nutty flavor. Make the dressing in bulk - it keeps for 2 weeks!",
+          nutrition: "High in plant protein, healthy fats, and fiber. Perfect post-workout fuel."
+        },
+        {
+          title: "Comfort Food Makeover: Creamy Mushroom Risotto",
+          content: "Y'all asked for healthier comfort food, so here's my lightened-up risotto that doesn't sacrifice any of that creamy, soul-warming goodness. Using cauliflower rice mixed with arborio rice cuts calories while adding nutrients, and nutritional yeast brings that umami depth.",
+          ingredients: "arborio rice, cauliflower rice, mushrooms, onion, garlic, vegetable broth, nutritional yeast, white wine",
+          tips: "The key is patience - stir constantly and add broth slowly. Trust the process!",
+          nutrition: "50% fewer calories than traditional risotto, packed with B-vitamins from nutritional yeast."
+        },
+        {
+          title: "Viral TikTok Protein Pancakes (But Make Them Actually Good)",
+          content: "Okay, I tried those viral protein pancakes and they were... not it. So I spent weeks perfecting this recipe that actually tastes like pancakes while sneaking in 25g of protein. The secret ingredients? Greek yogurt and a touch of vanilla protein powder.",
+          ingredients: "oats, Greek yogurt, eggs, vanilla protein powder, banana, cinnamon, baking powder",
+          tips: "Let the batter rest for 5 minutes before cooking - it makes them fluffier!",
+          nutrition: "25g protein, naturally gluten-free, and satisfying enough to keep you full until lunch."
+        }
+      ],
+      workouts: [
+        {
+          title: "Morning Movement: 20-Minute Energy Boost Routine",
+          content: "This is the exact routine that transformed my mornings from sluggish to superhuman. No equipment needed, just your body and 20 minutes. I've been doing this for 6 months and the energy it gives me lasts ALL DAY. The secret is the specific sequence - it activates your nervous system and gets blood flowing to all the right places.",
+          exercises: "dynamic warm-up, bodyweight squats, push-ups, mountain climbers, plank variations, stretching flow",
+          benefits: "Boosts metabolism, improves mood, increases energy, enhances focus",
+          tips: "Do this before coffee for maximum effect. Your body will thank you!"
+        },
+        {
+          title: "Desk Warrior Workout: Combat the 9-5 Slump",
+          content: "Calling all my desk job friends! This workout is designed specifically for those of us who sit all day. It targets the muscles that get tight and weak from prolonged sitting, and you can literally do it in your office clothes. I do this during my lunch break 3x a week.",
+          exercises: "hip flexor stretches, shoulder blade squeezes, wall push-ups, calf raises, spinal twists",
+          benefits: "Reduces back pain, improves posture, combats afternoon fatigue, increases productivity",
+          tips: "Set a reminder to do this every 2 hours during your workday. Small consistent actions = big results!"
+        },
+        {
+          title: "HIIT Different: Low-Impact High Intensity",
+          content: "Who said HIIT has to destroy your joints? This low-impact version gives you all the cardiovascular and metabolic benefits without the jumping and pounding. Perfect for apartment dwellers, people with joint issues, or anyone who wants effective workouts without the high impact.",
+          exercises: "marching in place, arm circles, modified burpees, wall sits, resistance band exercises",
+          benefits: "Burns calories, improves cardiovascular health, builds strength, joint-friendly",
+          tips: "Focus on intensity through speed and resistance, not impact. Quality over quantity!"
+        }
+      ],
+      motivational: [
+        {
+          title: "The 5AM Club Changed My Life (And It Might Change Yours)",
+          content: "I used to be a night owl who hit snooze 6 times every morning. Then I read about the 5AM club and thought 'absolutely not.' But after trying it for 30 days, I'm never going back. The quiet hours before the world wakes up have become my sacred time for growth, planning, and peace.",
+          insights: "Early mornings aren't about productivity - they're about reclaiming your power before life gets chaotic.",
+          tips: "Start with 6AM, then gradually move earlier. The transition is everything.",
+          impact: "Increased focus, better mood, more accomplished goals, deeper sense of control over my day."
+        },
+        {
+          title: "Stop Waiting for Monday: The Power of Starting Now",
+          content: "How many times have you said 'I'll start Monday'? I used to be the queen of Monday starts until I realized Monday never feels different than Tuesday. The magic happens when you start right now, in this imperfect moment, with whatever you have available.",
+          insights: "Perfect timing is a myth. Imperfect action beats perfect inaction every single time.",
+          tips: "Choose one small action you can take in the next 5 minutes. Do that instead of planning for Monday.",
+          impact: "Builds momentum, creates confidence, proves to yourself that you can follow through."
+        },
+        {
+          title: "Your Comfort Zone is Keeping You Comfortable (And Small)",
+          content: "Comfort zones aren't evil - they're necessary for rest and recovery. But living there permanently? That's where dreams go to die. I spent years playing it safe until I realized that the discomfort of growth is temporary, but the regret of not trying lasts forever.",
+          insights: "Growth lives in the space between 'I can't do this' and 'I did it.' That space is uncomfortable for a reason.",
+          tips: "Start with micro-challenges. Say yes to one thing that scares you this week.",
+          impact: "Expanded confidence, new opportunities, proof that you're capable of more than you think."
+        }
+      ],
+      educational: [
+        {
+          title: "The Science of Sleep: Why Your Brain Needs 7-9 Hours",
+          content: "Your brain literally cleans itself while you sleep. During deep sleep, your glymphatic system flushes out toxins and waste products that build up during the day. This includes amyloid-beta, the protein linked to Alzheimer's disease. Poor sleep isn't just about feeling tired - it's about long-term brain health.",
+          science: "During sleep, brain cells shrink by 60%, creating space for cerebrospinal fluid to wash away metabolic waste.",
+          tips: "Cool room (65-68°F), dark environment, no screens 1 hour before bed, consistent sleep schedule.",
+          sources: "Research from University of Rochester, published in Science journal."
+        },
+        {
+          title: "Neuroplasticity: Your Brain Can Change at Any Age",
+          content: "The old belief that adult brains are fixed? Completely false. Neuroplasticity research shows that our brains continue forming new neural pathways throughout life. Every time you learn something new, practice a skill, or challenge your thinking, you're literally reshaping your brain structure.",
+          science: "London taxi drivers have enlarged hippocampi from memorizing city streets. Musicians have enhanced motor cortexes.",
+          tips: "Learn a new language, play an instrument, practice meditation, challenge yourself with puzzles.",
+          sources: "Studies from Harvard Medical School, University College London."
+        },
+        {
+          title: "The Gut-Brain Connection: How Your Microbiome Affects Mood",
+          content: "95% of your serotonin is produced in your gut, not your brain. Your gut bacteria communicate directly with your brain via the vagus nerve, influencing mood, anxiety, and decision-making. This is why you get 'gut feelings' and why stress affects digestion.",
+          science: "The gut contains 500 million neurons - more than the spinal cord. It's called the 'second brain' for good reason.",
+          tips: "Eat fermented foods, reduce sugar, manage stress, include prebiotic fiber, consider probiotic supplements.",
+          sources: "Research from Harvard T.H. Chan School of Public Health, Johns Hopkins Medicine."
+        }
+      ]
+    };
+
+    // Get content from library or generate new content
+    const typeLibrary = contentLibrary[contentType] || contentLibrary.motivational;
+    const selectedContent = typeLibrary[dayIndex % typeLibrary.length];
+    
+    // Add variety based on day and week
+    const dayVariations = {
+      sunday: "Sunday Reset",
+      monday: "Monday Motivation", 
+      tuesday: "Transformation Tuesday",
+      wednesday: "Wisdom Wednesday",
+      thursday: "Throwback Thursday",
+      friday: "Feel-Good Friday",
+      saturday: "Saturday Vibes"
+    };
+    
+    const weekVariation = weekNumber > 0 ? ` (Week ${weekNumber + 1})` : '';
+    
+    return {
+      ...selectedContent,
+      title: `${dayVariations[dayName]}: ${selectedContent.title}${weekVariation}`,
+      dayTheme: dayVariations[dayName],
+      weekNumber: weekNumber + 1,
+      date: date.toISOString().split('T')[0]
+    };
+  };
+
+  // Generate rich, platform-specific variations
+  const generateRichPlatformVariations = (content, contentType, dayName) => {
+    const currentSeason = getCurrentSeason();
+    const dayEmojis = {
+      sunday: '🌅', monday: '💪', tuesday: '🔥', wednesday: '💡', 
+      thursday: '✨', friday: '🎉', saturday: '🌟'
+    };
+    
+    const platformVariations = {
+      instagram: generateInstagramPost(content, contentType, dayName, dayEmojis[dayName], currentSeason),
+      linkedin: generateLinkedInPost(content, contentType, dayName, currentSeason),
+      facebook: generateFacebookPost(content, contentType, dayName, currentSeason)
+    };
+    
+    return platformVariations;
+  };
+
+  const getCurrentSeason = () => {
+    const month = new Date().getMonth();
+    if (month >= 2 && month <= 4) return 'Spring';
+    if (month >= 5 && month <= 7) return 'Summer';
+    if (month >= 8 && month <= 10) return 'Fall';
+    return 'Winter';
+  };
+
+  const generateInstagramPost = (content, contentType, dayName, emoji, season) => {
+    const personalTouches = [
+      "Honestly, this changed my entire perspective",
+      "I wish I had known this years ago",
+      "This has been a game-changer for me",
+      "Can't stop thinking about this",
+      "Had to share this with you all",
+      "This hit different today"
+    ];
+    
+    const engagementHooks = [
+      "Save this for later!",
+      "Share with someone who needs this",
+      "Tag a friend who would love this",
+      "Drop a ❤️ if you agree",
+      "Comment your thoughts below",
+      "Which part resonates most with you?"
+    ];
+    
+    const platformSpecificHashtags = {
+      recipes: '#foodie #healthyeating #mealprep #nutrition #homecooking #wellness #food #healthy #recipe #cooking #plantbased #wholefood #cleaneating #foodlover #healthyfood #kitchenlife #nourishyourbody #eatwell #foodblog #realfood',
+      workouts: '#fitness #workout #motivation #wellness #strong #fitfam #exercise #health #movement #selfcare #fitnessmotivation #trainhard #gymlife #workoutmotivation #fitnessjourney #healthylifestyle #getstrong #moveyourbody #fitnessgoals #sweatlife',
+      motivational: '#motivation #mindset #growth #inspiration #selfcare #positivity #mentalhealth #goals #wellness #life #personaldevelopment #mindfulness #growthmindset #selfimprovement #lifequotes #inspirationalquotes #mentalhealthawareness #selfworth #empowerment #successmindset',
+      educational: '#learning #knowledge #wellness #health #science #facts #education #growth #mindful #awareness #healthfacts #didyouknow #healthscience #educationalcontent #learnwithme #healthtips #brainfood #personalgrowthtips #healthylifestyle #wellnesswisdom'
+    };
+    
+    const hook = personalTouches[Math.floor(Math.random() * personalTouches.length)];
+    const cta = engagementHooks[Math.floor(Math.random() * engagementHooks.length)];
+    const hashtags = platformSpecificHashtags[contentType] || platformSpecificHashtags.motivational;
+    
+    let post = `${emoji} ${content.title}\n\n${hook}! ${content.content}`;
+    
+    // Add content-specific details
+    if (content.tips) {
+      post += `\n\n💡 Pro tip: ${content.tips}`;
+    }
+    if (content.benefits) {
+      post += `\n\n✨ Benefits: ${content.benefits}`;
+    }
+    if (content.insights) {
+      post += `\n\n🎯 Key insight: ${content.insights}`;
+    }
+    
+    post += `\n\n${cta}\n\n${hashtags}`;
+    
+    return post;
+  };
+
+  const generateLinkedInPost = (content, contentType, dayName, season) => {
+    const professionalFrameworks = {
+      recipes: "Workplace wellness starts with what we fuel our bodies with.",
+      workouts: "Physical fitness directly impacts professional performance and leadership capacity.", 
+      motivational: "Mindset shifts that transform not just personal life, but professional impact.",
+      educational: "Continuous learning is the competitive advantage that never gets outdated."
+    };
+    
+    const businessConnections = {
+      recipes: "When we prioritize nutrition, we show up more focused, energized, and ready for complex decision-making.",
+      workouts: "The discipline built through fitness translates directly to business discipline and resilience.",
+      motivational: "The most successful leaders I know invest as much in their mindset as they do in their business strategy.",
+      educational: "In our rapidly changing economy, the ability to learn and adapt isn't optional—it's essential."
+    };
+    
+    const linkedInHashtags = {
+      recipes: '#leadership #wellness #nutrition #productivity #workplacehealth #executivewellness #performance #healthylifestyle #professionaldevelopment #worklifebalance',
+      workouts: '#leadership #fitness #productivity #wellness #performance #executivehealth #resilience #discipline #professionaldevelopment #workoutmotivation',
+      motivational: '#leadership #mindset #motivation #growth #success #professionaldevelopment #resilience #inspiration #careeradvice #executivemindset',
+      educational: '#learning #professionaldevelopment #growth #leadership #knowledge #innovation #careeradvice #skillsdevelopment #continuouslearning #expertise'
+    };
+    
+    const framework = professionalFrameworks[contentType] || professionalFrameworks.motivational;
+    const connection = businessConnections[contentType] || businessConnections.motivational;
+    const hashtags = linkedInHashtags[contentType] || linkedInHashtags.motivational;
+    
+    let post = `${content.title}\n\n${framework}\n\n${content.content}\n\n${connection}`;
+    
+    // Add professional insights
+    if (content.science) {
+      post += `\n\nThe research: ${content.science}`;
+    }
+    if (content.impact) {
+      post += `\n\nReal-world impact: ${content.impact}`;
+    }
+    
+    post += `\n\nWhat's one insight from this that you'd apply to your work or leadership?\n\n${hashtags}`;
+    
+    return post;
+  };
+
+  const generateFacebookPost = (content, contentType, dayName, season) => {
+    const conversationalStarters = [
+      "Okay friends, can we talk about this for a second?",
+      "Y'all, I had to share this because it's been on my mind all week.",
+      "Real talk - this completely shifted how I think about things.",
+      "I've been wanting to have this conversation with you all.",
+      "Can I share something that's been a total game-changer?",
+      "Let's dive into something that's been fascinating me lately."
+    ];
+    
+    const communityQuestions = [
+      "Has anyone else experienced this?",
+      "What are your thoughts on this?",
+      "Who else can relate to this?",
+      "What's been your experience with this?",
+      "Am I the only one who finds this fascinating?",
+      "What would you add to this conversation?"
+    ];
+    
+    const facebookHashtags = {
+      recipes: '#healthyeating #familymeals #cooking #nutrition #foodie #wellness #homecooking #healthyfood #mealprep #kitchentips',
+      workouts: '#fitness #wellness #healthylifestyle #exercise #motivation #selfcare #strong #fitfam #workout #movement',
+      motivational: '#motivation #inspiration #mindset #positivity #selfcare #growth #mentalhealth #wellness #personaldevelopment #mindfulness',
+      educational: '#learning #knowledge #health #wellness #education #facts #science #personalgrowth #mindful #awareness'
+    };
+    
+    const starter = conversationalStarters[Math.floor(Math.random() * conversationalStarters.length)];
+    const question = communityQuestions[Math.floor(Math.random() * communityQuestions.length)];
+    const hashtags = facebookHashtags[contentType] || facebookHashtags.motivational;
+    
+    let post = `${starter}\n\n${content.title}\n\n${content.content}`;
+    
+    // Add community-building elements
+    if (content.tips) {
+      post += `\n\nHere's what I've learned: ${content.tips}`;
+    }
+    if (content.benefits) {
+      post += `\n\nWhy this matters: ${content.benefits}`;
+    }
+    
+    post += `\n\n${question} Drop a comment below - I love hearing your perspectives! 💬\n\n${hashtags}`;
+    
+    return post;
+  };
+
   const generateWeeklyContent = async () => {
+    console.log('🔥 DEBUG: generateWeeklyContent function called!');
     setIsGenerating(true);
+    console.log('🔥 DEBUG: isGenerating set to true');
     
     try {
-      console.log(`🚀 Starting enhanced weekly content generation in ${generationMode} mode...`);
-      const weeklyPlan = [];
+      console.log(`🚀 Starting enhanced ${numberOfWeeks}-week content generation in ${generationMode} mode...`);
+      const allWeeksContent = [];
       const today = new Date();
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       
-      let weekStart;
-      let dayOrder;
+      // Generate content for multiple weeks
+      for (let weekNumber = 0; weekNumber < numberOfWeeks; weekNumber++) {
+        console.log(`📅 Generating Week ${weekNumber + 1} of ${numberOfWeeks}...`);
+        
+        let weekStart;
+        
+        if (generationMode === 'calendar') {
+          // Standard Sunday-Saturday calendar week
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - today.getDay());
+          weekStart = today.getDay() === 0 ? 
+            new Date(startOfWeek.getTime() + (weekNumber * 7 * 24 * 60 * 60 * 1000)) : 
+            new Date(startOfWeek.getTime() + ((weekNumber + 1) * 7 * 24 * 60 * 60 * 1000));
+          console.log(`📅 Calendar Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}`);
+        } else {
+          // Next day mode - start from tomorrow + weeks offset for 7 days
+          weekStart = new Date(today);
+          weekStart.setDate(today.getDate() + 1 + (weekNumber * 7));
+          const endDate = new Date(weekStart);
+          endDate.setDate(weekStart.getDate() + 6);
+          console.log(`🗓️ Next Day Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
+        }
       
-      if (generationMode === 'calendar') {
-        // Standard Sunday-Saturday calendar week
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        weekStart = today.getDay() === 0 ? startOfWeek : new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
-        dayOrder = dayNames; // Standard Sunday-Saturday order
-        console.log(`📅 Calendar Mode - Generating week: ${weekStart.toLocaleDateString()} - ${new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}`);
-      } else {
-        // Next day mode - start from tomorrow for 7 days
-        weekStart = new Date(today);
-        weekStart.setDate(today.getDate() + 1);
-        const endDate = new Date(weekStart);
-        endDate.setDate(weekStart.getDate() + 6);
-        dayOrder = dayNames; // We'll use the actual day names based on dates
-        console.log(`🗓️ Next Day Mode - Generating 7 days: ${weekStart.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
-      }
-      
-      const availableContent = {
-        recipe: recipes,
-        workout: workouts,
-        realEstate: realEstateTips,
-        mindfulness: mindfulnessPosts,
-        travel: travelContent,
-        tech: techContent,
-        finance: financeContent,
-        beauty: beautyContent,
-        parenting: parentingContent,
-        business: businessContent,
-        lifestyle: lifestyleContent
-      };
-      
-      // Generate content for each day based on selected mode
-      for (let i = 0; i < 7; i++) {
+        const availableContent = {
+          recipe: recipes,
+          workout: workouts,
+          realEstate: realEstateTips,
+          mindfulness: mindfulnessPosts,
+          travel: travelContent,
+          tech: techContent,
+          finance: financeContent,
+          beauty: beautyContent,
+          parenting: parentingContent,
+          business: businessContent,
+          lifestyle: lifestyleContent
+        };
+        
+        // Generate content for each day of this week
+        for (let i = 0; i < 7; i++) {
         const date = new Date(weekStart);
         date.setDate(weekStart.getDate() + i);
         
@@ -694,152 +1450,87 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
           }
         }
         
-        // Get content based on type - unified approach with URL parsing integration
-        let urlMetadata = null;
-        
+        // Generate rich, detailed content specific to each content type and day
         if (availableContent[contentType] && availableContent[contentType].length > 0) {
           content = availableContent[contentType][Math.floor(Math.random() * availableContent[contentType].length)];
-          
-          // If content has a URL, fetch its metadata for enrichment
-          if (content.url) {
-            try {
-              console.log(`🌐 Fetching URL metadata for ${contentType} content: ${content.url}`);
-              urlMetadata = await fetchUrlMetadata(content.url);
-              console.log(`✅ URL metadata fetched:`, urlMetadata);
-            } catch (error) {
-              console.log(`⚠️ URL metadata fetch failed for ${content.url}:`, error.message);
-            }
-          }
         } else {
-          // Generate topical website and fetch metadata for content enrichment
-          console.log(`🎯 Generating topical website for ${contentType} content`);
-          const topicalSite = generateTopicalWebsite(contentType, { day: dayName, contentType });
-          
-          try {
-            console.log(`🌐 Fetching metadata from generated URL: ${topicalSite.url}`);
-            urlMetadata = await fetchUrlMetadata(topicalSite.url);
-            console.log(`✅ Topical URL metadata fetched:`, urlMetadata);
-          } catch (error) {
-            console.log(`⚠️ Topical URL metadata fetch failed for ${topicalSite.url}:`, error.message);
-          }
-          
-          // Generate content based on content type with URL metadata integration
-          if (contentType === 'motivational') {
-            // Generate dynamic motivational content
-            const motivationalTopics = [
-              'mindset shift that changes everything', 'overcoming Monday blues', 'finding your inner strength',
-              'building unstoppable confidence', 'turning setbacks into comebacks', 'embracing your potential',
-              'creating momentum from nothing', 'the power of daily habits', 'breakthrough moments',
-              'resilience in tough times', 'goal-setting that actually works', 'motivation that lasts'
-            ];
-            const randomTopic = motivationalTopics[Math.floor(Math.random() * motivationalTopics.length)];
-            content = { 
-              title: urlMetadata?.title || `The ${randomTopic}`,
-              content: urlMetadata?.description || 'Transformative insights for personal growth',
-              theme: 'empowerment',
-              url: topicalSite.url,
-              source: urlMetadata?.domain || topicalSite.domain
-            };
-          } else if (contentType === 'educational') {
-            // Generate dynamic educational content  
-            const educationalTopics = [
-              'wellness hack that surprised me', 'health myth debunked', 'productivity secret revealed',
-              'stress management technique', 'sleep optimization tip', 'nutrition insight that works',
-              'mental health breakthrough', 'exercise science discovery', 'brain health boost',
-              'energy level game-changer', 'focus improvement method', 'longevity research finding'
-            ];
-            const randomTopic = educationalTopics[Math.floor(Math.random() * educationalTopics.length)];
-            content = { 
-              title: urlMetadata?.title || `The ${randomTopic}`,
-              content: urlMetadata?.description || 'Evidence-based insights for better living',
-              category: 'wellness',
-              url: topicalSite.url,
-              source: urlMetadata?.domain || topicalSite.domain
-            };
-          } else {
-            // Fallback if selected type has no content - create engaging fallback
-            const inspirationTopics = [
-              'small change that made a big difference', 'lesson learned the hard way', 'perspective shift moment',
-              'gratitude practice that works', 'simple truth about success', 'reminder you needed today'
-            ];
-            const randomTopic = inspirationTopics[Math.floor(Math.random() * inspirationTopics.length)];
-            content = { 
-              title: urlMetadata?.title || `The ${randomTopic}`,
-              content: urlMetadata?.description || 'Daily inspiration for meaningful living',
-              theme: 'growth',
-              url: topicalSite.url,
-              source: urlMetadata?.domain || topicalSite.domain
-            };
-            contentType = 'motivational';
-          }
+          // Generate detailed, influencer-style content for each type
+          content = generateDetailedContentByType(contentType, dayName, date, weekNumber, i);
         }
 
         console.log(`📝 Generating enhanced ${contentType} content for ${dayName}:`, content.title);
-        if (urlMetadata) {
-          console.log(`🔗 URL-enhanced content with source: ${content.source}`);
-        }
         
-        // Generate enhanced variations using our comprehensive AI system
-        const enhancedVariations = await generatePostVariations(content, contentType);
+        // Generate platform-specific variations with rich content
+        const platformVariations = generateRichPlatformVariations(content, contentType, dayName);
         
         const postData = {
-          id: Date.now() + i,
+          id: Date.now() + i + Math.random() * 1000,
           date: date.toISOString().split('T')[0],
           dayName: dayName,
           contentType,
           content,
           platforms: ['instagram', 'linkedin', 'facebook'],
           status: 'draft',
-          variations: {
-            instagram: enhancedVariations.instagram?.[contentType] || enhancedVariations.instagram || 'Generated content for Instagram',
-            linkedin: enhancedVariations.linkedin?.[contentType] || enhancedVariations.linkedin || 'Generated content for LinkedIn', 
-            facebook: enhancedVariations.facebook?.[contentType] || enhancedVariations.facebook || 'Generated content for Facebook'
-          }
+          variations: platformVariations
         };
 
-        weeklyPlan.push(postData);
+          allWeeksContent.push(postData);
+        }
+        
+        console.log(`✅ Generated 7 posts for Week ${weekNumber + 1}`);
       }
       
-      console.log(`✅ Generated ${weeklyPlan.length} enhanced weekly posts with AI system`);
-      setContentCalendar(weeklyPlan);
+      console.log(`✅ Generated ${allWeeksContent.length} total posts for ${numberOfWeeks} week(s)`);
+      console.log('📅 Updating content calendar with:', allWeeksContent);
+      setContentCalendar(allWeeksContent);
+      console.log('🔧 DEBUG: setContentCalendar called with array length:', allWeeksContent.length);
+      
+      // Force a state update check
+      setTimeout(() => {
+        console.log('🔧 DEBUG: Delayed check - contentCalendar should now be updated');
+      }, 100);
       
     } catch (error) {
       console.error('Error generating enhanced weekly content:', error);
       
       // Fallback to basic generation if AI fails
-      const weeklyPlan = [];
+      const allWeeksFallback = [];
       const today = new Date();
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       
-      let weekStart;
-      if (generationMode === 'calendar') {
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        weekStart = today.getDay() === 0 ? startOfWeek : new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
-        console.log(`📅 Fallback Calendar Mode - Generating week: ${weekStart.toLocaleDateString()} - ${new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}`);
-      } else {
-        weekStart = new Date(today);
-        weekStart.setDate(today.getDate() + 1);
-        const endDate = new Date(weekStart);
-        endDate.setDate(weekStart.getDate() + 6);
-        console.log(`🗓️ Fallback Next Day Mode - Generating 7 days: ${weekStart.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
-      }
+      // Generate fallback content for multiple weeks
+      for (let weekNumber = 0; weekNumber < numberOfWeeks; weekNumber++) {
+        let weekStart;
+        if (generationMode === 'calendar') {
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - today.getDay());
+          weekStart = today.getDay() === 0 ? 
+            new Date(startOfWeek.getTime() + (weekNumber * 7 * 24 * 60 * 60 * 1000)) : 
+            new Date(startOfWeek.getTime() + ((weekNumber + 1) * 7 * 24 * 60 * 60 * 1000));
+          console.log(`📅 Fallback Calendar Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}`);
+        } else {
+          weekStart = new Date(today);
+          weekStart.setDate(today.getDate() + 1 + (weekNumber * 7));
+          const endDate = new Date(weekStart);
+          endDate.setDate(weekStart.getDate() + 6);
+          console.log(`🗓️ Fallback Next Day Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
+        }
       
-      const availableContent = {
-        recipe: recipes,
-        workout: workouts,
-        realEstate: realEstateTips,
-        mindfulness: mindfulnessPosts,
-        travel: travelContent,
-        tech: techContent,
-        finance: financeContent,
-        beauty: beautyContent,
-        parenting: parentingContent,
-        business: businessContent,
-        lifestyle: lifestyleContent
-      };
-      
-      for (let i = 0; i < 7; i++) {
+        const availableContent = {
+          recipe: recipes,
+          workout: workouts,
+          realEstate: realEstateTips,
+          mindfulness: mindfulnessPosts,
+          travel: travelContent,
+          tech: techContent,
+          finance: financeContent,
+          beauty: beautyContent,
+          parenting: parentingContent,
+          business: businessContent,
+          lifestyle: lifestyleContent
+        };
+        
+        for (let i = 0; i < 7; i++) {
         const date = new Date(weekStart);
         date.setDate(weekStart.getDate() + i);
         
@@ -925,18 +1616,411 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
           }
         };
 
-        weeklyPlan.push(postData);
+        allWeeksFallback.push(postData);
       }
       
-      setContentCalendar(weeklyPlan);
+      console.log(`✅ Fallback generated 7 posts for Week ${weekNumber + 1}`);
+    }
+      
+      console.log('📅 Fallback: Updating content calendar with:', allWeeksFallback);
+      setContentCalendar(allWeeksFallback);
+      console.log('🔧 DEBUG: Fallback setContentCalendar called with array length:', allWeeksFallback.length);
     }
     
+    console.log('🔄 Generation complete, setting isGenerating to false');
     setIsGenerating(false);
   };
 
   const copyToClipboard = (text, platform) => {
     navigator.clipboard.writeText(text);
     alert(`${platform} content copied!`);
+  };
+
+  // Add content to specific day
+  const addContentToDay = (day, content) => {
+    setDayContent(prev => ({
+      ...prev,
+      [day]: [...(prev[day] || []), content]
+    }));
+  };
+
+  // Generate AI content for specific day
+  const generateDayAIContent = async (day) => {
+    const selectedTopic = dayTopicSelections[day];
+    // Use existing generateAIContent function with the selected topic
+    try {
+      const generatedContent = await generateAIContent(selectedTopic, {
+        title: `AI Generated ${selectedTopic} for ${day}`,
+        content: `Dynamic ${selectedTopic} content`
+      });
+      
+      const newContent = {
+        id: Date.now(),
+        title: `AI Generated ${selectedTopic}`,
+        content: generatedContent,
+        topic: selectedTopic,
+        day: day
+      };
+      
+      // Add to day content for the day tabs
+      addContentToDay(day, newContent);
+      
+      // Also add to content calendar for dashboard calendar view
+      const today = new Date();
+      const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(day);
+      const targetDate = new Date(today);
+      
+      // Calculate the next occurrence of this day
+      const currentDayIndex = today.getDay();
+      let daysToAdd = dayIndex - currentDayIndex;
+      if (daysToAdd <= 0) {
+        daysToAdd += 7; // Next week if the day has already passed this week
+      }
+      targetDate.setDate(today.getDate() + daysToAdd);
+      
+      const calendarPost = {
+        id: Date.now() + Math.random(),
+        date: targetDate.toISOString().split('T')[0],
+        dayName: day,
+        contentType: selectedTopic,
+        content: {
+          title: newContent.title,
+          content: generatedContent,
+          description: `AI Generated ${selectedTopic} content for ${day}`
+        },
+        platforms: ['instagram', 'linkedin', 'facebook'],
+        status: 'draft',
+        variations: {
+          instagram: generatedContent,
+          linkedin: generatedContent,
+          facebook: generatedContent
+        }
+      };
+      
+      setContentCalendar(prev => [...prev, calendarPost]);
+      console.log(`✅ Generated AI content for ${day} and added to calendar:`, newContent);
+      console.log(`📅 Calendar post scheduled for ${targetDate.toLocaleDateString()}`);
+    } catch (error) {
+      console.error(`❌ Error generating AI content for ${day}:`, error);
+    }
+  };
+
+  // Delete/discard a generated post from the calendar
+  const deleteGeneratedPost = (postId) => {
+    const confirmDelete = window.confirm('Are you sure you want to discard this generated post? This action cannot be undone.');
+    if (confirmDelete) {
+      setContentCalendar(prevCalendar => prevCalendar.filter(post => post.id !== postId));
+      console.log(`🗑️ Deleted post with ID: ${postId}`);
+    }
+  };
+
+  // Topic Bank Functions
+  const addToTopicBank = (topic, postData) => {
+    const newPost = {
+      id: Date.now() + Math.random(),
+      title: postData.title,
+      content: postData.content,
+      description: postData.description || '',
+      tags: postData.tags || '',
+      createdAt: new Date().toISOString(),
+      status: 'banked'
+    };
+    
+    setTopicBank(prev => ({
+      ...prev,
+      [topic]: [...(prev[topic] || []), newPost]
+    }));
+    
+    console.log(`🏦 Added post to topic bank: ${topic}`, newPost);
+  };
+  
+  const removeFromTopicBank = (topic, postId) => {
+    setTopicBank(prev => ({
+      ...prev,
+      [topic]: prev[topic].filter(post => post.id !== postId)
+    }));
+    
+    console.log(`🗑️ Removed post from topic bank: ${topic} - ${postId}`);
+  };
+  
+  const movePostFromTopicBank = (topic, postId, targetDay = null) => {
+    const post = topicBank[topic].find(p => p.id === postId);
+    if (post) {
+      // If no target day specified, use current active tab (if it's a day)
+      const dayToUse = targetDay || (activeTab !== 'dashboard' ? activeTab : 'monday');
+      
+      // Add to day content
+      addContentToDay(dayToUse, {
+        ...post,
+        id: Date.now(), // New ID for active content
+        usedFrom: 'topicBank'
+      });
+      
+      console.log(`📤 Used post from topic bank: ${topic} → ${dayToUse}`, post);
+    }
+  };
+
+  // Handle URL fetch for topic bank
+  const handleBankUrlFetch = async (url) => {
+    if (!url.trim()) {
+      setBankInputs({ ...bankInputs, urlError: 'Please enter a valid URL' });
+      return;
+    }
+
+    setBankInputs({ ...bankInputs, isUrlLoading: true, urlError: null });
+
+    try {
+      const response = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=false&video=false`);
+      const data = await response.json();
+
+      if (data.status === 'success' && data.data) {
+        const { title, description, image } = data.data;
+        
+        setBankInputs({
+          ...bankInputs,
+          title: title || 'Untitled',
+          content: description || `Content from: ${url}`,
+          tags: extractTagsFromUrl(url),
+          isUrlLoading: false,
+          urlError: null
+        });
+      } else {
+        // Fallback to intelligent content generation
+        const fallbackContent = generateIntelligentFallback(url, data.data);
+        setBankInputs({
+          ...bankInputs,
+          title: fallbackContent.title,
+          content: fallbackContent.content,
+          tags: fallbackContent.tags,
+          isUrlLoading: false,
+          urlError: null
+        });
+      }
+    } catch (error) {
+      console.error('URL fetch error:', error);
+      // Generate intelligent fallback on error
+      const fallbackContent = generateIntelligentFallback(url, null);
+      setBankInputs({
+        ...bankInputs,
+        title: fallbackContent.title,
+        content: fallbackContent.content,
+        tags: fallbackContent.tags,
+        isUrlLoading: false,
+        urlError: null
+      });
+    }
+  };
+
+  // Extract tags from URL for topic bank
+  const extractTagsFromUrl = (url) => {
+    try {
+      const domain = new URL(url).hostname.toLowerCase();
+      
+      // Domain-specific tag suggestions
+      const domainTags = {
+        'youtube.com': 'video, tutorial',
+        'youtu.be': 'video, tutorial',
+        'instagram.com': 'social, visual',
+        'pinterest.com': 'inspiration, visual',
+        'medium.com': 'article, blog',
+        'substack.com': 'newsletter, article',
+        'github.com': 'code, development',
+        'stackoverflow.com': 'programming, help',
+        'wikipedia.org': 'reference, facts',
+        'reddit.com': 'discussion, community',
+        'twitter.com': 'social, news',
+        'x.com': 'social, news',
+        'linkedin.com': 'professional, business',
+        'tiktok.com': 'video, entertainment',
+        'amazon.com': 'product, shopping',
+        'etsy.com': 'handmade, creative'
+      };
+
+      for (const [domainKey, tags] of Object.entries(domainTags)) {
+        if (domain.includes(domainKey)) {
+          return tags;
+        }
+      }
+
+      return `${selectedBankTopic}, link`;
+    } catch (error) {
+      return `${selectedBankTopic}, link`;
+    }
+  };
+
+  // Intelligent fallback content generator for failed URL fetches
+  const generateIntelligentFallback = (url, urlInfo) => {
+    try {
+      const domain = new URL(url).hostname.toLowerCase();
+      
+      // Domain-specific intelligent fallbacks
+      const domainInsights = {
+        'medium.com': {
+          type: 'article',
+          title: 'Thought-Provoking Article',
+          description: 'An insightful piece that challenges conventional thinking and offers fresh perspectives.',
+          themes: ['business', 'lifestyle', 'education'],
+          sentiment: 'positive'
+        },
+        'linkedin.com': {
+          type: 'professional',
+          title: 'Professional Insight',
+          description: 'Industry expertise and career wisdom from experienced professionals.',
+          themes: ['business', 'education'],
+          sentiment: 'positive'
+        },
+        'harvard.edu': {
+          type: 'research',
+          title: 'Research-Based Insights',
+          description: 'Evidence-based findings from academic research that inform better decision-making.',
+          themes: ['education', 'business'],
+          sentiment: 'neutral'
+        },
+        'youtube.com': {
+          type: 'video',
+          title: 'Educational Video Content',
+          description: 'Engaging visual content that simplifies complex topics and inspires action.',
+          themes: ['education', 'motivational'],
+          sentiment: 'positive'
+        },
+        'github.com': {
+          type: 'technical',
+          title: 'Technical Innovation',
+          description: 'Cutting-edge development and technological solutions for modern challenges.',
+          themes: ['tech', 'education'],
+          sentiment: 'positive'
+        }
+      };
+      
+      // Check for domain match
+      let fallback = null;
+      for (const [domainPattern, content] of Object.entries(domainInsights)) {
+        if (domain.includes(domainPattern)) {
+          fallback = { ...content };
+          break;
+        }
+      }
+      
+      // Generic fallback based on URL structure
+      if (!fallback) {
+        const hasYear = /20\d{2}/.test(url);
+        const hasArticleWords = /article|post|blog|story|news|guide|tip|hack/.test(url.toLowerCase());
+        const hasBusinessWords = /business|startup|entrepreneur|company|strategy/.test(url.toLowerCase());
+        const hasTechWords = /tech|development|programming|software|app/.test(url.toLowerCase());
+        
+        if (hasArticleWords || hasYear) {
+          fallback = {
+            type: 'article',
+            title: 'Valuable Content Discovery',
+            description: 'An informative piece that provides practical insights and actionable advice.',
+            themes: ['lifestyle', 'education'],
+            sentiment: 'positive'
+          };
+        } else if (hasBusinessWords) {
+          fallback = {
+            type: 'business',
+            title: 'Business Strategy Insights',
+            description: 'Strategic thinking and business wisdom for professional growth.',
+            themes: ['business', 'education'],
+            sentiment: 'positive'
+          };
+        } else if (hasTechWords) {
+          fallback = {
+            type: 'tech',
+            title: 'Technology Innovation',
+            description: 'Technical insights and innovation that shape the future.',
+            themes: ['tech', 'education'],
+            sentiment: 'positive'
+          };
+        } else {
+          fallback = {
+            type: 'general',
+            title: 'Interesting Discovery',
+            description: 'A fascinating find that broadens perspectives and sparks curiosity.',
+            themes: ['lifestyle', 'motivational'],
+            sentiment: 'positive'
+          };
+        }
+      }
+      
+      // Generate intelligent title variations
+      const titleVariations = [
+        `${fallback.title} Worth Exploring`,
+        `Discovering ${fallback.title}`,
+        `${fallback.title} That Matters`,
+        `Essential ${fallback.title}`,
+        `${fallback.title} for Growth`
+      ];
+      
+      const intelligentTitle = titleVariations[Math.floor(Math.random() * titleVariations.length)];
+      
+      // Enhanced fallback with URL info
+      return {
+        title: urlInfo.title || intelligentTitle,
+        description: fallback.description,
+        originalDescription: fallback.description,
+        articleContent: fallback.description,
+        keyInsights: [`This content offers ${fallback.type} insights that can enhance your understanding.`],
+        contentLength: fallback.description.length,
+        hasRichContent: true,
+        contentAnalysis: {
+          insights: [{ text: `Valuable ${fallback.type} content for personal growth.`, types: ['insight'] }],
+          themes: fallback.themes,
+          sentiment: fallback.sentiment,
+          readingLevel: 'intermediate',
+          statistics: [],
+          keyQuotes: [],
+          actionItems: [`Explore this ${fallback.type} content for new perspectives.`]
+        },
+        themes: fallback.themes,
+        sentiment: fallback.sentiment,
+        readingLevel: 'intermediate',
+        statistics: [],
+        keyQuotes: [],
+        actionItems: [`Explore this ${fallback.type} content for new perspectives.`],
+        usedProxy: 'intelligent-fallback',
+        domain: domain,
+        url: url,
+        source: domain,
+        isFallback: true,
+        fallbackReason: 'URL fetch failed - generated intelligent content based on domain and URL structure'
+      };
+      
+    } catch (error) {
+      console.warn('⚠️ Fallback generation failed, using basic fallback:', error.message);
+      
+      // Ultra-safe basic fallback
+      return {
+        title: urlInfo.title || 'Interesting Content Discovery',
+        description: 'A valuable resource that offers fresh insights and perspectives worth exploring.',
+        originalDescription: 'Generated content',
+        articleContent: 'A valuable resource that offers fresh insights and perspectives worth exploring.',
+        keyInsights: ['This content provides valuable insights for personal growth.'],
+        contentLength: 85,
+        hasRichContent: false,
+        contentAnalysis: {
+          insights: [{ text: 'This content provides valuable insights for personal growth.', types: ['insight'] }],
+          themes: ['lifestyle'],
+          sentiment: 'positive',
+          readingLevel: 'basic',
+          statistics: [],
+          keyQuotes: [],
+          actionItems: ['Explore this content for new perspectives.']
+        },
+        themes: ['lifestyle'],
+        sentiment: 'positive',
+        readingLevel: 'basic',
+        statistics: [],
+        keyQuotes: [],
+        actionItems: ['Explore this content for new perspectives.'],
+        usedProxy: 'basic-fallback',
+        domain: 'unknown',
+        url: url,
+        source: 'Generated',
+        isFallback: true,
+        fallbackReason: 'Complete fetch failure - using basic generated content'
+      };
+    }
   };
 
   // Function to fetch metadata from URL
@@ -956,7 +2040,6 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
       ];
 
       let response;
-      let data;
       let htmlContent = '';
       let usedProxy = '';
 
@@ -981,42 +2064,75 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
 
           console.log(`📊 ${proxy.name} response status:`, response.status, response.statusText);
 
-          if (response.ok) {
-            // Handle different response formats with enhanced error handling
-            try {
-              if (proxy.name.includes('allorigins') && !proxy.name.includes('raw')) {
-                const jsonResponse = await response.json();
-                htmlContent = jsonResponse.contents || jsonResponse.data || '';
-                console.log('📄 AllOrigins response keys:', Object.keys(jsonResponse));
-                console.log('📄 AllOrigins status:', jsonResponse.status);
-              } else {
-                htmlContent = await response.text();
+          // Enhanced error handling for different HTTP status codes
+          if (response.status === 404) {
+            console.warn(`🚫 ${proxy.name}: URL not found (404) - ${url}`);
+            continue; // Try next proxy
+          } else if (response.status === 403) {
+            console.warn(`🔒 ${proxy.name}: Access forbidden (403) - may need different proxy`);
+            continue; // Try next proxy
+          } else if (response.status === 429) {
+            console.warn(`⏰ ${proxy.name}: Rate limited (429) - trying next proxy`);
+            continue; // Try next proxy
+          } else if (!response.ok) {
+            console.warn(`❌ ${proxy.name}: HTTP error ${response.status} - ${response.statusText}`);
+            continue; // Try next proxy
+          }
+
+          // Handle different response formats with enhanced error handling
+          try {
+            if (proxy.name.includes('allorigins') && !proxy.name.includes('raw')) {
+              const jsonResponse = await response.json();
+              htmlContent = jsonResponse.contents || jsonResponse.data || '';
+              
+              // Check if AllOrigins detected an error from the target site
+              if (jsonResponse.status && jsonResponse.status.http_code === 404) {
+                console.warn(`🚫 AllOrigins reports 404 for target URL: ${url}`);
+                continue; // Try next proxy
+              } else if (jsonResponse.status && jsonResponse.status.http_code >= 400) {
+                console.warn(`❌ AllOrigins reports HTTP ${jsonResponse.status.http_code} for target URL: ${url}`);
+                continue; // Try next proxy
               }
               
-              // Validate content quality
-              const isValidHtml = htmlContent.includes('<html') || htmlContent.includes('<head') || htmlContent.includes('<body');
-              const hasMetaTags = htmlContent.includes('<meta') || htmlContent.includes('<title');
-              const minLength = htmlContent && htmlContent.length > 200;
-              
-              if (minLength && (isValidHtml || hasMetaTags)) {
+              console.log('📄 AllOrigins response keys:', Object.keys(jsonResponse));
+              console.log('📄 AllOrigins status:', jsonResponse.status);
+            } else {
+              htmlContent = await response.text();
+            }
+            
+            // Enhanced content validation with error detection
+            const containsErrorPage = htmlContent.toLowerCase().includes('404') || 
+                                    htmlContent.toLowerCase().includes('not found') ||
+                                    htmlContent.toLowerCase().includes('page not found') ||
+                                    htmlContent.toLowerCase().includes('error 404');
+            
+            const isValidHtml = htmlContent.includes('<html') || htmlContent.includes('<head') || htmlContent.includes('<body');
+            const hasMetaTags = htmlContent.includes('<meta') || htmlContent.includes('<title');
+            const minLength = htmlContent && htmlContent.length > 200;
+            
+            if (containsErrorPage) {
+              console.warn(`🚫 ${proxy.name}: Content appears to be a 404 error page`);
+              continue; // Try next proxy
+            }
+            
+            if (minLength && (isValidHtml || hasMetaTags)) {
+              usedProxy = proxy.name;
+              console.log(`✅ Success with ${proxy.name}, content length:`, htmlContent.length);
+              console.log(`🔍 Content validation - HTML: ${isValidHtml}, Meta: ${hasMetaTags}, Length: ${minLength}`);
+              break;
+            } else {
+              console.log(`❌ ${proxy.name} content validation failed - HTML: ${isValidHtml}, Meta: ${hasMetaTags}, Length: ${htmlContent?.length || 0}`);
+              console.log(`📝 Sample content:`, htmlContent?.substring(0, 200) || 'No content');
+            }
+          } catch (parseError) {
+            console.warn(`❌ ${proxy.name} response parsing failed:`, parseError.message);
+            // Try treating as plain text if JSON parsing fails
+            if (proxy.name.includes('allorigins')) {
+              htmlContent = await response.text();
+              if (htmlContent && htmlContent.length > 200) {
                 usedProxy = proxy.name;
-                console.log(`✅ Success with ${proxy.name}, content length:`, htmlContent.length);
-                console.log(`🔍 Content validation - HTML: ${isValidHtml}, Meta: ${hasMetaTags}, Length: ${minLength}`);
+                console.log(`✅ Fallback success with ${proxy.name} as text`);
                 break;
-              } else {
-                console.log(`❌ ${proxy.name} content validation failed - HTML: ${isValidHtml}, Meta: ${hasMetaTags}, Length: ${htmlContent?.length || 0}`);
-                console.log(`📝 Sample content:`, htmlContent?.substring(0, 200) || 'No content');
-              }
-            } catch (parseError) {
-              console.warn(`❌ ${proxy.name} response parsing failed:`, parseError.message);
-              // Try treating as plain text if JSON parsing fails
-              if (proxy.name.includes('allorigins')) {
-                htmlContent = await response.text();
-                if (htmlContent && htmlContent.length > 200) {
-                  usedProxy = proxy.name;
-                  console.log(`✅ Fallback success with ${proxy.name} as text`);
-                  break;
-                }
               }
             }
           }
@@ -1151,37 +2267,158 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
 
       const articleContent = extractArticleContent(doc);
       
-      // Extract key insights for social media posts
-      const extractKeyInsights = (content) => {
-        if (!content || content.length < 100) return [];
+      // Advanced content analysis for complex articles and blogs
+      const analyzeComplexContent = (content, title, doc) => {
+        if (!content || content.length < 100) return { insights: [], themes: [], sentiment: 'neutral', readingLevel: 'basic' };
         
-        const insights = [];
+        const analysis = {
+          insights: [],
+          themes: [],
+          sentiment: 'neutral',
+          readingLevel: 'basic',
+          keyQuotes: [],
+          arguments: [],
+          statistics: [],
+          actionItems: []
+        };
+        
         const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20);
         
-        // Look for insight-indicating phrases
+        // Enhanced insight detection with more sophisticated patterns
         const insightPatterns = [
-          /research shows?/i,
-          /studies? (show|indicate|suggest|find)/i,
-          /according to/i,
-          /experts? (say|believe|recommend)/i,
-          /key (finding|insight|takeaway)/i,
-          /importantly?/i,
-          /surprisingly?/i,
-          /(tip|advice|recommendation)/i,
-          /the (secret|key) (to|is)/i
+          { pattern: /research (shows?|reveals?|indicates?|suggests?)/i, weight: 3, type: 'research' },
+          { pattern: /studies? (show|indicate|suggest|find|reveal)/i, weight: 3, type: 'research' },
+          { pattern: /according to (experts?|studies?|research)/i, weight: 2, type: 'authority' },
+          { pattern: /experts? (say|believe|recommend|suggest|argue)/i, weight: 2, type: 'expert' },
+          { pattern: /key (finding|insight|takeaway|point|conclusion)/i, weight: 3, type: 'key_point' },
+          { pattern: /(importantly?|significantly?|notably?|remarkably?)/i, weight: 2, type: 'emphasis' },
+          { pattern: /(surprisingly?|unexpectedly?|interestingly?)/i, weight: 2, type: 'surprising' },
+          { pattern: /(tip|advice|recommendation|strategy|approach)/i, weight: 2, type: 'actionable' },
+          { pattern: /the (secret|key|solution) (to|is|lies in)/i, weight: 3, type: 'solution' },
+          { pattern: /(proven|effective|successful) (method|approach|strategy|way)/i, weight: 2, type: 'method' }
         ];
         
-        sentences.forEach(sentence => {
+        // Extract insights with scoring
+        const scoredInsights = [];
+        sentences.forEach((sentence, index) => {
           const trimmed = sentence.trim();
-          if (insightPatterns.some(pattern => pattern.test(trimmed))) {
-            insights.push(trimmed + '.');
+          let totalScore = 0;
+          let matchedTypes = [];
+          
+          insightPatterns.forEach(({ pattern, weight, type }) => {
+            if (pattern.test(trimmed)) {
+              totalScore += weight;
+              matchedTypes.push(type);
+            }
+          });
+          
+          if (totalScore > 0) {
+            scoredInsights.push({
+              text: trimmed + '.',
+              score: totalScore,
+              types: matchedTypes,
+              position: index
+            });
           }
         });
         
-        return insights.slice(0, 3); // Return top 3 insights
+        analysis.insights = scoredInsights
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5)
+          .map(item => ({ text: item.text, types: item.types }));
+        
+        // Extract statistics and numbers
+        sentences.forEach(sentence => {
+          const stats = sentence.match(/\b\d+\.?\d*\s*(percent|%|times|x|fold|million|billion|thousand|studies?|participants?|years?|months?|days?)\b/gi);
+          if (stats && stats.length > 0) {
+            analysis.statistics.push(sentence.trim() + '.');
+          }
+        });
+        
+        // Extract quotes (content in quotation marks)
+        const quoteMatches = content.match(/"([^"]{20,200})"/g);
+        if (quoteMatches) {
+          analysis.keyQuotes = quoteMatches.slice(0, 3).map(quote => quote.replace(/"/g, ''));
+        }
+        
+        // Detect main themes and topics
+        const themeKeywords = {
+          health: ['health', 'wellness', 'fitness', 'diet', 'nutrition', 'exercise', 'medical', 'doctor', 'treatment'],
+          business: ['business', 'entrepreneur', 'startup', 'company', 'revenue', 'profit', 'market', 'strategy', 'leadership'],
+          technology: ['technology', 'AI', 'software', 'digital', 'internet', 'app', 'platform', 'innovation', 'tech'],
+          lifestyle: ['lifestyle', 'life', 'personal', 'happiness', 'productivity', 'habits', 'routine', 'balance'],
+          education: ['learn', 'education', 'study', 'research', 'knowledge', 'skill', 'training', 'course', 'academic'],
+          finance: ['money', 'financial', 'investment', 'savings', 'budget', 'wealth', 'income', 'economy', 'financial'],
+          relationships: ['relationship', 'family', 'friends', 'social', 'communication', 'love', 'marriage', 'parenting'],
+          travel: ['travel', 'trip', 'vacation', 'destination', 'journey', 'adventure', 'explore', 'culture']
+        };
+        
+        const lowerContent = content.toLowerCase();
+        const detectedThemes = [];
+        
+        Object.entries(themeKeywords).forEach(([theme, keywords]) => {
+          const matches = keywords.filter(keyword => lowerContent.includes(keyword)).length;
+          if (matches >= 2) {
+            detectedThemes.push({ theme, relevance: matches });
+          }
+        });
+        
+        analysis.themes = detectedThemes
+          .sort((a, b) => b.relevance - a.relevance)
+          .slice(0, 3)
+          .map(item => item.theme);
+        
+        // Sentiment analysis (basic)
+        const positiveWords = ['good', 'great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'positive', 'success', 'benefit', 'improvement', 'effective', 'powerful', 'valuable'];
+        const negativeWords = ['bad', 'terrible', 'awful', 'negative', 'problem', 'issue', 'challenge', 'difficult', 'fail', 'wrong', 'harmful', 'dangerous'];
+        
+        const positiveCount = positiveWords.filter(word => lowerContent.includes(word)).length;
+        const negativeCount = negativeWords.filter(word => lowerContent.includes(word)).length;
+        
+        if (positiveCount > negativeCount + 2) {
+          analysis.sentiment = 'positive';
+        } else if (negativeCount > positiveCount + 2) {
+          analysis.sentiment = 'negative';
+        } else {
+          analysis.sentiment = 'neutral';
+        }
+        
+        // Reading level assessment (basic)
+        const avgWordsPerSentence = content.split(/[.!?]+/).reduce((sum, sentence) => {
+          return sum + sentence.trim().split(/\s+/).length;
+        }, 0) / sentences.length;
+        
+        if (avgWordsPerSentence > 20) {
+          analysis.readingLevel = 'advanced';
+        } else if (avgWordsPerSentence > 15) {
+          analysis.readingLevel = 'intermediate';
+        } else {
+          analysis.readingLevel = 'basic';
+        }
+        
+        // Extract actionable items
+        const actionPatterns = [
+          /you (should|can|need to|must|have to)/i,
+          /(try|consider|start|begin|implement)/i,
+          /(step|method|way|approach|strategy)/i,
+          /how to/i,
+          /(tips?|advice|recommendations?)/i
+        ];
+        
+        sentences.forEach(sentence => {
+          if (actionPatterns.some(pattern => pattern.test(sentence))) {
+            analysis.actionItems.push(sentence.trim() + '.');
+          }
+        });
+        
+        analysis.actionItems = analysis.actionItems.slice(0, 3);
+        
+        return analysis;
       };
       
-      const keyInsights = extractKeyInsights(articleContent);
+      // Perform comprehensive content analysis
+      const contentAnalysis = analyzeComplexContent(articleContent, title, doc);
+      const keyInsights = contentAnalysis.insights.map(insight => insight.text);
       const enhancedDescription = description || articleContent;
 
       // Try to extract workout-specific data
@@ -1208,6 +2445,14 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
         keyInsights: keyInsights, // Key insights for social posts
         contentLength: articleContent?.length || 0,
         hasRichContent: articleContent?.length > 500,
+        // Enhanced analysis data
+        contentAnalysis: contentAnalysis, // Complete analysis object
+        themes: contentAnalysis.themes, // Main content themes
+        sentiment: contentAnalysis.sentiment, // Content sentiment
+        readingLevel: contentAnalysis.readingLevel, // Complexity level
+        statistics: contentAnalysis.statistics, // Numbers and data points
+        keyQuotes: contentAnalysis.keyQuotes, // Important quotes
+        actionItems: contentAnalysis.actionItems, // Actionable takeaways
         usedProxy,
         domain: domain,
         ...recipeData,
@@ -1237,10 +2482,17 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
     } catch (error) {
       console.error('💥 Error fetching URL metadata:', error);
       
-      // Return basic info extracted from URL if possible
+      // Enhanced fallback logic with intelligent content generation
+      console.log('🔄 Activating enhanced fallback system...');
+      
+      // First, try to extract basic info from URL structure
       const urlInfo = extractInfoFromUrl(url);
-      console.log('🔄 Fallback URL info:', urlInfo);
-      return urlInfo;
+      
+      // Generate intelligent fallback content based on URL domain and structure
+      const fallbackContent = generateIntelligentFallback(url, urlInfo);
+      
+      console.log('✨ Generated intelligent fallback:', fallbackContent);
+      return fallbackContent;
     }
   };
 
@@ -2382,20 +3634,27 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
       const platformSpecs = {
         instagram: {
           characterLimit: 2200,
+          idealLength: 125, // First 125 characters most visible, optimal under 180
+          optimalRange: '125-180',
           hashtagLimit: 30,
           seoElements: ['trending hashtags', 'location tags', 'alt text optimization'],
           engagement: ['questions', 'polls', 'story prompts', 'UGC encouragement'],
           influencerStyle: 'visual storytelling, behind-the-scenes, aspirational lifestyle'
         },
         tiktok: {
-          characterLimit: 150,
+          characterLimit: 4000,
+          idealLength: 100, // First 100 visible
+          optimalRange: '80-100',
           hashtagLimit: 100,
           seoElements: ['trending sounds', 'viral hashtags', 'algorithm optimization'],
           engagement: ['hooks in first 3 seconds', 'calls to action', 'trend participation'],
           influencerStyle: 'authentic, relatable, trend-aware, high energy'
         },
         linkedin: {
-          characterLimit: 3000,
+          characterLimit: 3000, // Posts limit, 125000 for articles
+          idealLength: 1500, // 1200-1800 characters optimal
+          optimalRange: '1200-1800',
+          titleLength: 37, // 25-49 for short post titles
           hashtagLimit: 5,
           seoElements: ['industry keywords', 'professional hashtags', 'thought leadership'],
           engagement: ['professional insights', 'industry questions', 'networking'],
@@ -2403,13 +3662,18 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
         },
         twitter: {
           characterLimit: 280,
+          idealLength: 250, // 240-259 characters optimal
+          optimalRange: '240-259',
           hashtagLimit: 2,
           seoElements: ['trending topics', 'timely hashtags', 'thread optimization'],
           engagement: ['retweets', 'replies', 'quote tweets', 'trending participation'],
           influencerStyle: 'witty, timely, conversational, thought-provoking'
         },
         youtube: {
-          characterLimit: 5000,
+          characterLimit: 5000, // Description limit
+          titleLimit: 100,
+          idealLength: 125, // First 100-150 in description most visible
+          optimalRange: '100-150',
           hashtagLimit: 15,
           seoElements: ['keyword optimization', 'searchable titles', 'description SEO'],
           engagement: ['subscribe CTAs', 'comment prompts', 'notification bells'],
@@ -2417,10 +3681,21 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
         },
         facebook: {
           characterLimit: 63206,
+          idealLength: 60, // 40-80 characters optimal
+          optimalRange: '40-80',
           hashtagLimit: 3,
           seoElements: ['local SEO', 'community hashtags', 'share optimization'],
           engagement: ['shares', 'comments', 'community building', 'event promotion'],
           influencerStyle: 'community-focused, personal stories, family-friendly, local connection'
+        },
+        pinterest: {
+          characterLimit: 500, // Pin descriptions
+          idealLength: 125, // 100-150 characters optimal
+          optimalRange: '100-150',
+          hashtagLimit: 20,
+          seoElements: ['keyword optimization', 'seasonal hashtags', 'board SEO'],
+          engagement: ['save prompts', 'board organization', 'seasonal content'],
+          influencerStyle: 'inspirational, aspirational, visually-driven, seasonal'
         }
       };
 
@@ -2433,12 +3708,54 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
       const dayOfWeek = currentDate.toLocaleString('default', { weekday: 'long' });
       const timeOfDay = currentDate.getHours() < 12 ? 'morning' : currentDate.getHours() < 17 ? 'afternoon' : 'evening';
       
-      // Generate random personal elements for authenticity
+      // DYNAMIC TRENDING TOPICS & SEASONAL RELEVANCE
+      const seasonalThemes = {
+        'Winter': ['cozy vibes', 'self-care', 'goal setting', 'comfort', 'reflection', 'planning ahead', 'indoor activities', 'warm feelings'],
+        'Spring': ['fresh starts', 'renewal', 'energy boost', 'decluttering', 'growth mindset', 'outdoor adventures', 'motivation', 'new habits'],
+        'Summer': ['vacation mode', 'fun adventures', 'outdoor living', 'freedom', 'relaxation', 'social gatherings', 'active lifestyle', 'sunshine'],
+        'Fall': ['back to routine', 'productivity', 'organization', 'preparation', 'gratitude', 'transformation', 'learning season', 'cozy comfort']
+      };
+      
+      const monthlyTrends = {
+        'January': ['New Year goals', 'fresh starts', 'detox', 'organization', 'mindful beginnings'],
+        'February': ['self-love', 'relationships', 'heart health', 'winter comfort', 'love yourself'],
+        'March': ['spring cleaning', 'renewal', 'women\'s history', 'growth', 'fresh energy'],
+        'April': ['spring vibes', 'Easter renewal', 'outdoor activities', 'fresh starts', 'blooming'],
+        'May': ['mental health awareness', 'mothers', 'graduation', 'outdoor season', 'growth'],
+        'June': ['summer prep', 'fathers', 'pride', 'vacation planning', 'sunshine'],
+        'July': ['summer fun', 'independence', 'freedom', 'vacation mode', 'outdoor adventures'],
+        'August': ['back to school prep', 'late summer', 'productivity', 'preparation', 'transition'],
+        'September': ['back to routine', 'fall prep', 'productivity', 'organization', 'learning'],
+        'October': ['transformation', 'change', 'gratitude', 'cozy vibes', 'reflection'],
+        'November': ['gratitude', 'thanksgiving', 'reflection', 'preparation', 'appreciation'],
+        'December': ['holiday season', 'year-end reflection', 'celebration', 'gratitude', 'planning ahead']
+      };
+      
+      const daySpecificVibes = {
+        'Monday': ['motivation', 'fresh start', 'goal crushing', 'momentum building', 'week planning'],
+        'Tuesday': ['productivity', 'focus mode', 'getting things done', 'consistency', 'progress'],
+        'Wednesday': ['midweek check-in', 'hump day motivation', 'persistence', 'staying strong', 'halfway there'],
+        'Thursday': ['almost there', 'pushing through', 'determination', 'finishing strong', 'preparation'],
+        'Friday': ['celebration', 'accomplishment', 'weekend prep', 'reflection', 'fun anticipation'],
+        'Saturday': ['self-care', 'adventures', 'relaxation', 'fun activities', 'personal time'],
+        'Sunday': ['reflection', 'preparation', 'planning', 'reset', 'mindfulness']
+      };
+      
+      // Current contextual elements
+      const seasonalVibe = seasonalThemes[currentSeason][Math.floor(Math.random() * seasonalThemes[currentSeason].length)];
+      const monthlyVibe = monthlyTrends[currentMonth][Math.floor(Math.random() * monthlyTrends[currentMonth].length)];
+      const dayVibe = daySpecificVibes[dayOfWeek][Math.floor(Math.random() * daySpecificVibes[dayOfWeek].length)];
+      
+      // EXPANDED random personal elements for authenticity
       const personalTouches = [
         'struggled with this myself', 'learned this the hard way', 'wish someone told me this earlier',
         'obsessed with this lately', 'game-changer for my routine', 'completely transformed my approach',
         'my biggest mistake was ignoring this', 'secret I learned from a mentor', 'changed everything for me',
-        'never thought I\'d be the person who', 'used to think this was overrated until', 'discovered this by complete accident'
+        'never thought I\'d be the person who', 'used to think this was overrated until', 'discovered this by complete accident',
+        'had a complete breakdown over this', 'cried happy tears when this finally clicked', 'felt like a fraud until I mastered this',
+        'embarrassingly ignored this for months', 'randomly stumbled upon this goldmine', 'was skeptical until I tried it myself',
+        'made every mistake in the book with this', 'finally understood why everyone raves about this', 'wish I could go back and tell myself this',
+        'had an epiphany about this at 2am', 'was gatekeeping this from my own self', 'realized I was overcomplicating everything'
       ];
       const randomPersonal = personalTouches[Math.floor(Math.random() * personalTouches.length)];
       
@@ -2450,28 +3767,169 @@ Drop your thoughts below - love hearing about your ${config.sharing}! 💕${sour
         `Can we normalize talking about this? Because I ${randomPersonal}...`,
         `Update: Remember when I posted about struggling with this?`,
         `Hot take that might be controversial but hear me out...`,
-        `Three months ago I would've scrolled past this, but now...`
+        `Three months ago I would've scrolled past this, but now...`,
+        `Nobody talks about this part, but here's the truth...`,
+        `I used to roll my eyes at people who said this, until...`,
+        `The thing that surprised me most about this journey was...`,
+        `Unpopular opinion: everyone's doing this backwards and here's why...`,
+        `I'm about to share something that might sound crazy, but...`,
+        `For the longest time, I thought I was the only one who...`,
+        `You know that feeling when everything finally clicks? That happened to me with...`,
+        `I was today years old when I realized...`,
+        `This is your sign to stop scrolling and pay attention because...`,
+        `I need to get something off my chest about...`,
+        `Breaking: I just discovered I've been living life wrong and...`,
+        `PSA: If you're anything like me, you need to hear this...`,
+        `Reality check time - let's talk about what nobody mentions...`,
+        `*Controversial take incoming* but I stand by this...`,
+        `Friends don't let friends continue doing this wrong, so...`,
+        `I'm calling myself out publicly because...`
       ];
       const randomHook = storyHooks[Math.floor(Math.random() * storyHooks.length)];
       
-      // Content variation algorithms to prevent repetition
+      // EXPANDED content variation algorithms to prevent repetition
       const contentAngles = [
         'Personal Journey Storytelling', 'Educational Expert Mode', 'Relatable Community Vibe', 
-        'Behind-the-Scenes Reality', 'Myth-Busting Authority', 'Inspirational Transformation'
+        'Behind-the-Scenes Reality', 'Myth-Busting Authority', 'Inspirational Transformation',
+        'Controversial Truth-Telling', 'Beginner-Friendly Guide', 'Advanced Pro Tips', 'Nostalgic Reflection',
+        'Future-Focused Vision', 'Problem-Solution Framework', 'Before & After Comparison', 'Step-by-Step Breakdown',
+        'Common Mistakes Analysis', 'Seasonal Relevance', 'Trending Topic Connection', 'Personal Challenge',
+        'Community Celebration', 'Honest Confession', 'Expert Interview Style', 'Data-Driven Insights'
       ];
       const randomAngle = contentAngles[Math.floor(Math.random() * contentAngles.length)];
       
       const emotionalTones = [
         'enthusiastic and inspiring', 'authentic and vulnerable', 'confident and authoritative',
-        'warm and community-focused', 'playful and conversational', 'passionate and knowledgeable'
+        'warm and community-focused', 'playful and conversational', 'passionate and knowledgeable',
+        'empathetic and supportive', 'bold and provocative', 'calm and reassuring', 'excited and energetic',
+        'thoughtful and reflective', 'direct and no-nonsense', 'encouraging and uplifting', 'curious and explorative',
+        'grateful and appreciative', 'determined and motivated', 'honest and transparent', 'creative and innovative'
       ];
       const randomTone = emotionalTones[Math.floor(Math.random() * emotionalTones.length)];
       
       const engagementStyles = [
         'Ask thought-provoking questions', 'Share surprising statistics', 'Create relatable scenarios',
-        'Use interactive polls/challenges', 'Share personal vulnerabilities', 'Provide actionable takeaways'
+        'Use interactive polls/challenges', 'Share personal vulnerabilities', 'Provide actionable takeaways',
+        'Create before/after comparisons', 'Challenge common assumptions', 'Share failure stories',
+        'Offer exclusive behind-the-scenes content', 'Create urgency with limited-time insights', 'Use humor and self-deprecation',
+        'Share mentor quotes and wisdom', 'Create community challenges', 'Use storytelling cliffhangers',
+        'Provide controversial hot takes', 'Share transformation timelines', 'Create "fill in the blank" engagement',
+        'Use seasonal or trending references', 'Share mistake confessions', 'Create prediction content',
+        'Use comparison posts (this vs that)', 'Share resource recommendations', 'Create myth-busting content',
+        'Use "day in the life" format', 'Share goal-setting strategies', 'Create educational carousels',
+        'Use "unpopular opinion" format', 'Share gratitude and appreciation', 'Create tutorial walkthroughs'
       ];
       const randomEngagement = engagementStyles[Math.floor(Math.random() * engagementStyles.length)];
+      
+      // VIRAL CONTENT FORMATS & POP CULTURE REFERENCES
+      const viralFormats = [
+        'Plot twist format', 'This or that comparison', 'Unpopular opinion', 'Day in my life',
+        'Things I wish I knew', 'Red flags to avoid', 'Green flags to look for', 'Rate my setup',
+        'Get ready with me', 'What I eat in a day', 'Storytime format', 'Transformation timeline',
+        'Before and after', 'Mistakes I made', 'Lessons learned', 'Hot takes only',
+        'POV: You\'re someone who', 'Tell me you\'re X without telling me', 'If you know, you know',
+        'Main character energy', 'That girl aesthetic', 'Soft life vibes', 'Glow up journey'
+      ];
+      
+      const popCultureRefs = [
+        'giving main character energy', 'living my best life', 'no cap', 'periodt',
+        'it\'s giving...', 'the way I...', 'not me...', 'please tell me I\'m not the only one',
+        'this is so random but', 'nobody asked but', 'hear me out', 'I said what I said',
+        'and I oop', 'the audacity', 'the way this', 'I\'m obsessed', 'it hits different'
+      ];
+      
+      const interactiveElements = [
+        'Drop a 🔥 if you agree', 'Comment your favorite tip', 'Tag someone who needs this',
+        'Save this for later', 'Share your experience below', 'What would you add to this list?',
+        'Rate this from 1-10', 'Yes or no in the comments', 'Tell me I\'m wrong',
+        'Who can relate?', 'This or that?', 'Agree or disagree?', 'Your turn - share yours!'
+      ];
+      
+      // Random selections for dynamic content
+      const randomFormat = viralFormats[Math.floor(Math.random() * viralFormats.length)];
+      const randomPopRef = popCultureRefs[Math.floor(Math.random() * popCultureRefs.length)];
+      const randomInteractive = interactiveElements[Math.floor(Math.random() * interactiveElements.length)];
+      
+      // CREATOR PERSONALITY ARCHETYPES
+      const creatorPersonalities = [
+        {
+          type: 'The Authentic Storyteller',
+          voice: 'vulnerable, honest, relatable',
+          style: 'shares personal struggles and victories',
+          signature: 'deep emotional connection through raw honesty'
+        },
+        {
+          type: 'The Energetic Motivator',
+          voice: 'high-energy, inspiring, action-oriented', 
+          style: 'pumps people up and gets them moving',
+          signature: 'infectious enthusiasm and motivational catchphrases'
+        },
+        {
+          type: 'The Wise Mentor',
+          voice: 'calm, authoritative, nurturing',
+          style: 'shares knowledge and guides followers',
+          signature: 'thoughtful advice with gentle wisdom'
+        },
+        {
+          type: 'The Relatable Friend',
+          voice: 'casual, conversational, supportive',
+          style: 'feels like your bestie giving advice',
+          signature: 'makes everything feel achievable and normal'
+        },
+        {
+          type: 'The Bold Disruptor',
+          voice: 'confident, provocative, truth-telling',
+          style: 'challenges norms and speaks uncomfortable truths',
+          signature: 'controversial takes that spark important conversations'
+        },
+        {
+          type: 'The Creative Innovator',
+          voice: 'artistic, imaginative, trend-setting',
+          style: 'creates new approaches and unique perspectives',
+          signature: 'fresh ideas and creative problem-solving'
+        },
+        {
+          type: 'The Empathetic Healer',
+          voice: 'gentle, understanding, supportive',
+          style: 'creates safe spaces for growth and healing',
+          signature: 'makes people feel seen and validated'
+        },
+        {
+          type: 'The Fun Entertainer',
+          voice: 'playful, humorous, lighthearted',
+          style: 'makes learning and growth enjoyable',
+          signature: 'educational content that feels like entertainment'
+        }
+      ];
+      
+      const randomPersonality = creatorPersonalities[Math.floor(Math.random() * creatorPersonalities.length)];
+      
+      // POWER WORDS AND DYNAMIC ELEMENTS
+      const powerWords = [
+        'transform', 'breakthrough', 'unlock', 'discover', 'reveal', 'master', 'accelerate', 'amplify',
+        'elevate', 'optimize', 'revolutionize', 'ignite', 'unleash', 'dominate', 'conquer', 'crush',
+        'skyrocket', 'explode', 'magnetize', 'captivate', 'mesmerize', 'electrify', 'energize', 'supercharge'
+      ];
+      
+      const surprisingStats = [
+        '92% of people never achieve their goals', 'Only 3% of people write down their goals',
+        '80% of success comes from 20% of efforts', 'People make decisions in 7 seconds',
+        '65% of communication is body language', '90% of startups fail in first year',
+        '70% of millionaires read books regularly', 'Average person checks phone 96 times daily',
+        '85% of job positions are filled through networking', '95% of purchasing decisions are emotional'
+      ];
+      
+      const socialProofElements = [
+        'my community has been asking about this', 'thousands of you requested this topic',
+        'after seeing your DMs about this', 'based on your feedback in the comments',
+        'so many of you have shared similar stories', 'my most successful clients do this',
+        'every person I mentor struggles with this', 'the most common question I get is'
+      ];
+      
+      // Random selections for enhanced elements
+      const randomPowerWord = powerWords[Math.floor(Math.random() * powerWords.length)];
+      const randomStat = surprisingStats[Math.floor(Math.random() * surprisingStats.length)];
+      const randomSocialProof = socialProofElements[Math.floor(Math.random() * socialProofElements.length)];
 
       // SEO-optimized prompt engineering for top influencer style
       let prompt = `You are a VIRAL ${selectedPlatform.toUpperCase()} CONTENT CREATOR with authentic personality and millions of engaged followers.
@@ -2487,15 +3945,44 @@ PLATFORM: ${selectedPlatform.toUpperCase()}
 
 CONTENT COMPLEXITY: ${contentComplexity.toUpperCase()} level
 
-🎯 PERSONALIZATION ELEMENTS TO WEAVE IN:
+🎯 DYNAMIC PERSONALIZATION ELEMENTS TO WEAVE IN:
 - Personal Story Hook: "${randomHook}"
 - Content Angle: ${randomAngle} (vary the approach each time)
 - Emotional Tone: ${randomTone} (match this energy throughout)
 - Engagement Strategy: ${randomEngagement}
-- Seasonal Context: ${currentSeason} themes, ${currentMonth} energy, timely relevance
+- Viral Format Style: ${randomFormat}
+- Pop Culture Vibe: ${randomPopRef}
+- Interactive Element: ${randomInteractive}
+
+📅 CONTEXTUAL RELEVANCE:
+- Seasonal Energy: ${seasonalVibe} (${currentSeason} themes)
+- Monthly Focus: ${monthlyVibe} (${currentMonth} energy)
+- Day-of-Week Vibe: ${dayVibe} (perfect for ${dayOfWeek}s)
+- Time Context: ${timeOfDay} scrollers (adjust energy accordingly)
+
+💫 AUTHENTICITY BUILDERS:
 - Community Connection: "my followers always ask about this", "you guys requested this"
-- Vulnerability: Real struggles, honest mistakes, learning moments
+- Vulnerability: Real struggles, honest mistakes, learning moments  
 - Specificity: Exact numbers, specific examples, detailed scenarios
+- Personal Touch: I ${randomPersonal}
+- Relatability: Make it feel like a conversation with a best friend
+
+🎭 CREATOR PERSONALITY ARCHETYPE:
+- Role: ${randomPersonality.type}
+- Voice Style: ${randomPersonality.voice}
+- Content Approach: ${randomPersonality.style}
+- Signature Element: ${randomPersonality.signature}
+- Embody this personality completely throughout the content
+
+🔥 ENHANCED DYNAMIC ELEMENTS:
+- Power Word Focus: ${randomPowerWord} (weave this naturally throughout)
+- Surprising Stat: ${randomStat} (use if relevant to topic)
+- Social Proof Angle: ${randomSocialProof}
+- Trending References: Connect to current events or cultural moments naturally
+- Urgency/Scarcity: Create natural momentum without being pushy  
+- Pattern Interrupts: Break expected content flow to maintain attention
+- Micro-Moments: Capture small, relatable daily experiences
+- Future-Pacing: Help audience visualize their transformed future state
 
 🔄 CONTENT VARIATION RULES:
 - Never use the same opening hook twice
@@ -2634,7 +4121,6 @@ ${selectedPlatform === 'tiktok' ?
 Generate content that makes followers immediately text their friends about trying this recipe.`;
 
         break;
-          break;
           
         case 'realEstate':
           prompt += `🏡 REAL ESTATE EXPERT CONTENT for ${selectedPlatform.toUpperCase()}:
@@ -2697,7 +4183,6 @@ ${selectedPlatform === 'tiktok' ?
 Generate content that makes followers think "I need to call them RIGHT NOW" while providing genuine market insight.`;
 
         break;
-          break;
           
         case 'mindfulness':
           prompt = `Create transformative, emotionally resonant mindfulness content using wellness psychology principles:
@@ -3171,15 +4656,63 @@ Write a compelling social media post that engages your audience and encourages i
       // Generate SEO-optimized, platform-specific content templates  
       const generatePlatformOptimizedContent = () => {
         const platformConfig = {
-          instagram: { hashtags: ['#fitness', '#workout', '#health', '#motivation', '#fitnessmotivation', '#exercise', '#training', '#fitlife'], hashtagLimit: 8, charLimit: 2200 },
-          tiktok: { hashtags: ['#fitnesstok', '#workoutvideo', '#fitnesscheck', '#gymtok', '#healthylifestyle', '#exerciseroutine'], hashtagLimit: 12, charLimit: 150 },
-          linkedin: { hashtags: ['#fitness', '#wellness', '#productivity', '#leadership'], hashtagLimit: 3, charLimit: 1300 },
-          twitter: { hashtags: ['#fitness', '#workout'], hashtagLimit: 2, charLimit: 280 },
-          youtube: { hashtags: ['#fitness', '#workout', '#exercise', '#health', '#fitnessmotivation'], hashtagLimit: 6, charLimit: 1000 },
-          facebook: { hashtags: ['#fitness', '#health', '#wellness'], hashtagLimit: 3, charLimit: 500 }
+          instagram: { 
+            hashtags: ['#fitness', '#workout', '#health', '#motivation', '#fitnessmotivation', '#exercise', '#training', '#fitlife'], 
+            hashtagLimit: 8, 
+            charLimit: 2200,
+            idealLength: 125,
+            optimalRange: '125-180'
+          },
+          tiktok: { 
+            hashtags: ['#fitnesstok', '#workoutvideo', '#fitnesscheck', '#gymtok', '#healthylifestyle', '#exerciseroutine'], 
+            hashtagLimit: 12, 
+            charLimit: 4000,
+            idealLength: 100,
+            optimalRange: '80-100'
+          },
+          linkedin: { 
+            hashtags: ['#fitness', '#wellness', '#productivity', '#leadership'], 
+            hashtagLimit: 3, 
+            charLimit: 3000,
+            idealLength: 1500,
+            optimalRange: '1200-1800'
+          },
+          twitter: { 
+            hashtags: ['#fitness', '#workout'], 
+            hashtagLimit: 2, 
+            charLimit: 280,
+            idealLength: 250,
+            optimalRange: '240-259'
+          },
+          youtube: { 
+            hashtags: ['#fitness', '#workout', '#exercise', '#health', '#fitnessmotivation'], 
+            hashtagLimit: 6, 
+            charLimit: 5000,
+            idealLength: 125,
+            optimalRange: '100-150'
+          },
+          facebook: { 
+            hashtags: ['#fitness', '#health', '#wellness'], 
+            hashtagLimit: 3, 
+            charLimit: 63206,
+            idealLength: 60,
+            optimalRange: '40-80'
+          },
+          pinterest: { 
+            hashtags: ['#fitness', '#health', '#wellness', '#lifestyle'], 
+            hashtagLimit: 20, 
+            charLimit: 500,
+            idealLength: 125,
+            optimalRange: '100-150'
+          }
         };
         const config = platformConfig[selectedPlatform] || platformConfig.instagram;
-        return { hashtags: config.hashtags.slice(0, config.hashtagLimit).join(' '), charLimit: config.charLimit };
+        return { 
+          hashtags: config.hashtags.slice(0, config.hashtagLimit).join(' '), 
+          charLimit: config.charLimit,
+          idealLength: config.idealLength,
+          optimalRange: config.optimalRange
+        };
       };
 
       const { hashtags, charLimit } = generatePlatformOptimizedContent();
@@ -3284,16 +4817,47 @@ Your future self is either thanking you or wondering "what if?" Which version ar
         ]
       };
       
+      // Platform-specific content limits for optimization
+      const platformLimits = {
+        instagram: { 
+          targetChars: 125, maxChars: 180, 
+          minWords: 20, maxWords: 30, 
+          idealLength: 'First 125 characters optimized, keep under 180 total'
+        },
+        tiktok: { 
+          targetChars: 100, maxChars: 100, 
+          minWords: 15, maxWords: 20, 
+          idealLength: 'First 100 characters visible, punchy hook essential'
+        },
+        linkedin: { 
+          targetChars: 1500, maxChars: 1800, 
+          minWords: 200, maxWords: 300, 
+          idealLength: '1200-1800 characters optimal, professional storytelling'
+        },
+        twitter: { 
+          targetChars: 250, maxChars: 259, 
+          minWords: 40, maxWords: 45, 
+          idealLength: '240-259 characters ideal, thread-worthy content'
+        },
+        youtube: { 
+          targetChars: 125, maxChars: 150, 
+          minWords: 20, maxWords: 25, 
+          idealLength: 'First 100-150 characters visible in description'
+        },
+        facebook: { 
+          targetChars: 60, maxChars: 80, 
+          minWords: 8, maxWords: 12, 
+          idealLength: '40-80 characters optimal for engagement'
+        },
+        pinterest: { 
+          targetChars: 125, maxChars: 150, 
+          minWords: 15, maxWords: 25, 
+          idealLength: '100-150 characters for title/description'
+        }
+      };
+      
       // Enhanced content generation with comprehensive prompts
       const generateComprehensiveContent = () => {
-        const platformLimits = {
-          instagram: { minWords: 50, maxWords: 150, idealLength: '2-3 paragraphs with engaging hook' },
-          tiktok: { minWords: 15, maxWords: 40, idealLength: 'punchy hook + CTA' },
-          linkedin: { minWords: 100, maxWords: 200, idealLength: '3-4 paragraphs with professional insights' },
-          twitter: { minWords: 20, maxWords: 45, idealLength: 'thread-worthy content with engagement hook' },
-          youtube: { minWords: 80, maxWords: 180, idealLength: 'detailed description with timestamps and CTAs' },
-          facebook: { minWords: 60, maxWords: 120, idealLength: 'community-focused storytelling' }
-        };
         
         const currentLimit = platformLimits[selectedPlatform] || platformLimits.instagram;
         
@@ -3376,10 +4940,59 @@ ${contentStructure.hashtags}`;
         return generatedContent;
       };
       
-      const comprehensiveContent = generateComprehensiveContent();
+      let comprehensiveContent = generateComprehensiveContent();
       
-      console.log(`✅ Generated comprehensive AI content for ${contentType}:`, comprehensiveContent.substring(0, 100) + '...');
-      console.log(`📝 Full content length:`, comprehensiveContent.length, 'characters');
+      // Platform-specific content optimization based on ideal character limits
+      const currentLimit = platformLimits[selectedPlatform] || platformLimits.instagram;
+      
+      // Smart content trimming that preserves quality while meeting platform requirements
+      if (comprehensiveContent.length > currentLimit.maxChars) {
+        // For short-form platforms, prioritize the hook and main message
+        if (selectedPlatform === 'facebook') {
+          // Facebook: Keep only the most engaging hook (40-80 chars)
+          const sentences = comprehensiveContent.split('.');
+          comprehensiveContent = sentences[0].substring(0, currentLimit.maxChars) + (sentences[0].length > currentLimit.maxChars ? '...' : '');
+        } else if (selectedPlatform === 'twitter') {
+          // Twitter: Optimize for 240-259 character sweet spot
+          comprehensiveContent = comprehensiveContent.substring(0, currentLimit.maxChars);
+          // Ensure we don't cut off mid-word
+          const lastSpaceIndex = comprehensiveContent.lastIndexOf(' ');
+          if (lastSpaceIndex > currentLimit.targetChars - 20) {
+            comprehensiveContent = comprehensiveContent.substring(0, lastSpaceIndex) + '...';
+          }
+        } else if (selectedPlatform === 'instagram') {
+          // Instagram: Optimize first 125 characters, allow up to 180
+          const firstPart = comprehensiveContent.substring(0, currentLimit.targetChars);
+          const remainingContent = comprehensiveContent.substring(currentLimit.targetChars, currentLimit.maxChars);
+          comprehensiveContent = firstPart + (remainingContent ? remainingContent : '');
+        } else if (selectedPlatform === 'tiktok') {
+          // TikTok: Focus on first 100 characters only
+          comprehensiveContent = comprehensiveContent.substring(0, currentLimit.targetChars);
+          const lastSpaceIndex = comprehensiveContent.lastIndexOf(' ');
+          if (lastSpaceIndex > 80) {
+            comprehensiveContent = comprehensiveContent.substring(0, lastSpaceIndex) + '...';
+          }
+        } else if (selectedPlatform === 'youtube') {
+          // YouTube: Optimize first 100-150 characters of description
+          const lines = comprehensiveContent.split('\n');
+          const firstLine = lines[0].substring(0, currentLimit.maxChars);
+          comprehensiveContent = firstLine + (lines.length > 1 ? '\n\n' + lines.slice(1).join('\n') : '');
+        } else if (selectedPlatform === 'linkedin') {
+          // LinkedIn: Keep 1200-1800 characters for optimal engagement
+          if (comprehensiveContent.length > currentLimit.maxChars) {
+            comprehensiveContent = comprehensiveContent.substring(0, currentLimit.maxChars);
+            const lastSentenceIndex = comprehensiveContent.lastIndexOf('.');
+            if (lastSentenceIndex > currentLimit.targetChars - 100) {
+              comprehensiveContent = comprehensiveContent.substring(0, lastSentenceIndex + 1);
+            }
+          }
+        }
+      }
+      
+      console.log(`✅ Generated ${selectedPlatform} optimized content for ${contentType}:`, comprehensiveContent.substring(0, 100) + '...');
+      console.log(`📝 Final content length: ${comprehensiveContent.length} characters (target: ${currentLimit.targetChars}, max: ${currentLimit.maxChars})`);
+      console.log(`🎯 Platform optimization: ${currentLimit.idealLength}`);
+      
       return comprehensiveContent;
       
     } catch (error) {
@@ -4012,49 +5625,8 @@ ${contentStructure.hashtags}`;
     }
   };
 
-  const exportCalendarSummary = () => {
-    if (contentCalendar.length === 0) {
-      alert('No content to export. Please generate some content first!');
-      return;
-    }
-
-    // Create a readable summary for review
-    let summary = `Social Media Content Calendar Export\n`;
-    summary += `Generated on: ${new Date().toLocaleDateString()}\n`;
-    summary += `Total Posts: ${contentCalendar.length}\n\n`;
-    
-    contentCalendar.forEach((post, index) => {
-      summary += `--- POST ${index + 1} ---\n`;
-      summary += `Date: ${post.date} (${post.dayName})\n`;
-      summary += `Type: ${contentTypes[post.contentType]?.name || post.contentType}\n`;
-      summary += `Title: ${post.content.title}\n\n`;
-      
-      Object.entries(platforms).forEach(([platform, config]) => {
-        if (post.variations[platform]) {
-          summary += `${config.name}:\n${post.variations[platform]}\n\n`;
-        }
-      });
-      
-      summary += `${'='.repeat(50)}\n\n`;
-    });
-
-    // Download as text file
-    const blob = new Blob([summary], { type: 'text/plain;charset=utf-8;' });
-    const link = document.createElement('a');
-    
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `content-calendar-summary-${new Date().toISOString().split('T')[0]}.txt`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-comfort-tan/20 min-h-screen font-comfort">
+    <div className="max-w-7xl mx-auto p-6 min-h-screen font-comfort transition-colors duration-300 bg-comfort-tan/20 text-comfort-navy">
       <input
         type="file"
         ref={recipeFileInputRef}
@@ -4068,93 +5640,126 @@ ${contentStructure.hashtags}`;
         style={{ display: 'none' }}
       />
 
-      <div className="bg-comfort-white rounded-xl shadow-md mb-6 border border-comfort-tan/30">
-        <div className="p-6 border-b border-comfort-tan bg-gradient-to-br from-comfort-white via-comfort-tan/20 to-comfort-white">
-          <h1 className="text-3xl font-bold text-comfort-navy flex items-center">
-            <Share className="mr-3 text-comfort-accent" />
-            Pre-Buffer
-          </h1>
-          <p className="text-comfort-navy/70 mt-2">AI-powered content planning for Instagram, LinkedIn, and Facebook</p>
+      {/* Calendar-Inspired Header */}
+      <div className="rounded-xl shadow-lg mb-6 border overflow-hidden transition-colors duration-300 bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white border-comfort-tan/30">
+        {/* Calendar Header Bar */}
+        <div className="p-6 border-b transition-colors duration-300 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 border-amber-200">
+          <div className="flex items-center justify-between">
+            {/* CACHE TEST VERSION 2.0 - If you see this, cache is cleared! */}
+            {/* Left Calendar Icon */}
+            <div className="flex items-center justify-center w-20 h-20">
+              <Calendar className="w-12 h-12 text-amber-700" />
+            </div>
+            
+            {/* App Title - Centered */}
+            <div className="text-center text-amber-900 flex-1">
+              <h1 className="text-3xl font-bold leading-tight mb-1">
+                Content Calendar ⚡ V2.0
+              </h1>
+              <p className="text-base font-medium text-amber-800/80">AI-Powered Social Media Planner</p>
+            </div>
+            
+            {/* Current Week Display */}
+            <div className="text-right text-amber-900 w-20">
+              <div className="text-xs text-amber-700/70 uppercase tracking-wide font-medium mb-1">This Week</div>
+              <div className="text-sm font-semibold leading-tight">
+                {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center border-b border-comfort-tan bg-comfort-white">
-          {/* Main Navigation Tabs */}
-          {['dashboard', 'recipes', 'workouts', 'realestate', 'mindfulness', 'calendar'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3 font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab 
-                  ? 'border-b-2 border-comfort-olive text-comfort-olive bg-comfort-tan/30' 
-                  : 'text-comfort-navy/70 hover:text-comfort-navy hover:bg-comfort-tan/20'
-              }`}
-            >
-              {tab === 'realestate' ? 'Real Estate' : 
-               tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-
-          {/* Specialized Categories Dropdown */}
-          <div className="relative dropdown-container">
-            <button
-              onClick={() => setShowSpecializedDropdown(!showSpecializedDropdown)}
-              className={`px-6 py-3 font-medium whitespace-nowrap transition-colors flex items-center gap-2 ${
-                ['educational', 'motivational', 'travel', 'tech', 'finance', 'beauty', 'parenting', 'business', 'lifestyle'].includes(activeTab)
-                  ? 'border-b-2 border-comfort-accent text-comfort-accent bg-comfort-accent/10' 
-                  : 'text-comfort-navy/70 hover:text-comfort-navy hover:bg-comfort-tan/20'
-              }`}
-            >
-              Specialized
-              <ChevronDown 
-                size={16} 
-                className={`transition-transform ${showSpecializedDropdown ? 'rotate-180' : ''}`} 
-              />
-            </button>
-            
-            {showSpecializedDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-comfort-white border border-comfort-tan rounded-lg shadow-lg z-50 min-w-[200px]">
-                <div className="py-2">
-                  {[
-                    { key: 'educational', label: 'Educational', icon: '🎓' },
-                    { key: 'motivational', label: 'Motivational', icon: '💪' },
-                    { key: 'travel', label: 'Travel', icon: '✈️' },
-                    { key: 'tech', label: 'Technology', icon: '💻' },
-                    { key: 'finance', label: 'Finance', icon: '💰' },
-                    { key: 'beauty', label: 'Beauty', icon: '💄' },
-                    { key: 'parenting', label: 'Parenting', icon: '👶' },
-                    { key: 'business', label: 'Business', icon: '📈' },
-                    { key: 'lifestyle', label: 'Lifestyle', icon: '☕' }
-                  ].map((category) => (
-                    <button
-                      key={category.key}
-                      onClick={() => {
-                        setActiveTab(category.key);
-                        setShowSpecializedDropdown(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-comfort-tan/20 flex items-center gap-3 transition-colors ${
-                        activeTab === category.key ? 'bg-comfort-accent/10 text-comfort-accent font-medium' : 'text-comfort-navy'
-                      }`}
-                    >
-                      <span className="text-lg">{category.icon}</span>
-                      {category.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+        {/* Calendar Grid Navigation */}
+        <div className="p-4 bg-comfort-tan/10">
+          <div className="grid grid-cols-8 gap-2">
+            {['dashboard', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((tab, index) => {
+              const isActive = activeTab === tab;
+              const isDashboard = tab === 'dashboard';
+              
+              // Calculate dates for the current week
+              const today = new Date();
+              const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+              
+              let dayDate = null;
+              let isToday = false;
+              
+              if (!isDashboard) {
+                // Calculate the date for this day tab
+                const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(tab);
+                
+                if (tab === 'sunday') {
+                  // For Sunday, show next Sunday (October 12, 2025)
+                  const nextSunday = new Date(today);
+                  const daysUntilNextSunday = (7 - currentDay) % 7;
+                  nextSunday.setDate(today.getDate() + (daysUntilNextSunday === 0 ? 7 : daysUntilNextSunday));
+                  dayDate = nextSunday;
+                } else {
+                  // For other days, calculate from this week's Monday
+                  const mondayOfWeek = new Date(today);
+                  const daysFromMonday = currentDay === 0 ? -6 : 1 - currentDay; // Adjust for Sunday being 0
+                  mondayOfWeek.setDate(today.getDate() + daysFromMonday);
+                  
+                  // Calculate days from Monday (Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5)
+                  const mondayBasedIndex = dayIndex === 0 ? 6 : dayIndex - 1; // Sunday becomes 6, others shift down
+                  dayDate = new Date(mondayOfWeek);
+                  dayDate.setDate(mondayOfWeek.getDate() + mondayBasedIndex);
+                }
+                
+                isToday = dayDate.toDateString() === today.toDateString();
+              }
+              
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`relative p-4 rounded-xl font-medium transition-all duration-200 min-h-16 ${
+                    isActive
+                      ? 'bg-comfort-navy text-white shadow-xl transform scale-105 border-2 border-comfort-accent'
+                      : isToday && !isDashboard
+                      ? 'bg-comfort-olive/20 text-comfort-olive hover:bg-comfort-olive/30 border-2 border-comfort-olive shadow-md'
+                      : 'bg-white text-comfort-navy hover:bg-comfort-accent/10 hover:text-comfort-accent border border-comfort-tan/40 shadow-sm hover:shadow-md'
+                  }`}
+                >
+                  {isDashboard ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="text-xl mb-1">📊</div>
+                      <div className="text-xs uppercase tracking-wide font-bold">Dashboard</div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="text-xs uppercase tracking-wide font-medium opacity-70 mb-1">
+                        {tab.slice(0, 3)}
+                      </div>
+                      <div className="text-xl font-bold mb-1">
+                        {dayDate ? dayDate.getDate() : '•'}
+                      </div>
+                      
+                      {/* Today indicator */}
+                      {isToday && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-comfort-olive rounded-full border-2 border-white"></div>
+                      )}
+                      
+                      {/* Content indicator dot */}
+                      {dayContent[tab]?.length > 0 && (
+                        <div className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 rounded-full ${
+                          isActive ? 'bg-white' : 'bg-comfort-accent'
+                        }`}></div>
+                      )}
+                      
+                      {/* Content count badge */}
+                      {dayContent[tab]?.length > 0 && (
+                        <div className={`absolute -top-2 -left-2 min-w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                          isActive ? 'bg-comfort-accent text-white' : 'bg-comfort-navy text-white'
+                        }`}>
+                          {dayContent[tab].length}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
-
-          {/* Generate Tab */}
-          <button
-            onClick={() => setActiveTab('generate')}
-            className={`px-6 py-3 font-medium whitespace-nowrap transition-colors ${
-              activeTab === 'generate'
-                ? 'border-b-2 border-comfort-olive text-comfort-olive bg-comfort-olive/10' 
-                : 'text-comfort-navy/70 hover:text-comfort-navy hover:bg-comfort-tan/20'
-            }`}
-          >
-            🤖 Generate
-          </button>
         </div>
       </div>
 
@@ -4290,13 +5895,1048 @@ ${contentStructure.hashtags}`;
               </div>
             </div>
           </div>
+          
+          {/* Weekly Content Generation */}
+          <div className="bg-gradient-to-br from-comfort-accent/10 via-comfort-olive/5 to-comfort-navy/10 p-6 rounded-xl border border-comfort-tan/30">
+            <h3 className="text-lg font-semibold text-comfort-navy mb-4 flex items-center gap-2">
+              📅 Generate Weekly Content
+            </h3>
+            <p className="text-sm text-comfort-navy/70 mb-6">
+              Generate a complete week of content using your day-specific topic selections. Content will appear in the calendar below.
+            </p>
+            
+            {/* Week Generation Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Number of Weeks */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-comfort-accent" />
+                  <label className="text-sm font-medium text-comfort-navy">Generate Content For:</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="4"
+                    value={numberOfWeeks}
+                    onChange={(e) => setNumberOfWeeks(Math.max(1, Math.min(4, parseInt(e.target.value) || 1)))}
+                    className="w-16 px-2 py-1 border border-comfort-tan/50 rounded text-center text-sm focus:border-comfort-olive focus:outline-none"
+                  />
+                  <span className="text-sm text-comfort-navy">
+                    {numberOfWeeks === 1 ? 'week' : 'weeks'} 
+                    <span className="text-comfort-navy/60 ml-1">
+                      ({numberOfWeeks * 7} posts total)
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Generation Mode */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-comfort-navy">Generation Mode:</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="generationMode"
+                      value="nextDay"
+                      checked={generationMode === 'nextDay'}
+                      onChange={(e) => setGenerationMode(e.target.value)}
+                      className="text-comfort-accent"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-comfort-navy">Next 7 Days</div>
+                      <div className="text-xs text-comfort-navy/70">
+                        Start tomorrow and generate for the next 7 days
+                      </div>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="generationMode"
+                      value="calendar"
+                      checked={generationMode === 'calendar'}
+                      onChange={(e) => setGenerationMode(e.target.value)}
+                      className="text-comfort-accent"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-comfort-navy">Calendar Week</div>
+                      <div className="text-xs text-comfort-navy/70">
+                        Generate for Sunday through Saturday
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Topic Schedule Preview */}
+            <div className="bg-comfort-white/50 border border-comfort-tan/30 rounded-lg p-4 mb-6">
+              <h4 className="text-sm font-medium text-comfort-navy mb-3">Current Topic Schedule:</h4>
+              <div className="grid grid-cols-7 gap-2 text-xs">
+                {['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map((day) => (
+                  <div key={day} className="text-center">
+                    <div className="font-medium text-comfort-navy capitalize mb-1">{day.slice(0, 3)}</div>
+                    <div className={`px-2 py-1 rounded text-xs capitalize ${
+                      dayTopicSelections[day] === 'recipes' ? 'bg-orange-100 text-orange-800' :
+                      dayTopicSelections[day] === 'workouts' ? 'bg-green-100 text-green-800' :
+                      dayTopicSelections[day] === 'realestate' ? 'bg-blue-100 text-blue-800' :
+                      dayTopicSelections[day] === 'mindfulness' ? 'bg-purple-100 text-purple-800' :
+                      dayTopicSelections[day] === 'travel' ? 'bg-indigo-100 text-indigo-800' :
+                      dayTopicSelections[day] === 'tech' ? 'bg-gray-100 text-gray-800' :
+                      dayTopicSelections[day] === 'finance' ? 'bg-emerald-100 text-emerald-800' :
+                      'bg-comfort-tan/20 text-comfort-navy'
+                    }`}>
+                      {dayTopicSelections[day]}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-comfort-navy/60 mt-3">
+                💡 Modify topic selections in the individual day tabs if needed
+              </p>
+            </div>
+
+            {/* Generate Button */}
+            <button
+              onClick={generateWeeklyContent}
+              disabled={isGenerating}
+              className="w-full px-6 py-3 bg-comfort-accent text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {isGenerating ? `Generating ${numberOfWeeks} ${numberOfWeeks === 1 ? 'week' : 'weeks'}...` : `🚀 Generate ${numberOfWeeks} ${numberOfWeeks === 1 ? 'Week' : 'Weeks'} of Content`}
+            </button>
+          </div>
+
+          {/* Calendar Section */}
+          <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white rounded-xl shadow-md p-6 border border-comfort-tan/30">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-comfort-navy flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-comfort-accent" />
+                Content Calendar
+              </h3>
+              
+              <div className="flex items-center gap-3">
+                {/* Export Options */}
+                {contentCalendar.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={exportToCSV}
+                      className="px-3 py-1.5 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors flex items-center gap-1"
+                      title="Export as CSV"
+                    >
+                      📊 CSV
+                    </button>
+                    <button
+                      onClick={exportToJSON}
+                      className="px-3 py-1.5 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors flex items-center gap-1"
+                      title="Export as JSON"
+                    >
+                      📄 JSON
+                    </button>
+                    <button
+                      onClick={printCalendar}
+                      className="px-3 py-1.5 text-xs bg-purple-100 text-purple-800 rounded hover:bg-purple-200 transition-colors flex items-center gap-1"
+                      title="Print Calendar"
+                    >
+                      🖨️ Print
+                    </button>
+                  </div>
+                )}
+                
+                {/* View Selector */}
+                <div className="flex bg-comfort-tan/20 rounded-lg p-1">
+                  {['day', 'week', 'month', 'list'].map((view) => (
+                    <button
+                      key={view}
+                      onClick={() => setCalendarView(view)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                        calendarView === view
+                          ? 'bg-comfort-navy text-comfort-white shadow'
+                          : 'text-comfort-navy hover:bg-comfort-tan/30'
+                      }`}
+                    >
+                      {view.charAt(0).toUpperCase() + view.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Calendar Navigation */}
+            {calendarView !== 'list' && (
+              <div className="flex justify-between items-center mb-6">
+                <button
+                  onClick={() => navigateCalendar('prev')}
+                  className="p-2 hover:bg-comfort-tan/30 rounded-lg transition-colors text-comfort-navy"
+                >
+                  <ChevronDown size={16} className="rotate-90" />
+                </button>
+                
+                <div className="text-lg font-semibold text-comfort-navy">
+                  {calendarView === 'month' && currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  {calendarView === 'week' && `Week of ${formatDate(getCalendarDays(currentDate, 'week')[0], 'short')}`}
+                  {calendarView === 'day' && formatDate(currentDate, 'full')}
+                </div>
+                
+                <button
+                  onClick={() => navigateCalendar('next')}
+                  className="p-2 hover:bg-comfort-tan/30 rounded-lg transition-colors text-comfort-navy"
+                >
+                  <ChevronDown size={16} className="-rotate-90" />
+                </button>
+              </div>
+            )}
+
+            {/* Today Button */}
+            {calendarView !== 'list' && (
+              <div className="flex justify-center mb-6">
+                <button
+                  onClick={() => setCurrentDate(new Date())}
+                  className="px-4 py-2 text-sm bg-comfort-accent text-comfort-white rounded hover:bg-comfort-olive transition-colors"
+                >
+                  Go to Today
+                </button>
+              </div>
+            )}
+
+            {/* Calendar Display */}
+            {contentCalendar.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="bg-comfort-tan/20 border border-comfort-tan/50 rounded-lg p-6 max-w-md mx-auto">
+                  <Calendar className="w-12 h-12 text-comfort-accent mx-auto mb-4" />
+                  <h4 className="font-medium text-comfort-navy mb-2">📅 Your Content Calendar</h4>
+                  <p className="text-sm text-comfort-navy/80 mb-4">
+                    Generate content from the day tabs to see it appear in this calendar view.
+                  </p>
+                  <p className="text-xs text-comfort-navy/60">
+                    Switch between day, week, month, and list views to organize your content
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {/* Month View */}
+                {calendarView === 'month' && (
+                  <div className="grid grid-cols-7 gap-1">
+                    {/* Week Headers */}
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                      <div key={day} className="p-3 text-center text-sm font-medium text-comfort-navy/70 bg-comfort-tan/10 rounded">
+                        {day}
+                      </div>
+                    ))}
+                    
+                    {/* Calendar Days */}
+                    {getCalendarDays(currentDate, 'month').map((date) => {
+                      const content = getContentForDate(date);
+                      const isCurrentMonth = date.getMonth() === currentDate.getMonth();
+                      const isToday = date.toDateString() === new Date().toDateString();
+                      const isSelected = date.toDateString() === selectedDate.toDateString();
+                      
+                      return (
+                        <div
+                          key={date.toISOString()}
+                          onClick={() => setSelectedDate(date)}
+                          className={`p-2 min-h-24 border rounded cursor-pointer transition-colors relative ${
+                            isSelected ? 'bg-comfort-accent/20 border-comfort-accent' :
+                            isToday ? 'bg-comfort-olive/10 border-comfort-olive' :
+                            isCurrentMonth ? 'bg-comfort-white border-comfort-tan hover:bg-comfort-tan/10' :
+                            'bg-comfort-tan/5 border-comfort-tan/50 text-comfort-navy/50'
+                          }`}
+                        >
+                          <div className={`text-sm font-medium mb-1 ${
+                            isToday ? 'text-comfort-olive' : 
+                            isCurrentMonth ? 'text-comfort-navy' : 'text-comfort-navy/40'
+                          }`}>
+                            {formatDate(date, 'day')}
+                          </div>
+                          
+                          {content.length > 0 && (
+                            <div className="space-y-1">
+                              {content.slice(0, 2).map((post) => (
+                                <div
+                                  key={post.id}
+                                  className={`text-xs p-1 rounded border-l-2 ${
+                                    post.contentType === 'recipe' ? 'bg-orange-50 border-orange-400' :
+                                    post.contentType === 'workout' ? 'bg-green-50 border-green-400' :
+                                    post.contentType === 'realEstate' ? 'bg-blue-50 border-blue-400' :
+                                    post.contentType === 'mindfulness' ? 'bg-purple-50 border-purple-400' :
+                                    post.contentType === 'travel' ? 'bg-indigo-50 border-indigo-400' :
+                                    post.contentType === 'tech' ? 'bg-gray-50 border-gray-400' :
+                                    post.contentType === 'finance' ? 'bg-emerald-50 border-emerald-400' :
+                                    'bg-comfort-tan/20 border-comfort-accent'
+                                  }`}
+                                >
+                                  {post.content.title.substring(0, 20)}...
+                                </div>
+                              ))}
+                              {content.length > 2 && (
+                                <div className="text-xs text-comfort-navy/60">+{content.length - 2} more</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Week View */}
+                {calendarView === 'week' && (
+                  <div className="grid grid-cols-7 gap-2">
+                    {getCalendarDays(currentDate, 'week').map((date) => {
+                      const content = getContentForDate(date);
+                      const isToday = date.toDateString() === new Date().toDateString();
+                      
+                      return (
+                        <div key={date.toISOString()} className="space-y-2">
+                          <div className={`text-center p-2 rounded ${
+                            isToday ? 'bg-comfort-olive text-comfort-white' : 'bg-comfort-tan/10 text-comfort-navy'
+                          }`}>
+                            <div className="text-xs font-medium">
+                              {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                            </div>
+                            <div className="text-lg font-semibold">
+                              {formatDate(date, 'day')}
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2 min-h-32">
+                            {content.map((post) => (
+                              <div
+                                key={post.id}
+                                className={`p-2 rounded text-xs border-l-4 cursor-pointer hover:shadow-sm transition-all ${
+                                  post.contentType === 'recipe' ? 'bg-orange-50 border-orange-400 hover:bg-orange-100' :
+                                  post.contentType === 'workout' ? 'bg-green-50 border-green-400 hover:bg-green-100' :
+                                  post.contentType === 'realEstate' ? 'bg-blue-50 border-blue-400 hover:bg-blue-100' :
+                                  post.contentType === 'mindfulness' ? 'bg-purple-50 border-purple-400 hover:bg-purple-100' :
+                                  post.contentType === 'travel' ? 'bg-indigo-50 border-indigo-400 hover:bg-indigo-100' :
+                                  post.contentType === 'tech' ? 'bg-gray-50 border-gray-400 hover:bg-gray-100' :
+                                  post.contentType === 'finance' ? 'bg-emerald-50 border-emerald-400 hover:bg-emerald-100' :
+                                  'bg-comfort-tan/20 border-comfort-accent hover:bg-comfort-tan/30'
+                                }`}
+                              >
+                                <div className="font-medium truncate">{post.content.title}</div>
+                                <div className="text-comfort-navy/60 mt-1 capitalize">{post.contentType}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Day View */}
+                {calendarView === 'day' && (
+                  <div className="space-y-4">
+                    {getContentForDate(currentDate).length === 0 ? (
+                      <div className="text-center py-12 bg-comfort-tan/10 rounded-lg">
+                        <p className="text-comfort-navy/50">No content scheduled for this day</p>
+                      </div>
+                    ) : (
+                      getContentForDate(currentDate).map((post) => (
+                        <div key={post.id} className="border rounded-lg p-4 bg-comfort-white">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <div className="font-medium text-comfort-navy">{post.content.title}</div>
+                              <div className="text-sm text-comfort-navy/70 capitalize">{post.contentType} • {post.dayName}</div>
+                            </div>
+                          </div>
+                          
+                          {/* Platform Variations with Hashtags */}
+                          {post.variations ? (
+                            <div className="space-y-3">
+                              {['instagram', 'linkedin', 'facebook'].map(platform => (
+                                <div key={platform} className="border-l-4 border-comfort-accent/30 pl-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-xs font-semibold text-comfort-accent uppercase">{platform}</span>
+                                    <div className="h-1 w-1 bg-comfort-accent/50 rounded-full"></div>
+                                    <span className="text-xs text-comfort-navy/60">{post.variations[platform]?.length || 0} characters</span>
+                                  </div>
+                                  <div className="text-sm text-comfort-navy/80 bg-comfort-tan/10 p-3 rounded whitespace-pre-wrap">
+                                    {post.variations[platform] || `No ${platform} content available`}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-comfort-navy/80 bg-comfort-tan/10 p-3 rounded">
+                              {post.content.description || post.content.content || 'No description available'}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* List View */}
+                {calendarView === 'list' && (
+                  <div className="space-y-4">
+                    <div className="text-lg font-semibold text-comfort-navy mb-4">
+                      All Scheduled Content ({contentCalendar.length} posts)
+                    </div>
+                    {contentCalendar
+                      .sort((a, b) => new Date(a.date) - new Date(b.date))
+                      .map((post) => (
+                        <div key={post.id} className="border rounded-lg p-4 bg-comfort-white">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <div className="font-medium text-comfort-navy">{post.content.title}</div>
+                              <div className="text-sm text-comfort-navy/70">
+                                {post.date} • <span className="capitalize">{post.dayName}</span> • 
+                                <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                  post.contentType === 'recipe' ? 'bg-orange-100 text-orange-800' :
+                                  post.contentType === 'workout' ? 'bg-green-100 text-green-800' :
+                                  post.contentType === 'realEstate' ? 'bg-blue-100 text-blue-800' :
+                                  post.contentType === 'mindfulness' ? 'bg-purple-100 text-purple-800' :
+                                  post.contentType === 'travel' ? 'bg-indigo-100 text-indigo-800' :
+                                  post.contentType === 'tech' ? 'bg-gray-100 text-gray-800' :
+                                  post.contentType === 'finance' ? 'bg-emerald-100 text-emerald-800' :
+                                  'bg-comfort-accent/20 text-comfort-accent'
+                                }`}>
+                                  {post.contentType}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Platform Variations with Hashtags */}
+                          {post.variations ? (
+                            <div className="space-y-3">
+                              {['instagram', 'linkedin', 'facebook'].map(platform => (
+                                <div key={platform} className="border-l-4 border-comfort-accent/30 pl-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-xs font-semibold text-comfort-accent uppercase">{platform}</span>
+                                    <div className="h-1 w-1 bg-comfort-accent/50 rounded-full"></div>
+                                    <span className="text-xs text-comfort-navy/60">{post.variations[platform]?.length || 0} characters</span>
+                                  </div>
+                                  <div className="text-sm text-comfort-navy/80 bg-comfort-tan/10 p-3 rounded whitespace-pre-wrap">
+                                    {post.variations[platform] || `No ${platform} content available`}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-comfort-navy/80 bg-comfort-tan/10 p-3 rounded">
+                              {post.content.description || post.content.content || 'No description available'}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Topic Bank */}
+          <div className="bg-gradient-to-br from-amber-50/50 via-orange-50/30 to-amber-50/50 p-6 rounded-xl border border-amber-200/50 shadow-md">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-amber-800 flex items-center gap-2">
+                🏦 Topic Bank
+              </h3>
+              <div className="text-sm text-amber-700/80">
+                Store and reuse pre-written posts by topic
+              </div>
+            </div>
+
+            {/* Topic Selector */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-amber-800 mb-2">Select Topic:</label>
+              <select
+                value={selectedBankTopic}
+                onChange={(e) => setSelectedBankTopic(e.target.value)}
+                className="w-full max-w-md p-3 border border-amber-300 rounded-lg focus:border-amber-500 focus:outline-none bg-white"
+              >
+                <option value="recipes">Recipes</option>
+                <option value="workouts">Workouts</option>
+                <option value="realEstate">Real Estate</option>
+                <option value="mindfulness">Mindfulness</option>
+                <option value="educational">Educational</option>
+                <option value="motivational">Motivational</option>
+                <option value="travel">Travel</option>
+                <option value="tech">Tech</option>
+                <option value="finance">Finance</option>
+                <option value="beauty">Beauty</option>
+                <option value="parenting">Parenting</option>
+                <option value="business">Business</option>
+                <option value="lifestyle">Lifestyle</option>
+              </select>
+            </div>
+
+            {/* Add to Topic Bank Form */}
+            <div className="bg-white p-5 rounded-lg border border-amber-300 mb-6">
+              <h4 className="text-sm font-semibold text-amber-800 mb-4 flex items-center gap-2">
+                💾 Save New Post to Topic Bank
+              </h4>
+              
+              {/* Input Method Tabs */}
+              <div className="flex bg-amber-50 rounded-lg p-1 mb-4">
+                <button
+                  onClick={() => setBankInputs({ ...bankInputs, inputMethod: 'manual' })}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded transition-colors ${
+                    (bankInputs.inputMethod || 'manual') === 'manual'
+                      ? 'bg-white text-amber-800 shadow-sm'
+                      : 'text-amber-600 hover:text-amber-800'
+                  }`}
+                >
+                  ✏️ Manual Entry
+                </button>
+                <button
+                  onClick={() => setBankInputs({ ...bankInputs, inputMethod: 'url' })}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded transition-colors ${
+                    bankInputs.inputMethod === 'url'
+                      ? 'bg-white text-amber-800 shadow-sm'
+                      : 'text-amber-600 hover:text-amber-800'
+                  }`}
+                >
+                  🔗 From URL
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* URL Input Section */}
+                {bankInputs.inputMethod === 'url' && (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        placeholder="Enter URL to parse content"
+                        value={bankInputs.url || ''}
+                        onChange={(e) => setBankInputs({ ...bankInputs, url: e.target.value })}
+                        className="flex-1 p-3 border border-amber-300/50 rounded-lg focus:border-amber-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => handleBankUrlFetch(bankInputs.url)}
+                        disabled={!bankInputs.url || bankInputs.isUrlLoading}
+                        className="px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      >
+                        {bankInputs.isUrlLoading ? '⏳' : '🔍 Parse'}
+                      </button>
+                    </div>
+                    {bankInputs.urlError && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                        {bankInputs.urlError}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Manual/Parsed Content Fields */}
+                <input
+                  type="text"
+                  placeholder="Post title"
+                  value={bankInputs.title || ''}
+                  onChange={(e) => setBankInputs({ ...bankInputs, title: e.target.value })}
+                  className="w-full p-3 border border-amber-300/50 rounded-lg focus:border-amber-500 focus:outline-none"
+                />
+                <textarea
+                  placeholder="Post content"
+                  value={bankInputs.content || ''}
+                  onChange={(e) => setBankInputs({ ...bankInputs, content: e.target.value })}
+                  className="w-full p-3 border border-amber-300/50 rounded-lg h-24 focus:border-amber-500 focus:outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Tags (optional)"
+                  value={bankInputs.tags || ''}
+                  onChange={(e) => setBankInputs({ ...bankInputs, tags: e.target.value })}
+                  className="w-full p-3 border border-amber-300/50 rounded-lg focus:border-amber-500 focus:outline-none"
+                />
+                <button
+                  onClick={() => {
+                    if (bankInputs.title && bankInputs.content) {
+                      addToTopicBank(selectedBankTopic, {
+                        title: bankInputs.title,
+                        content: bankInputs.content,
+                        tags: bankInputs.tags || '',
+                        source: bankInputs.url ? 'url' : 'manual',
+                        sourceUrl: bankInputs.url || undefined
+                      });
+                      setBankInputs({ 
+                        title: '', 
+                        content: '', 
+                        tags: '', 
+                        url: '', 
+                        inputMethod: bankInputs.inputMethod,
+                        urlError: null 
+                      });
+                    }
+                  }}
+                  disabled={!bankInputs.title || !bankInputs.content}
+                  className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  Save to {selectedBankTopic.charAt(0).toUpperCase() + selectedBankTopic.slice(1)} Bank
+                </button>
+              </div>
+            </div>
+
+            {/* Current Posts in Selected Bank */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-medium text-amber-800">
+                  📚 {selectedBankTopic.charAt(0).toUpperCase() + selectedBankTopic.slice(1)} Posts
+                </h4>
+                <div className="text-sm text-amber-700/80">
+                  {topicBank[selectedBankTopic]?.length || 0} posts saved
+                </div>
+              </div>
+              
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {topicBank[selectedBankTopic]?.length > 0 ? (
+                  topicBank[selectedBankTopic].map((post, index) => (
+                    <div key={post.id} className="p-4 bg-gradient-to-r from-white to-amber-50/50 border border-amber-200 rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="font-medium text-amber-900 mb-1">{post.title}</div>
+                          <div className="text-sm text-amber-800/80 mb-2">{post.content}</div>
+                          {post.tags && (
+                            <div className="text-xs text-amber-700/60 mb-2">Tags: {post.tags}</div>
+                          )}
+                          <div className="flex items-center gap-2 mb-2">
+                            {post.source === 'url' && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                🔗 From URL
+                              </span>
+                            )}
+                            {post.source === 'manual' && (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                ✏️ Manual
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-amber-600/50">
+                            Saved: {new Date(post.createdAt).toLocaleDateString()}
+                          </div>
+                          {post.sourceUrl && (
+                            <div className="text-xs text-blue-600/70 mt-1">
+                              Source: <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">{post.sourceUrl}</a>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={() => movePostFromTopicBank(selectedBankTopic, post.id)}
+                            className="px-3 py-1 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 transition-colors"
+                            title="Use this post (will be added to current day tab)"
+                          >
+                            Use
+                          </button>
+                          <button
+                            onClick={() => removeFromTopicBank(selectedBankTopic, post.id)}
+                            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
+                            title="Delete from bank"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-6 bg-amber-50/30 border border-amber-200/50 rounded-lg text-center text-amber-700/70">
+                    <div className="text-4xl mb-3">🏪</div>
+                    <p className="font-medium mb-2">No posts in this topic bank yet</p>
+                    <p className="text-sm text-amber-600/80">
+                      Save posts above to build your {selectedBankTopic} content library
+                    </p>
+                    <p className="text-xs text-amber-600/60 mt-2">
+                      Posts can be used on any day of the week
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      )}      {activeTab === 'recipes' && (
+      )}
+
+      {/* Day-based Content Tabs */}
+      {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].includes(activeTab) && (
+        <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white rounded-xl shadow-md p-6 border border-comfort-tan/30">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-comfort-navy flex items-center gap-2">
+              📅 {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Content
+            </h2>
+            
+            {/* Topic Selector for this day */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-comfort-navy">Topic:</label>
+              <select
+                value={dayTopicSelections[activeTab]}
+                onChange={(e) => setDayTopicSelections({
+                  ...dayTopicSelections,
+                  [activeTab]: e.target.value
+                })}
+                className="px-3 py-1.5 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none text-sm"
+              >
+                {topicOptions.map((topic) => (
+                  <option key={topic.value} value={topic.value}>
+                    {topic.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* AI Content Settings */}
+          <div className="bg-gradient-to-r from-comfort-olive/10 to-comfort-navy/10 p-4 rounded-lg mb-6 border border-comfort-tan/30">
+            <h3 className="font-medium text-comfort-navy mb-3 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-comfort-accent" />
+              AI Content Settings
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy/80 mb-1">Platform</label>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="w-full p-2 border border-comfort-tan/50 rounded-lg text-sm focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="instagram">Instagram</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="twitter">Twitter</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="pinterest">Pinterest</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy/80 mb-1">Complexity</label>
+                <select
+                  value={contentComplexity}
+                  onChange={(e) => setContentComplexity(e.target.value)}
+                  className="w-full p-2 border border-comfort-tan/50 rounded-lg text-sm focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-comfort-navy/60 mt-2">
+              Content will be optimized for {selectedPlatform} with {contentComplexity} level complexity
+            </p>
+          </div>
+
+          {/* Dynamic Content Input based on selected topic */}
+          {(() => {
+            const currentSelectedTopic = dayTopicSelections[activeTab];
+            const currentTopicOption = topicOptions.find(t => t.value === currentSelectedTopic);
+            const IconComponent = currentTopicOption?.icon || FileText;
+            
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 p-3 bg-comfort-tan/10 rounded-lg border border-comfort-tan/20">
+                  <IconComponent className="w-5 h-5 text-comfort-accent" />
+                  <span className="font-medium text-comfort-navy">
+                    Creating {currentTopicOption?.label} content for {activeTab}
+                  </span>
+                </div>
+                
+                {/* URL Input Section */}
+                <div className="mb-4 p-4 bg-comfort-tan/20 rounded-xl border border-comfort-tan/30">
+                  <p className="text-sm text-comfort-navy mb-3">
+                    💡 <strong>Quick Add:</strong> Paste a URL to auto-populate content fields
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder={`Enter ${dayTopicSelections[activeTab]} URL (blog, video, recipe, etc.)`}
+                      value={dayInputs[activeTab]?.url || ''}
+                      onChange={(e) => setDayInputs({
+                        ...dayInputs,
+                        [activeTab]: { ...(dayInputs[activeTab] || {}), url: e.target.value }
+                      })}
+                      className="flex-1 p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        // TODO: Implement URL fetching functionality
+                        alert('URL fetching functionality will be implemented next!');
+                      }}
+                      disabled={!dayInputs[activeTab]?.url}
+                      className="px-4 py-3 bg-comfort-accent text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Fetch
+                    </button>
+                  </div>
+                </div>
+
+                {/* Manual Content Input */}
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder={`${dayTopicSelections[activeTab]} title`}
+                    value={dayInputs[activeTab]?.title || ''}
+                    onChange={(e) => setDayInputs({
+                      ...dayInputs,
+                      [activeTab]: { ...(dayInputs[activeTab] || {}), title: e.target.value }
+                    })}
+                    className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                  />
+                  <textarea
+                    placeholder={`${dayTopicSelections[activeTab]} description or content`}
+                    value={dayInputs[activeTab]?.content || ''}
+                    onChange={(e) => setDayInputs({
+                      ...dayInputs,
+                      [activeTab]: { ...(dayInputs[activeTab] || {}), content: e.target.value }
+                    })}
+                    className="w-full p-3 border border-comfort-tan/50 rounded-lg h-24 focus:border-comfort-olive focus:outline-none"
+                  />
+                  
+                  {/* Topic-specific additional fields */}
+                  {currentSelectedTopic === 'recipes' && (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Ingredients (comma separated)"
+                        value={dayInputs[activeTab]?.field1 || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...(dayInputs[activeTab] || {}), field1: e.target.value }
+                        })}
+                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Cooking time (e.g., 30 minutes)"
+                        value={dayInputs[activeTab]?.field2 || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
+                        })}
+                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                      />
+                    </>
+                  )}
+                  
+                  {currentSelectedTopic === 'workouts' && (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Duration (e.g., 20 minutes)"
+                        value={dayInputs[activeTab]?.field1 || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
+                        })}
+                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Difficulty (Beginner/Intermediate/Advanced)"
+                        value={dayInputs[activeTab]?.field2 || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
+                        })}
+                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                      />
+                    </>
+                  )}
+                  
+                  {currentSelectedTopic === 'realestate' && (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Property type or market area"
+                        value={dayInputs[activeTab]?.field1 || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
+                        })}
+                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Tips category (buying/selling/investing)"
+                        value={dayInputs[activeTab]?.field2 || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
+                        })}
+                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                      />
+                    </>
+                  )}
+                  
+                  {currentSelectedTopic === 'travel' && (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Destination"
+                        value={dayInputs[activeTab]?.field1 || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
+                        })}
+                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Category (adventure/budget/luxury/family)"
+                        value={dayInputs[activeTab]?.field2 || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+          [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
+                        })}
+                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                      />
+                    </>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => {
+                      const inputs = dayInputs[activeTab];
+                      if (inputs.title || inputs.content) {
+                        const newContent = {
+                          id: Date.now(),
+                          title: inputs.title || `${dayTopicSelections[activeTab]} content`,
+                          content: inputs.content || 'Manual content entry',
+                          topic: dayTopicSelections[activeTab],
+                          day: activeTab,
+                          field1: inputs.field1,
+                          field2: inputs.field2
+                        };
+                        addContentToDay(activeTab, newContent);
+                        
+                        // Also add to content calendar for dashboard calendar view
+                        const today = new Date();
+                        const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(activeTab);
+                        const targetDate = new Date(today);
+                        
+                        // Calculate the next occurrence of this day
+                        const currentDayIndex = today.getDay();
+                        let daysToAdd = dayIndex - currentDayIndex;
+                        if (daysToAdd <= 0) {
+                          daysToAdd += 7; // Next week if the day has already passed this week
+                        }
+                        targetDate.setDate(today.getDate() + daysToAdd);
+                        
+                        const calendarPost = {
+                          id: Date.now() + Math.random(),
+                          date: targetDate.toISOString().split('T')[0],
+                          dayName: activeTab,
+                          contentType: dayTopicSelections[activeTab],
+                          content: {
+                            title: newContent.title,
+                            content: newContent.content,
+                            description: `Manual ${dayTopicSelections[activeTab]} content for ${activeTab}`
+                          },
+                          platforms: ['instagram', 'linkedin', 'facebook'],
+                          status: 'draft',
+                          variations: {
+                            instagram: newContent.content,
+                            linkedin: newContent.content,
+                            facebook: newContent.content
+                          }
+                        };
+                        
+                        setContentCalendar(prev => [...prev, calendarPost]);
+                        console.log(`✅ Added manual content for ${activeTab} and added to calendar`);
+                        console.log(`📅 Calendar post scheduled for ${targetDate.toLocaleDateString()}`);
+                        
+                        // Clear inputs
+                        setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { title: '', content: '', url: '', field1: '', field2: '' }
+                        });
+                      }
+                    }}
+                    disabled={!dayInputs[activeTab]?.title && !dayInputs[activeTab]?.content}
+                    className="flex-1 px-4 py-3 bg-comfort-navy text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add to {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                  </button>
+                  <button 
+                    onClick={() => generateDayAIContent(activeTab)}
+                    disabled={isGenerating}
+                    className="flex-1 px-4 py-3 bg-comfort-accent text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate AI Content'}
+                  </button>
+                </div>
+
+                {/* Content List */}
+                <div className="mt-6">
+                  <h3 className="font-medium text-comfort-navy mb-3">
+                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Content ({dayContent[activeTab]?.length || 0})
+                  </h3>
+                  <div className="space-y-2">
+                    {dayContent[activeTab]?.length > 0 ? (
+                      dayContent[activeTab].map((item, index) => (
+                        <div key={index} className="p-3 bg-comfort-white border border-comfort-tan/30 rounded-lg">
+                          <div className="font-medium text-comfort-navy">{item.title}</div>
+                          <div className="text-sm text-comfort-navy/70 mt-1">{item.content}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 bg-comfort-tan/10 rounded-lg text-center text-comfort-navy/60">
+                        No {currentSelectedTopic} content added yet. Add some content above!
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Keep existing specialized tabs for now */}
+      {activeTab === 'recipes-old' && (
         <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white rounded-xl shadow-md p-6 border border-comfort-tan/30">
           <h2 className="text-xl font-semibold mb-4 text-comfort-navy flex items-center gap-2">
             <ChefHat className="w-5 h-5 text-comfort-accent" />
             Recipe Management
           </h2>
+
+          {/* AI Settings Panel */}
+          <div className="mb-6 p-4 bg-gradient-to-br from-comfort-tan/20 via-comfort-accent/10 to-comfort-tan/20 rounded-xl border border-comfort-tan/30 shadow-sm">
+            <h3 className="text-lg font-semibold mb-3 text-comfort-navy">🤖 AI Content Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Target Platform</label>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="instagram">📸 Instagram (Visual + Stories)</option>
+                  <option value="tiktok">🎵 TikTok (Short + Viral)</option>
+                  <option value="linkedin">💼 LinkedIn (Professional)</option>
+                  <option value="twitter">🐦 Twitter (Concise + Trending)</option>
+                  <option value="youtube">📺 YouTube (Educational + Community)</option>
+                  <option value="facebook">👥 Facebook (Community + Family)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Content Complexity</label>
+                <select
+                  value={contentComplexity}
+                  onChange={(e) => setContentComplexity(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="beginner">🌱 Beginner (Simple, Encouraging)</option>
+                  <option value="intermediate">⚡ Intermediate (Engaging, Multi-angle)</option>
+                  <option value="advanced">🎯 Advanced (Sophisticated Psychology)</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-comfort-navy/70">
+              ✨ Content will be optimized for <strong className="text-comfort-olive">{selectedPlatform}</strong> with <strong className="text-comfort-accent">{contentComplexity}</strong>-level copywriting and SEO optimization
+            </div>
+          </div>
+
           <div className="mb-4 p-4 bg-comfort-tan/20 rounded-xl border border-comfort-tan/30 shadow-sm">
             <p className="text-sm text-comfort-navy">
               💡 <strong>Tip:</strong> Paste any recipe URL (like from AllRecipes, Food Network, or YouTube cooking videos) to auto-populate the fields!
@@ -4550,6 +7190,44 @@ ${contentStructure.hashtags}`;
             <Home className="w-5 h-5 text-comfort-accent" />
             Real Estate Content
           </h2>
+
+          {/* AI Settings Panel */}
+          <div className="mb-6 p-4 bg-gradient-to-br from-comfort-tan/20 via-comfort-accent/10 to-comfort-tan/20 rounded-xl border border-comfort-tan/30 shadow-sm">
+            <h3 className="text-lg font-semibold mb-3 text-comfort-navy">🤖 AI Content Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Target Platform</label>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="instagram">📸 Instagram (Visual + Stories)</option>
+                  <option value="tiktok">🎵 TikTok (Short + Viral)</option>
+                  <option value="linkedin">💼 LinkedIn (Professional)</option>
+                  <option value="twitter">🐦 Twitter (Concise + Trending)</option>
+                  <option value="youtube">📺 YouTube (Educational + Community)</option>
+                  <option value="facebook">👥 Facebook (Community + Family)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Content Complexity</label>
+                <select
+                  value={contentComplexity}
+                  onChange={(e) => setContentComplexity(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="beginner">🌱 Beginner (Simple, Encouraging)</option>
+                  <option value="intermediate">⚡ Intermediate (Engaging, Multi-angle)</option>
+                  <option value="advanced">🎯 Advanced (Sophisticated Psychology)</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-comfort-navy/70">
+              ✨ Content will be optimized for <strong className="text-comfort-olive">{selectedPlatform}</strong> with <strong className="text-comfort-accent">{contentComplexity}</strong>-level copywriting and SEO optimization
+            </div>
+          </div>
+
           <div className="space-y-3">
             <input
               type="text"
@@ -4648,6 +7326,44 @@ ${contentStructure.hashtags}`;
             <Heart className="w-5 h-5 text-comfort-accent" />
             Mindfulness Content
           </h2>
+
+          {/* AI Settings Panel */}
+          <div className="mb-6 p-4 bg-gradient-to-br from-comfort-tan/20 via-comfort-accent/10 to-comfort-tan/20 rounded-xl border border-comfort-tan/30 shadow-sm">
+            <h3 className="text-lg font-semibold mb-3 text-comfort-navy">🤖 AI Content Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Target Platform</label>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="instagram">📸 Instagram (Visual + Stories)</option>
+                  <option value="tiktok">🎵 TikTok (Short + Viral)</option>
+                  <option value="linkedin">💼 LinkedIn (Professional)</option>
+                  <option value="twitter">🐦 Twitter (Concise + Trending)</option>
+                  <option value="youtube">📺 YouTube (Educational + Community)</option>
+                  <option value="facebook">👥 Facebook (Community + Family)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Content Complexity</label>
+                <select
+                  value={contentComplexity}
+                  onChange={(e) => setContentComplexity(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="beginner">🌱 Beginner (Simple, Encouraging)</option>
+                  <option value="intermediate">⚡ Intermediate (Engaging, Multi-angle)</option>
+                  <option value="advanced">🎯 Advanced (Sophisticated Psychology)</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-comfort-navy/70">
+              ✨ Content will be optimized for <strong className="text-comfort-olive">{selectedPlatform}</strong> with <strong className="text-comfort-accent">{contentComplexity}</strong>-level copywriting and SEO optimization
+            </div>
+          </div>
+
           <div className="space-y-3">
             <input
               type="text"
@@ -4931,6 +7647,44 @@ ${contentStructure.hashtags}`;
             <Plane className="w-5 h-5 text-comfort-accent" />
             Travel Content
           </h2>
+
+          {/* AI Settings Panel */}
+          <div className="mb-6 p-4 bg-gradient-to-br from-comfort-tan/20 via-comfort-accent/10 to-comfort-tan/20 rounded-xl border border-comfort-tan/30 shadow-sm">
+            <h3 className="text-lg font-semibold mb-3 text-comfort-navy">🤖 AI Content Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Target Platform</label>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="instagram">📸 Instagram (Visual + Stories)</option>
+                  <option value="tiktok">🎵 TikTok (Short + Viral)</option>
+                  <option value="linkedin">💼 LinkedIn (Professional)</option>
+                  <option value="twitter">🐦 Twitter (Concise + Trending)</option>
+                  <option value="youtube">📺 YouTube (Educational + Community)</option>
+                  <option value="facebook">👥 Facebook (Community + Family)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Content Complexity</label>
+                <select
+                  value={contentComplexity}
+                  onChange={(e) => setContentComplexity(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="beginner">🌱 Beginner (Simple, Encouraging)</option>
+                  <option value="intermediate">⚡ Intermediate (Engaging, Multi-angle)</option>
+                  <option value="advanced">🎯 Advanced (Sophisticated Psychology)</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-comfort-navy/70">
+              ✨ Content will be optimized for <strong className="text-comfort-olive">{selectedPlatform}</strong> with <strong className="text-comfort-accent">{contentComplexity}</strong>-level copywriting and SEO optimization
+            </div>
+          </div>
+
           <div className="space-y-3">
             <input
               type="text"
@@ -5022,6 +7776,44 @@ ${contentStructure.hashtags}`;
             <Smartphone className="w-5 h-5 text-comfort-accent" />
             Technology Content
           </h2>
+
+          {/* AI Settings Panel */}
+          <div className="mb-6 p-4 bg-gradient-to-br from-comfort-tan/20 via-comfort-accent/10 to-comfort-tan/20 rounded-xl border border-comfort-tan/30 shadow-sm">
+            <h3 className="text-lg font-semibold mb-3 text-comfort-navy">🤖 AI Content Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Target Platform</label>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="instagram">📸 Instagram (Visual + Stories)</option>
+                  <option value="tiktok">🎵 TikTok (Short + Viral)</option>
+                  <option value="linkedin">💼 LinkedIn (Professional)</option>
+                  <option value="twitter">🐦 Twitter (Concise + Trending)</option>
+                  <option value="youtube">📺 YouTube (Educational + Community)</option>
+                  <option value="facebook">👥 Facebook (Community + Family)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy mb-2">Content Complexity</label>
+                <select
+                  value={contentComplexity}
+                  onChange={(e) => setContentComplexity(e.target.value)}
+                  className="w-full p-3 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="beginner">🌱 Beginner (Simple, Encouraging)</option>
+                  <option value="intermediate">⚡ Intermediate (Engaging, Multi-angle)</option>
+                  <option value="advanced">🎯 Advanced (Sophisticated Psychology)</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-comfort-navy/70">
+              ✨ Content will be optimized for <strong className="text-comfort-olive">{selectedPlatform}</strong> with <strong className="text-comfort-accent">{contentComplexity}</strong>-level copywriting and SEO optimization
+            </div>
+          </div>
+
           <div className="space-y-3">
             <input
               type="text"
@@ -5103,6 +7895,48 @@ ${contentStructure.hashtags}`;
             <DollarSign className="w-5 h-5 text-comfort-accent" />
             Finance Content
           </h2>
+          
+          {/* AI Content Settings */}
+          <div className="bg-gradient-to-r from-comfort-olive/10 to-comfort-navy/10 p-4 rounded-lg mb-6 border border-comfort-tan/30">
+            <h3 className="font-medium text-comfort-navy mb-3 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-comfort-accent" />
+              AI Content Settings
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy/80 mb-1">Platform</label>
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="w-full p-2 border border-comfort-tan/50 rounded-lg text-sm focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="instagram">Instagram</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="twitter">Twitter</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="pinterest">Pinterest</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-comfort-navy/80 mb-1">Complexity</label>
+                <select
+                  value={contentComplexity}
+                  onChange={(e) => setContentComplexity(e.target.value)}
+                  className="w-full p-2 border border-comfort-tan/50 rounded-lg text-sm focus:border-comfort-olive focus:outline-none"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-comfort-navy/60 mt-2">
+              Content will be optimized for {selectedPlatform} with {contentComplexity} level complexity
+            </p>
+          </div>
+          
           <div className="space-y-3">
             <input
               type="text"
@@ -5503,368 +8337,11 @@ ${contentStructure.hashtags}`;
         </div>
       )}
 
-      {activeTab === 'calendar' && (
-        <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white rounded-xl shadow-md p-6 border border-comfort-tan/30">
-          {/* Calendar Header */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-comfort-navy flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-comfort-accent" />
-              Content Calendar
-            </h2>
-            
-            {/* Export Buttons */}
-            {contentCalendar.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-comfort-navy/70">Export:</span>
-                <button
-                  onClick={exportToBufferCSV}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-comfort-olive text-comfort-white text-xs rounded hover:bg-comfort-navy transition-colors shadow"
-                  title="Export as CSV for Buffer import"
-                >
-                  <Download size={14} />
-                  CSV
-                </button>
-                <button
-                  onClick={exportToBufferJSON}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-comfort-accent text-comfort-white text-xs rounded hover:bg-comfort-navy transition-colors shadow"
-                  title="Export as JSON for Buffer API"
-                >
-                  <Download size={14} />
-                  JSON
-                </button>
-              </div>
-            )}
-          </div>
 
-          {contentCalendar.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-comfort-navy/50 mb-4">No content generated yet. Go to Generate tab!</p>
-              <div className="bg-comfort-tan/20 border border-comfort-tan/50 rounded-lg p-4 max-w-md mx-auto">
-                <h4 className="font-medium text-comfort-navy mb-2">📅 Buffer Integration Ready</h4>
-                <p className="text-sm text-comfort-navy/80">
-                  Once you generate content, you can export it directly to Buffer for scheduling across all your social media platforms!
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Calendar Navigation */}
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-2">
-                  {/* View Selector */}
-                  <div className="flex bg-comfort-tan/20 rounded-lg p-1">
-                    {['day', 'week', 'month', 'list'].map((view) => (
-                      <button
-                        key={view}
-                        onClick={() => setCalendarView(view)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-                          calendarView === view
-                            ? 'bg-comfort-navy text-comfort-white shadow'
-                            : 'text-comfort-navy hover:bg-comfort-tan/30'
-                        }`}
-                      >
-                        {view.charAt(0).toUpperCase() + view.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Date Navigation - Hidden for list view */}
-                {calendarView !== 'list' && (
-                  <>
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={() => navigateCalendar('prev')}
-                        className="p-2 hover:bg-comfort-tan/30 rounded-lg transition-colors text-comfort-navy"
-                      >
-                        <ChevronDown size={16} className="rotate-90" />
-                      </button>
-                      
-                      <div className="text-lg font-semibold text-comfort-navy min-w-48 text-center">
-                        {calendarView === 'month' && currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                        {calendarView === 'week' && `Week of ${formatDate(getCalendarDays(currentDate, 'week')[0], 'short')}`}
-                        {calendarView === 'day' && formatDate(currentDate, 'full')}
-                      </div>
-                      
-                      <button
-                        onClick={() => navigateCalendar('next')}
-                        className="p-2 hover:bg-comfort-tan/30 rounded-lg transition-colors text-comfort-navy"
-                      >
-                        <ChevronDown size={16} className="-rotate-90" />
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => setCurrentDate(new Date())}
-                      className="px-3 py-1.5 text-sm bg-comfort-accent text-comfort-white rounded hover:bg-comfort-olive transition-colors"
-                    >
-                      Today
-                    </button>
-                  </>
-                )}
-
-                {/* List View Header */}
-                {calendarView === 'list' && (
-                  <div className="text-lg font-semibold text-comfort-navy">
-                    All Scheduled Content ({contentCalendar.length} posts)
-                  </div>
-                )}
-              </div>
-
-              {/* Calendar Grid */}
-              {calendarView === 'month' && (
-                <div className="grid grid-cols-7 gap-1 mb-4">
-                  {/* Week Headers */}
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="p-3 text-center text-sm font-medium text-comfort-navy/70 bg-comfort-tan/10 rounded">
-                      {day}
-                    </div>
-                  ))}
-                  
-                  {/* Calendar Days */}
-                  {getCalendarDays(currentDate, 'month').map((date) => {
-                    const content = getContentForDate(date);
-                    const isCurrentMonth = date.getMonth() === currentDate.getMonth();
-                    const isToday = date.toDateString() === new Date().toDateString();
-                    const isSelected = date.toDateString() === selectedDate.toDateString();
-                    
-                    return (
-                      <div
-                        key={date.toISOString()}
-                        onClick={() => setSelectedDate(date)}
-                        className={`p-2 min-h-24 border rounded cursor-pointer transition-colors relative ${
-                          isSelected ? 'bg-comfort-accent/20 border-comfort-accent' :
-                          isToday ? 'bg-comfort-olive/10 border-comfort-olive' :
-                          isCurrentMonth ? 'bg-comfort-white border-comfort-tan hover:bg-comfort-tan/10' :
-                          'bg-comfort-tan/5 border-comfort-tan/50 text-comfort-navy/50'
-                        }`}
-                      >
-                        <div className={`text-sm font-medium mb-1 ${
-                          isToday ? 'text-comfort-olive' : 
-                          isCurrentMonth ? 'text-comfort-navy' : 'text-comfort-navy/40'
-                        }`}>
-                          {formatDate(date, 'day')}
-                        </div>
-                        
-                        {content.length > 0 && (
-                          <div className="space-y-1">
-                            {content.slice(0, 3).map((post) => (
-                              <div
-                                key={post.id}
-                                className={`text-xs p-1 rounded truncate ${
-                                  post.contentType === 'recipe' ? 'bg-orange-100 text-orange-800' :
-                                  post.contentType === 'workout' ? 'bg-green-100 text-green-800' :
-                                  post.contentType === 'realEstate' ? 'bg-blue-100 text-blue-800' :
-                                  post.contentType === 'mindfulness' ? 'bg-purple-100 text-purple-800' :
-                                  post.contentType === 'motivational' ? 'bg-pink-100 text-pink-800' :
-                                  'bg-indigo-100 text-indigo-800'
-                                }`}
-                              >
-                                {post.content.title}
-                              </div>
-                            ))}
-                            {content.length > 3 && (
-                              <div className="text-xs text-comfort-navy/60">+{content.length - 3} more</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Week View */}
-              {calendarView === 'week' && (
-                <div className="grid grid-cols-7 gap-2 mb-4">
-                  {getCalendarDays(currentDate, 'week').map((date) => {
-                    const content = getContentForDate(date);
-                    const isToday = date.toDateString() === new Date().toDateString();
-                    
-                    return (
-                      <div key={date.toISOString()} className="space-y-2">
-                        <div className={`text-center p-2 rounded ${
-                          isToday ? 'bg-comfort-olive text-comfort-white' : 'bg-comfort-tan/10 text-comfort-navy'
-                        }`}>
-                          <div className="text-xs font-medium">
-                            {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {formatDate(date, 'day')}
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2 min-h-64">
-                          {content.map((post) => (
-                            <div
-                              key={post.id}
-                              className={`p-2 rounded text-xs border-l-4 ${
-                                post.contentType === 'recipe' ? 'bg-orange-50 border-orange-400' :
-                                post.contentType === 'workout' ? 'bg-green-50 border-green-400' :
-                                post.contentType === 'realEstate' ? 'bg-blue-50 border-blue-400' :
-                                post.contentType === 'mindfulness' ? 'bg-purple-50 border-purple-400' :
-                                post.contentType === 'motivational' ? 'bg-pink-50 border-pink-400' :
-                                'bg-indigo-50 border-indigo-400'
-                              }`}
-                            >
-                              <div className="font-medium text-comfort-navy truncate">
-                                {post.content.title}
-                              </div>
-                              <div className="text-comfort-navy/60 mt-1">
-                                {contentTypes[post.contentType]?.name || post.contentType}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Day View */}
-              {calendarView === 'day' && (
-                <div className="space-y-4">
-                  {getContentForDate(currentDate).length === 0 ? (
-                    <div className="text-center py-12 bg-comfort-tan/10 rounded-lg">
-                      <p className="text-comfort-navy/50">No content scheduled for this day</p>
-                    </div>
-                  ) : (
-                    getContentForDate(currentDate).map((post) => (
-                      <div key={post.id} className="border rounded-lg p-4 bg-comfort-white">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <div className="font-medium text-comfort-navy">{post.content.title}</div>
-                            <div className="text-sm text-comfort-navy/70">
-                              <span className={`px-2 py-0.5 rounded text-xs ${
-                                post.contentType === 'recipe' ? 'bg-orange-100 text-orange-800' :
-                                post.contentType === 'workout' ? 'bg-green-100 text-green-800' :
-                                post.contentType === 'realEstate' ? 'bg-blue-100 text-blue-800' :
-                                post.contentType === 'mindfulness' ? 'bg-purple-100 text-purple-800' :
-                                post.contentType === 'motivational' ? 'bg-pink-100 text-pink-800' :
-                                'bg-indigo-100 text-indigo-800'
-                              }`}>
-                                {contentTypes[post.contentType]?.name || post.contentType}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          {Object.entries(platforms).map(([platform, config]) => (
-                            <div key={platform} className="border rounded p-3">
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="font-medium text-sm">{config.icon} {config.name}</span>
-                                <button
-                                  onClick={() => copyToClipboard(post.variations[platform], config.name)}
-                                  className="text-gray-400 hover:text-gray-600"
-                                >
-                                  <Copy size={16} />
-                                </button>
-                              </div>
-                              <div className="text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
-                                {post.variations[platform]}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* List View */}
-              {calendarView === 'list' && (
-                <div className="space-y-6">
-                  {/* Buffer Integration Info */}
-                  <div className="bg-gradient-to-r from-comfort-olive/10 to-comfort-accent/10 border border-comfort-olive/30 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="bg-comfort-olive text-comfort-white rounded-lg p-2">
-                        <Download size={20} />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-comfort-navy mb-2">🚀 Ready for Buffer!</h4>
-                        <p className="text-sm text-comfort-navy/80 mb-3">
-                          Your content is optimized for Buffer import. Choose your export format:
-                        </p>
-                        <ul className="text-xs text-comfort-navy/70 space-y-1">
-                          <li>• <strong>Buffer CSV:</strong> Import directly into Buffer's bulk upload</li>
-                          <li>• <strong>Buffer JSON:</strong> Use with Buffer's API for advanced scheduling</li>
-                          <li>• <strong>Summary:</strong> Human-readable format for review and planning</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sorted Content List */}
-                  <div className="space-y-4">
-                    {contentCalendar
-                      .sort((a, b) => new Date(a.date) - new Date(b.date))
-                      .map((post) => (
-                        <div key={post.id} className="border rounded-lg p-4 bg-comfort-white">
-                          <div className="flex justify-between items-start mb-3">
-                            <div>
-                              <div className="font-medium text-comfort-navy">{post.content.title}</div>
-                              <div className="text-sm text-comfort-navy/70">
-                                {post.date} • <span className="capitalize">{post.dayName}</span> • 
-                                <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                                  post.contentType === 'recipe' ? 'bg-orange-100 text-orange-800' :
-                                  post.contentType === 'workout' ? 'bg-green-100 text-green-800' :
-                                  post.contentType === 'realEstate' ? 'bg-blue-100 text-blue-800' :
-                                  post.contentType === 'mindfulness' ? 'bg-purple-100 text-purple-800' :
-                                  post.contentType === 'motivational' ? 'bg-pink-100 text-pink-800' :
-                                  post.contentType === 'travel' ? 'bg-cyan-100 text-cyan-800' :
-                                  post.contentType === 'tech' ? 'bg-slate-100 text-slate-800' :
-                                  post.contentType === 'finance' ? 'bg-emerald-100 text-emerald-800' :
-                                  post.contentType === 'beauty' ? 'bg-rose-100 text-rose-800' :
-                                  post.contentType === 'parenting' ? 'bg-yellow-100 text-yellow-800' :
-                                  post.contentType === 'business' ? 'bg-gray-100 text-gray-800' :
-                                  post.contentType === 'lifestyle' ? 'bg-teal-100 text-teal-800' :
-                                  'bg-indigo-100 text-indigo-800'
-                                }`}>
-                                  {contentTypes[post.contentType]?.name || post.contentType}
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setSelectedDate(new Date(post.date))}
-                              className="text-xs px-2 py-1 bg-comfort-tan/30 hover:bg-comfort-tan/50 text-comfort-navy rounded transition-colors"
-                              title="View in calendar"
-                            >
-                              View Date
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            {Object.entries(platforms).map(([platform, config]) => (
-                              <div key={platform} className="border rounded p-3">
-                                <div className="flex justify-between items-center mb-2">
-                                  <span className="font-medium text-sm">{config.icon} {config.name}</span>
-                                  <button
-                                    onClick={() => copyToClipboard(post.variations[platform], config.name)}
-                                    className="text-gray-400 hover:text-gray-600"
-                                  >
-                                    <Copy size={16} />
-                                  </button>
-                                </div>
-                                <div className="text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
-                                  {post.variations[platform]}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
 
       {activeTab === 'generate' && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-6">Generate Weekly Content</h2>
+          <h2 className="text-xl font-semibold mb-6">📅 Content Calendar & Generation</h2>
           
           {/* Generation Mode Selector */}
           <div className="bg-comfort-tan/20 border border-comfort-tan/50 rounded-lg p-4 mb-4">
@@ -5954,7 +8431,7 @@ ${contentStructure.hashtags}`;
                   <label className="text-sm font-medium capitalize w-24">{day}:</label>
                   <select
                     value={weeklySchedule[day]}
-                    onChange={(e) => setWeeklySchedule({...weeklySchedule, [day]: e.target.value})}
+                    onChange={(e) => setDayTopicSelections({...dayTopicSelections, [day]: e.target.value})}
                     className="flex-1 p-2 border rounded text-sm"
                   >
                     <option value="recipe">🍳 Recipe</option>
@@ -6095,6 +8572,40 @@ ${contentStructure.hashtags}`;
             </p>
           </div>
 
+          {/* Week Selection */}
+          <div className="bg-gradient-to-r from-comfort-accent/10 to-comfort-olive/10 p-4 rounded-xl border border-comfort-tan/30 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-comfort-accent" />
+                <label className="text-sm font-medium text-comfort-navy">Generate Content For:</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="12"
+                  value={numberOfWeeks}
+                  onChange={(e) => setNumberOfWeeks(Math.max(1, Math.min(12, parseInt(e.target.value) || 1)))}
+                  className="w-16 px-2 py-1 border border-comfort-tan/50 rounded text-center text-sm focus:border-comfort-olive focus:outline-none"
+                />
+                <span className="text-sm text-comfort-navy">
+                  {numberOfWeeks === 1 ? 'week' : 'weeks'} 
+                  <span className="text-comfort-navy/60 ml-1">
+                    ({numberOfWeeks * 7} posts total)
+                  </span>
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-comfort-navy/60 mt-2">
+              ✨ Generate content for multiple weeks in advance. Each week follows your daily schedule above.
+              {numberOfWeeks > 1 && (
+                <span className="block mt-1 text-comfort-accent">
+                  📅 Will generate {numberOfWeeks * 7} posts spanning {numberOfWeeks} consecutive weeks
+                </span>
+              )}
+            </p>
+          </div>
+
           <button
             onClick={generateWeeklyContent}
             disabled={isGenerating}
@@ -6102,8 +8613,425 @@ ${contentStructure.hashtags}`;
               isGenerating ? 'bg-gray-400' : 'bg-comfort-navy hover:bg-comfort-olive'
             }`}
           >
-            {isGenerating ? 'Generating...' : 'Generate Weekly Content'}
+            {isGenerating ? `Generating ${numberOfWeeks} ${numberOfWeeks === 1 ? 'week' : 'weeks'}...` : `Generate ${numberOfWeeks} ${numberOfWeeks === 1 ? 'Week' : 'Weeks'} of Content`}
           </button>
+
+          {/* Calendar View Section - Always Visible */}
+          <div className="mt-8 pt-8 border-t border-comfort-tan/30">
+              {/* Calendar Header */}
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-comfort-navy flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-comfort-accent" />
+                  Generated Content Calendar
+                </h3>
+                
+                {/* Export and Management Buttons - Only show when content exists */}
+                {contentCalendar.length > 0 && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-comfort-navy/70">Export:</span>
+                      <button
+                        onClick={exportToBufferCSV}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-comfort-olive text-comfort-white text-xs rounded hover:bg-comfort-navy transition-colors shadow"
+                        title="Export as CSV for Buffer import"
+                      >
+                        <Download size={14} />
+                        CSV
+                      </button>
+                      <button
+                        onClick={exportToBufferJSON}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-comfort-accent text-comfort-white text-xs rounded hover:bg-comfort-navy transition-colors shadow"
+                        title="Export as JSON for Buffer API"
+                      >
+                        <Download size={14} />
+                        JSON
+                      </button>
+                    </div>
+                    
+                    <div className="border-l border-comfort-tan/30 pl-3">
+                      <button
+                        onClick={() => {
+                          const confirmClear = window.confirm(`Are you sure you want to discard ALL ${contentCalendar.length} generated posts? This action cannot be undone.`);
+                          if (confirmClear) {
+                            setContentCalendar([]);
+                            console.log('🗑️ Cleared all generated content');
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors shadow"
+                        title="Discard all generated posts"
+                      >
+                        <Trash2 size={14} />
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Calendar Navigation - Always show view selector */}
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  {/* View Selector */}
+                  <div className="flex bg-comfort-tan/20 rounded-lg p-1">
+                    {['day', 'week', 'month', 'list'].map((view) => (
+                      <button
+                        key={view}
+                        onClick={() => setCalendarView(view)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                          calendarView === view
+                            ? 'bg-comfort-navy text-comfort-white shadow'
+                            : 'text-comfort-navy hover:bg-comfort-tan/30'
+                        }`}
+                      >
+                        {view.charAt(0).toUpperCase() + view.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Content Status */}
+                <div className="text-sm text-comfort-navy/70">
+                  {contentCalendar.length === 0 
+                    ? 'No content generated yet' 
+                    : `${contentCalendar.length} posts scheduled`
+                  }
+                </div>
+              </div>
+
+              {/* Calendar Navigation with Date Controls - Only show when there's content */}
+              {contentCalendar.length > 0 && (
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-2">
+                    {/* View Selector */}
+                    <div className="flex bg-comfort-tan/20 rounded-lg p-1">
+                      {['day', 'week', 'month', 'list'].map((view) => (
+                        <button
+                          key={view}
+                          onClick={() => setCalendarView(view)}
+                          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                            calendarView === view
+                              ? 'bg-comfort-navy text-comfort-white shadow'
+                              : 'text-comfort-navy hover:bg-comfort-tan/30'
+                          }`}
+                        >
+                          {view.charAt(0).toUpperCase() + view.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Date Navigation - Hidden for list view */}
+                  {calendarView !== 'list' && (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => navigateCalendar('prev')}
+                        className="p-2 hover:bg-comfort-tan/30 rounded-lg transition-colors text-comfort-navy"
+                      >
+                        <ChevronDown size={16} className="rotate-90" />
+                      </button>
+                      
+                      <div className="text-lg font-semibold text-comfort-navy min-w-48 text-center">
+                        {calendarView === 'month' && currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        {calendarView === 'week' && `Week of ${formatDate(getCalendarDays(currentDate, 'week')[0], 'short')}`}
+                        {calendarView === 'day' && formatDate(currentDate, 'full')}
+                      </div>
+                      
+                      <button
+                        onClick={() => navigateCalendar('next')}
+                        className="p-2 hover:bg-comfort-tan/30 rounded-lg transition-colors text-comfort-navy"
+                      >
+                        <ChevronDown size={16} className="-rotate-90" />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentDate(new Date())}
+                      className="px-3 py-1.5 text-sm bg-comfort-accent text-comfort-white rounded hover:bg-comfort-olive transition-colors"
+                    >
+                      Today
+                    </button>
+                  </>
+                )}
+
+                  {/* List View Header */}
+                  {calendarView === 'list' && (
+                    <div className="text-lg font-semibold text-comfort-navy">
+                      All Scheduled Content ({contentCalendar.length} posts)
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Content Calendar Display */}
+              {contentCalendar.length === 0 ? (
+                <div key="empty-state" className="text-center py-12">
+                  <div className="bg-comfort-tan/20 border border-comfort-tan/50 rounded-lg p-6 max-w-md mx-auto">
+                    <Calendar className="w-12 h-12 text-comfort-accent mx-auto mb-4" />
+                    <h4 className="font-medium text-comfort-navy mb-2">📅 Your Content Calendar</h4>
+                    <p className="text-sm text-comfort-navy/80 mb-4">
+                      Generate your weekly content above to see it appear in this calendar. You can then view, organize, and export it for scheduling.
+                    </p>
+                    <div className="text-xs text-comfort-navy/60">
+                      ✨ Ready for Buffer integration once content is generated
+                    </div>
+                    <div className="text-xs text-red-500 mt-2">
+                      Debug: Calendar length = {contentCalendar.length}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div key={`calendar-${contentCalendar.length}`} className="calendar-content">
+                  {/* Calendar Grid */}
+                  {calendarView === 'month' && (
+                <div className="grid grid-cols-7 gap-1 mb-4">
+                  {/* Week Headers */}
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                    <div key={day} className="p-3 text-center text-sm font-medium text-comfort-navy/70 bg-comfort-tan/10 rounded">
+                      {day}
+                    </div>
+                  ))}
+                  
+                  {/* Calendar Days */}
+                  {getCalendarDays(currentDate, 'month').map((date) => {
+                    const content = getContentForDate(date);
+                    const isCurrentMonth = date.getMonth() === currentDate.getMonth();
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    const isSelected = date.toDateString() === selectedDate.toDateString();
+                    
+                    return (
+                      <div
+                        key={date.toISOString()}
+                        onClick={() => setSelectedDate(date)}
+                        className={`p-2 min-h-24 border rounded cursor-pointer transition-colors relative ${
+                          isSelected ? 'bg-comfort-accent/20 border-comfort-accent' :
+                          isToday ? 'bg-comfort-olive/10 border-comfort-olive' :
+                          isCurrentMonth ? 'bg-comfort-white border-comfort-tan hover:bg-comfort-tan/10' :
+                          'bg-comfort-tan/5 border-comfort-tan/50 text-comfort-navy/50'
+                        }`}
+                      >
+                        <div className={`text-sm font-medium mb-1 ${
+                          isToday ? 'text-comfort-olive' : 
+                          isCurrentMonth ? 'text-comfort-navy' : 'text-comfort-navy/40'
+                        }`}>
+                          {formatDate(date, 'day')}
+                        </div>
+                        
+                        {content.length > 0 && (
+                          <div className="space-y-1">
+                            {content.slice(0, 3).map((post) => (
+                              <div
+                                key={post.id}
+                                className={`group relative text-xs p-1 rounded truncate cursor-pointer ${
+                                  post.contentType === 'recipe' ? 'bg-orange-100 text-orange-800 hover:bg-orange-200' :
+                                  post.contentType === 'workout' ? 'bg-green-100 text-green-800 hover:bg-green-200' :
+                                  post.contentType === 'realEstate' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
+                                  post.contentType === 'mindfulness' ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' :
+                                  post.contentType === 'motivational' ? 'bg-pink-100 text-pink-800 hover:bg-pink-200' :
+                                  'bg-indigo-100 text-indigo-800 hover:bg-indigo-200'
+                                }`}
+                                title={`${post.content.title} - Click to discard`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteGeneratedPost(post.id);
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="truncate flex-1">{post.content.title}</span>
+                                  <Trash2 size={10} className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0" />
+                                </div>
+                              </div>
+                            ))}
+                            {content.length > 3 && (
+                              <div className="text-xs text-comfort-navy/60">+{content.length - 3} more</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Week View */}
+              {contentCalendar.length > 0 && calendarView === 'week' && (
+                <div className="grid grid-cols-7 gap-2 mb-4">
+                  {getCalendarDays(currentDate, 'week').map((date) => {
+                    const content = getContentForDate(date);
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    
+                    return (
+                      <div key={date.toISOString()} className="space-y-2">
+                        <div className={`text-center p-2 rounded ${
+                          isToday ? 'bg-comfort-olive text-comfort-white' : 'bg-comfort-tan/10 text-comfort-navy'
+                        }`}>
+                          <div className="text-xs font-medium">
+                            {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                          </div>
+                          <div className="text-lg font-semibold">
+                            {formatDate(date, 'day')}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 min-h-64">
+                          {content.map((post) => (
+                            <div
+                              key={post.id}
+                              className={`group relative p-2 rounded text-xs border-l-4 cursor-pointer hover:shadow-sm transition-all ${
+                                post.contentType === 'recipe' ? 'bg-orange-50 border-orange-400 hover:bg-orange-100' :
+                                post.contentType === 'workout' ? 'bg-green-50 border-green-400 hover:bg-green-100' :
+                                post.contentType === 'realEstate' ? 'bg-blue-50 border-blue-400 hover:bg-blue-100' :
+                                post.contentType === 'mindfulness' ? 'bg-purple-50 border-purple-400 hover:bg-purple-100' :
+                                post.contentType === 'motivational' ? 'bg-pink-50 border-pink-400 hover:bg-pink-100' :
+                                'bg-indigo-50 border-indigo-400 hover:bg-indigo-100'
+                              }`}
+                              title={`${post.content.title} - Click to discard`}
+                              onClick={() => deleteGeneratedPost(post.id)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-comfort-navy truncate">
+                                    {post.content.title}
+                                  </div>
+                                  <div className="text-comfort-navy/60 mt-1">
+                                    {contentTypes[post.contentType]?.name || post.contentType}
+                                  </div>
+                                </div>
+                                <Trash2 size={12} className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 text-red-500" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Day View */}
+              {contentCalendar.length > 0 && calendarView === 'day' && (
+                <div className="space-y-4">
+                  {getContentForDate(currentDate).length === 0 ? (
+                    <div className="text-center py-12 bg-comfort-tan/10 rounded-lg">
+                      <p className="text-comfort-navy/50">No content scheduled for this day</p>
+                    </div>
+                  ) : (
+                    getContentForDate(currentDate).map((post) => (
+                      <div key={post.id} className="border rounded-lg p-4 bg-comfort-white">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="font-medium text-comfort-navy">{post.content.title}</div>
+                            <div className="text-sm text-comfort-navy/70">
+                              <span className={`px-2 py-0.5 rounded text-xs ${
+                                post.contentType === 'recipe' ? 'bg-orange-100 text-orange-800' :
+                                post.contentType === 'workout' ? 'bg-green-100 text-green-800' :
+                                post.contentType === 'realEstate' ? 'bg-blue-100 text-blue-800' :
+                                post.contentType === 'mindfulness' ? 'bg-purple-100 text-purple-800' :
+                                post.contentType === 'motivational' ? 'bg-pink-100 text-pink-800' :
+                                'bg-indigo-100 text-indigo-800'
+                              }`}>
+                                {contentTypes[post.contentType]?.name || post.contentType}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => deleteGeneratedPost(post.id)}
+                            className="flex items-center gap-1 px-2 py-1 text-red-600 hover:bg-red-50 rounded transition-colors text-sm"
+                            title="Discard this generated post"
+                          >
+                            <Trash2 size={16} />
+                            Discard
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {Object.entries(platforms).map(([platform, config]) => (
+                            <div key={platform} className="border rounded p-3">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-medium text-sm">{config.icon} {config.name}</span>
+                                <button
+                                  onClick={() => copyToClipboard(post.variations[platform], config.name)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  <Copy size={16} />
+                                </button>
+                              </div>
+                              <div className="text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
+                                {post.variations[platform]}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* List View */}
+              {contentCalendar.length > 0 && calendarView === 'list' && (
+                <div className="space-y-4">
+                  {contentCalendar
+                    .sort((a, b) => new Date(a.date) - new Date(b.date))
+                    .map((post) => (
+                      <div key={post.id} className="border rounded-lg p-4 bg-comfort-white">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="font-medium text-comfort-navy">{post.content.title}</div>
+                            <div className="text-sm text-comfort-navy/70">
+                              {post.date} • <span className="capitalize">{post.dayName}</span> • 
+                              <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                post.contentType === 'recipe' ? 'bg-orange-100 text-orange-800' :
+                                post.contentType === 'workout' ? 'bg-green-100 text-green-800' :
+                                post.contentType === 'realEstate' ? 'bg-blue-100 text-blue-800' :
+                                post.contentType === 'mindfulness' ? 'bg-purple-100 text-purple-800' :
+                                post.contentType === 'motivational' ? 'bg-pink-100 text-pink-800' :
+                                post.contentType === 'travel' ? 'bg-cyan-100 text-cyan-800' :
+                                post.contentType === 'tech' ? 'bg-slate-100 text-slate-800' :
+                                post.contentType === 'finance' ? 'bg-emerald-100 text-emerald-800' :
+                                post.contentType === 'beauty' ? 'bg-rose-100 text-rose-800' :
+                                post.contentType === 'parenting' ? 'bg-yellow-100 text-yellow-800' :
+                                post.contentType === 'business' ? 'bg-gray-100 text-gray-800' :
+                                post.contentType === 'lifestyle' ? 'bg-teal-100 text-teal-800' :
+                                'bg-indigo-100 text-indigo-800'
+                              }`}>
+                                {contentTypes[post.contentType]?.name || post.contentType}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => deleteGeneratedPost(post.id)}
+                            className="flex items-center gap-1 px-2 py-1 text-red-600 hover:bg-red-50 rounded transition-colors text-sm"
+                            title="Discard this generated post"
+                          >
+                            <Trash2 size={16} />
+                            Discard
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {Object.entries(platforms).map(([platform, config]) => (
+                            <div key={platform} className="border rounded p-3">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-medium text-sm">{config.icon} {config.name}</span>
+                                <button
+                                  onClick={() => copyToClipboard(post.variations[platform], config.name)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  <Copy size={16} />
+                                </button>
+                              </div>
+                              <div className="text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
+                                {post.variations[platform]}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
