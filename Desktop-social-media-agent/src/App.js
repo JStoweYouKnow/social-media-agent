@@ -1,5 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, Copy, Share, Target, FileText, ChefHat, Dumbbell, Lightbulb, X, Plane, Smartphone, DollarSign, Sparkles, Heart, Building, Coffee, ChevronDown, Download, Home, GraduationCap, Zap, Trash2 } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Calendar, Copy, Target, FileText, ChefHat, Dumbbell, Lightbulb, X, Plane, Smartphone, DollarSign, Sparkles, Heart, Building, Coffee, ChevronDown, Download, Home, GraduationCap, Zap, Trash2 } from 'lucide-react';
+import { generatePost } from './utils/postGenerator';
+
+// Debug utility - only logs in development mode
+const DEBUG = process.env.NODE_ENV === 'development';
+const debug = (...args) => DEBUG && console.log(...args);
 
 function PreBuffer() {
   // State initialization
@@ -11,11 +16,6 @@ function PreBuffer() {
   const [motivationalContent, setMotivationalContent] = useState([]);
   const [contentCalendar, setContentCalendar] = useState([]);
   
-  // Debug: Track contentCalendar changes
-  React.useEffect(() => {
-    console.log('📅 Content calendar updated:', contentCalendar.length, 'items');
-  }, [contentCalendar]);
-  
   // New specialized categories
   const [travelContent, setTravelContent] = useState([]);
   const [techContent, setTechContent] = useState([]);
@@ -24,6 +24,13 @@ function PreBuffer() {
   const [parentingContent, setParentingContent] = useState([]);
   const [businessContent, setBusinessContent] = useState([]);
   const [lifestyleContent, setLifestyleContent] = useState([]);
+  const [events, setEvents] = useState([]);
+  
+  // Custom topic categories
+  const [customCategories, setCustomCategories] = useState({});
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('📝');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
   
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -68,6 +75,7 @@ function PreBuffer() {
 
   // Topic bank dashboard management state
   const [selectedBankTopic, setSelectedBankTopic] = useState('recipes');
+  const [selectedDayForBank, setSelectedDayForBank] = useState({}); // Track selected day for each post {postId: 'monday'}
   const [bankInputs, setBankInputs] = useState({ 
     title: '', 
     content: '', 
@@ -122,13 +130,11 @@ function PreBuffer() {
   const [newParenting, setNewParenting] = useState({ title: '', ageGroup: '', content: '', category: '', tags: '', url: '' });
   const [newBusiness, setNewBusiness] = useState({ title: '', content: '', category: '', tags: '', url: '' });
   const [newLifestyle, setNewLifestyle] = useState({ title: '', content: '', category: '', tags: '', url: '' });
+  const [newEvent, setNewEvent] = useState({ title: '', date: '', time: '', location: '', description: '', tags: '', url: '' });
   
   // Preview and editing states
   const [previewRecipe, setPreviewRecipe] = useState(null);
   const [previewWorkout, setPreviewWorkout] = useState(null);
-  
-  // Navigation state
-  const [currentView, setCurrentView] = useState('day');
   
   // Calendar view state
   const [calendarView, setCalendarView] = useState('month'); // 'day', 'week', 'month'
@@ -139,6 +145,22 @@ function PreBuffer() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState('instagram');
   const [contentComplexity, setContentComplexity] = useState('intermediate');
+  
+  // API Integration states
+  const [selectedTone, setSelectedTone] = useState('Casual');
+  const [baseCaption, setBaseCaption] = useState('');
+  const [currentCaption, setCurrentCaption] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [canvaTemplateId, setCanvaTemplateId] = useState('');
+  const [weeklyPosts, setWeeklyPosts] = useState([]);
+  const [isChangingTone, setIsChangingTone] = useState(false);
+  const [isCreatingDesign, setIsCreatingDesign] = useState(false);
+  const [isGeneratingWeek, setIsGeneratingWeek] = useState(false);
+  const [weeklyPrompt, setWeeklyPrompt] = useState('');
+  const [weeklyGenMode, setWeeklyGenMode] = useState('ai'); // 'ai' or 'template'
+  
+  // Content tracking for novelty - stores hashes of generated content
+  const [generatedContentHistory, setGeneratedContentHistory] = useState(new Set());
   const [isFetchingUrl, setIsFetchingUrl] = useState({
     recipe: false,
     workout: false,
@@ -158,7 +180,8 @@ function PreBuffer() {
     beauty: true,
     parenting: true,
     business: true,
-    lifestyle: true
+    lifestyle: true,
+    events: true
   });
   const [numberOfWeeks, setNumberOfWeeks] = useState(1);
   // Weekly schedule now syncs with day topic selections
@@ -174,24 +197,148 @@ function PreBuffer() {
   
   // Generation mode: 'calendar' for Sunday-Saturday, 'nextDay' for starting tomorrow
   const [generationMode, setGenerationMode] = useState('calendar');
-  
-  // Refs
-  const recipeFileInputRef = useRef(null);
-  const workoutFileInputRef = useRef(null);
-
-
-
-  // Debug contentCalendar changes
-  useEffect(() => {
-    console.log('🔄 Debug: contentCalendar updated, length:', contentCalendar.length);
-    console.log('📊 Debug: contentCalendar content:', contentCalendar);
-  }, [contentCalendar]);
 
   const platforms = {
     instagram: { name: 'Instagram', color: 'bg-pink-500', icon: '📸' },
     linkedin: { name: 'LinkedIn', color: 'bg-blue-600', icon: '💼' },
     facebook: { name: 'Facebook', color: 'bg-blue-500', icon: '👥' }
   };
+
+  // Memoized statistics calculations to prevent recalculation on every render
+  const stats = useMemo(() => {
+    const mainContent = recipes.length + workouts.length + realEstateTips.length + mindfulnessPosts.length;
+    const specializedContent = educationalContent.length + motivationalContent.length + travelContent.length + 
+                              techContent.length + financeContent.length + beautyContent.length + 
+                              parentingContent.length + businessContent.length + lifestyleContent.length;
+    const scheduledContent = contentCalendar.length;
+    const totalContent = mainContent + specializedContent + events.length + scheduledContent;
+    
+    return {
+      mainContent,
+      specializedContent,
+      scheduledContent,
+      totalContent,
+      uniqueGenerated: generatedContentHistory.size
+    };
+  }, [
+    recipes.length, workouts.length, realEstateTips.length, mindfulnessPosts.length,
+    educationalContent.length, motivationalContent.length, travelContent.length,
+    techContent.length, financeContent.length, beautyContent.length,
+    parentingContent.length, businessContent.length, lifestyleContent.length,
+    events.length, contentCalendar.length, generatedContentHistory.size
+  ]);
+
+  // Memoized content collections to avoid recreating objects on every render
+  const availableContent = useMemo(() => ({
+    recipe: recipes,
+    workout: workouts,
+    realEstate: realEstateTips,
+    mindfulness: mindfulnessPosts,
+    travel: travelContent,
+    tech: techContent,
+    finance: financeContent,
+    beauty: beautyContent,
+    parenting: parentingContent,
+    business: businessContent,
+    lifestyle: lifestyleContent,
+    events: events,
+    motivational: motivationalContent,
+    educational: educationalContent,
+    ...customCategories
+  }), [
+    recipes, workouts, realEstateTips, mindfulnessPosts, travelContent,
+    techContent, financeContent, beautyContent, parentingContent,
+    businessContent, lifestyleContent, events, motivationalContent, educationalContent,
+    customCategories
+  ]);
+
+  // Memoized delete functions to prevent unnecessary re-renders in child components
+  const deleteRecipe = useCallback((id) => {
+    setRecipes(prev => prev.filter(r => r.id !== id));
+    if (previewRecipe?.id === id) setPreviewRecipe(null);
+  }, [previewRecipe?.id]);
+
+  const deleteWorkout = useCallback((id) => {
+    setWorkouts(prev => prev.filter(w => w.id !== id));
+    if (previewWorkout?.id === id) setPreviewWorkout(null);
+  }, [previewWorkout?.id]);
+
+  const deleteEvent = useCallback((id) => {
+    setEvents(prev => prev.filter(e => e.id !== id));
+  }, []);
+
+  // Memoized content types list for generation (includes custom categories)
+  const allContentTypes = useMemo(() => [
+    'recipe', 'workout', 'realEstate', 'mindfulness', 'travel', 
+    'tech', 'finance', 'beauty', 'parenting', 'business', 
+    'lifestyle', 'motivational', 'educational', 'events',
+    ...Object.keys(customCategories)
+  ], [customCategories]);
+
+  // Custom category management functions
+  const addCustomCategory = useCallback(() => {
+    if (newCategoryName.trim() && !customCategories[newCategoryName.toLowerCase()]) {
+      const categoryKey = newCategoryName.toLowerCase().replace(/\s+/g, '');
+      setCustomCategories(prev => ({
+        ...prev,
+        [categoryKey]: []
+      }));
+      
+      // Add to contentMix
+      setContentMix(prev => ({
+        ...prev,
+        [categoryKey]: true
+      }));
+      
+      setNewCategoryName('');
+      setNewCategoryIcon('📝');
+      setIsAddingCategory(false);
+    }
+  }, [newCategoryName, customCategories]);
+
+  const deleteCustomCategory = useCallback((categoryKey) => {
+    setCustomCategories(prev => {
+      const updated = { ...prev };
+      delete updated[categoryKey];
+      return updated;
+    });
+    
+    // Remove from contentMix
+    setContentMix(prev => {
+      const updated = { ...prev };
+      delete updated[categoryKey];
+      return updated;
+    });
+    
+    // Remove from dayTopicSelections if selected
+    setDayTopicSelections(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(day => {
+        if (updated[day] === categoryKey) {
+          updated[day] = 'random';
+        }
+      });
+      return updated;
+    });
+  }, []);
+
+  const addContentToCustomCategory = useCallback((categoryKey, content) => {
+    setCustomCategories(prev => ({
+      ...prev,
+      [categoryKey]: [...(prev[categoryKey] || []), {
+        ...content,
+        id: Date.now() + Math.random(),
+        createdAt: new Date().toISOString()
+      }]
+    }));
+  }, []);
+
+  const removeContentFromCustomCategory = useCallback((categoryKey, contentId) => {
+    setCustomCategories(prev => ({
+      ...prev,
+      [categoryKey]: prev[categoryKey]?.filter(item => item.id !== contentId) || []
+    }));
+  }, []);
 
   // Calendar utility functions
   const getCalendarDays = (date, view) => {
@@ -284,51 +431,108 @@ function PreBuffer() {
   // Export Functions
   const exportToCSV = () => {
     if (contentCalendar.length === 0) {
-      alert('No content to export!');
+      alert('No content to export. Please generate some content first!');
       return;
     }
 
-    const headers = ['Date', 'Day', 'Title', 'Content', 'Type', 'Tags'];
-    const csvContent = [
-      headers.join(','),
-      ...contentCalendar.map(item => [
-        item.date,
-        item.dayName,
-        `"${item.content.title || ''}"`,
-        `"${item.content.description || item.content.content || ''}"`,
-        item.contentType,
-        `"${item.content.tags || ''}"`
-      ].join(','))
-    ].join('\n');
+    // Generic CSV format: Date, Day, Platform, Title, Content, Type, Tags, URL
+    const csvHeaders = ['Date', 'Day', 'Platform', 'Title', 'Content', 'Type', 'Tags', 'URL'];
+    const csvRows = [];
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    contentCalendar.forEach(post => {
+      Object.entries(platforms).forEach(([platform, config]) => {
+        if (post.variations[platform]) {
+          // Format the post content
+          let postText = post.variations[platform];
+          
+          // Clean up the text (remove excessive newlines, trim)
+          postText = postText.replace(/\n+/g, ' ').trim();
+          
+          // Escape quotes for CSV
+          postText = `"${postText.replace(/"/g, '""')}"`;
+          
+          const csvRow = [
+            post.date, // Date
+            post.dayName, // Day
+            config.name, // Platform
+            `"${(post.content.title || '').replace(/"/g, '""')}"`, // Title
+            postText, // Content
+            post.contentType, // Type
+            `"${(post.content.tags || '').replace(/"/g, '""')}"`, // Tags
+            post.content.url || '' // URL
+          ];
+          
+          csvRows.push(csvRow.join(','));
+        }
+      });
+    });
+
+    // Create CSV content
+    const csvContent = [csvHeaders.join(','), ...csvRows].join('\n');
+    
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `content-calendar-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `content-calendar-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }
   };
 
   const exportToJSON = () => {
     if (contentCalendar.length === 0) {
-      alert('No content to export!');
+      alert('No content to export. Please generate some content first!');
       return;
     }
 
+    // Comprehensive JSON export format
     const exportData = {
       exportDate: new Date().toISOString(),
       totalPosts: contentCalendar.length,
-      contentCalendar: contentCalendar
+      posts: contentCalendar.map(post => ({
+        date: post.date,
+        dayName: post.dayName,
+        contentType: post.contentType,
+        content: {
+          title: post.content.title,
+          description: post.content.description || post.content.content,
+          tags: post.content.tags || '',
+          url: post.content.url || ''
+        },
+        variations: {
+          instagram: post.variations.instagram,
+          linkedin: post.variations.linkedin,
+          facebook: post.variations.facebook
+        },
+        metadata: {
+          generatedBy: 'Post Planner',
+          generatedAt: post.createdAt || new Date().toISOString()
+        }
+      }))
     };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
+    // Create and download JSON
+    const jsonContent = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `content-calendar-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `content-calendar-${new Date().toISOString().split('T')[0]}.json`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }
   };
 
   const printCalendar = () => {
@@ -336,7 +540,7 @@ function PreBuffer() {
     const printContent = `
       <html>
         <head>
-          <title>Content Calendar</title>
+          <title>Post Planner</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
             h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
@@ -348,7 +552,7 @@ function PreBuffer() {
           </style>
         </head>
         <body>
-          <h1>Content Calendar - Generated ${new Date().toLocaleDateString()}</h1>
+          <h1>Post Planner - Generated ${new Date().toLocaleDateString()}</h1>
           ${contentCalendar.length === 0 ? '<p>No content available to print.</p>' : 
             contentCalendar
               .sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -463,15 +667,14 @@ function PreBuffer() {
     }
   };
 
-  const deleteRecipe = (id) => {
-    setRecipes(recipes.filter(r => r.id !== id));
-    if (previewRecipe?.id === id) setPreviewRecipe(null);
+  const addEvent = () => {
+    if (newEvent.title.trim() && newEvent.date.trim()) {
+      setEvents([...events, { ...newEvent, id: Date.now(), createdAt: new Date().toISOString() }]);
+      setNewEvent({ title: '', date: '', time: '', location: '', description: '', tags: '', url: '' });
+    }
   };
 
-  const deleteWorkout = (id) => {
-    setWorkouts(workouts.filter(w => w.id !== id));
-    if (previewWorkout?.id === id) setPreviewWorkout(null);
-  };
+  // Optimized delete functions now defined above with useCallback
 
   const deleteRealEstate = (id) => {
     setRealEstateTips(realEstateTips.filter(t => t.id !== id));
@@ -517,24 +720,7 @@ function PreBuffer() {
     setLifestyleContent(lifestyleContent.filter(l => l.id !== id));
   };
 
-  const generatePostVariations = async (content, type) => {
-    try {
-      console.log(`🎨 Generating enhanced variations for ${type} content:`, content.title);
-      
-      // Generate enhanced fallback variations with our improved templates
-      const fallbackVariations = generateFallbackVariations(content, type);
-      
-      console.log(`✅ Generated enhanced variations for all platforms`);
-      return fallbackVariations;
-      
-    } catch (error) {
-      console.error('Error generating enhanced variations:', error);
-      
-      // Final fallback to basic variations if everything fails
-      const basicVariations = generateBasicFallbackVariations(content, type);
-      return basicVariations;
-    }
-  };
+  // deleteEvent function now optimized with useCallback above
   
   // Enhanced fallback variations (better than the old simple templates)
   const generateFallbackVariations = (content, type) => {
@@ -564,7 +750,7 @@ function PreBuffer() {
     const linkedinValidation = validatePostContent(linkedinPost, 'linkedin');
     const facebookValidation = validatePostContent(facebookPost, 'facebook');
     
-    console.log('📊 Post Quality Scores:', {
+    debug('📊 Post Quality Scores:', {
       instagram: instagramValidation.score,
       linkedin: linkedinValidation.score,
       facebook: facebookValidation.score
@@ -973,7 +1159,8 @@ Would love to hear your thoughts in the comments - this community always has the
 #community #${type} #${season.toLowerCase()}discoveries #lifesharing`;
   };
   
-  // Basic fallback variations as a final safety net
+  // Basic fallback variations as a final safety net (reserved for future error handling)
+  // eslint-disable-next-line no-unused-vars
   const generateBasicFallbackVariations = (content, type) => {
     const variations = {
       instagram: {},
@@ -1375,20 +1562,95 @@ Would love to hear your thoughts in the comments - this community always has the
     return post;
   };
 
+  // Content novelty helpers - ensure posts are always unique
+  const generateContentHash = (content) => {
+    // Create a simple hash from the content's key properties
+    const str = JSON.stringify({
+      title: content.title?.toLowerCase().trim(),
+      type: content.type?.toLowerCase().trim(),
+      topic: content.topic?.toLowerCase().trim()
+    });
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString();
+  };
+
+  const isContentNovel = (content) => {
+    const hash = generateContentHash(content);
+    return !generatedContentHistory.has(hash);
+  };
+
+  const markContentAsUsed = (content) => {
+    const hash = generateContentHash(content);
+    setGeneratedContentHistory(prev => new Set([...prev, hash]));
+  };
+
+  const selectNovelContent = (contentArray, maxAttempts = 10) => {
+    if (!contentArray || contentArray.length === 0) return null;
+    
+    // Try to find unused content
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const randomIndex = Math.floor(Math.random() * contentArray.length);
+      const content = contentArray[randomIndex];
+      
+      if (isContentNovel(content)) {
+        markContentAsUsed(content);
+        return content;
+      }
+    }
+    
+    // If all content has been used, reset history for this content type and pick randomly
+    debug('⚠️ All content in this category has been used, resetting for fresh cycle');
+    const content = contentArray[Math.floor(Math.random() * contentArray.length)];
+    markContentAsUsed(content);
+    return content;
+  };
+
   const generateWeeklyContent = async () => {
-    console.log('🔥 DEBUG: generateWeeklyContent function called!');
-    setIsGenerating(true);
-    console.log('🔥 DEBUG: isGenerating set to true');
+    debug('🔥 DEBUG: generateWeeklyContent function called!');
+    setIsGeneratingWeek(true);
+    debug('🔥 DEBUG: isGeneratingWeek set to true');
     
     try {
-      console.log(`🚀 Starting enhanced ${numberOfWeeks}-week content generation in ${generationMode} mode...`);
+      debug(`🚀 Starting enhanced ${numberOfWeeks}-week content generation in ${generationMode} mode...`);
       const allWeeksContent = [];
       const today = new Date();
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       
+      // All available content types for random selection
+      const allContentTypes = [
+        'recipe', 'workout', 'realEstate', 'mindfulness', 'travel', 
+        'tech', 'finance', 'beauty', 'parenting', 'business', 
+        'lifestyle', 'motivational', 'educational', 'events'
+      ];
+      
+      // Helper function to get a random content type that's different from the previous day
+      const getRandomContentType = (previousType) => {
+        const enabledTypes = Object.keys(contentMix).filter(key => contentMix[key]);
+        const availableTypes = enabledTypes.length > 0 ? enabledTypes : allContentTypes;
+        
+        // Filter out the previous type to avoid back-to-back duplicates
+        const filteredTypes = previousType 
+          ? availableTypes.filter(type => type !== previousType)
+          : availableTypes;
+        
+        // If we filtered everything out (unlikely), just use all available types
+        const finalTypes = filteredTypes.length > 0 ? filteredTypes : availableTypes;
+        
+        return finalTypes[Math.floor(Math.random() * finalTypes.length)];
+      };
+      
+      // Track the previous day's content type across weeks to prevent back-to-back duplicates
+      let previousContentType = null;
+      
       // Generate content for multiple weeks
       for (let weekNumber = 0; weekNumber < numberOfWeeks; weekNumber++) {
-        console.log(`📅 Generating Week ${weekNumber + 1} of ${numberOfWeeks}...`);
+        debug(`📅 Generating Week ${weekNumber + 1} of ${numberOfWeeks}...`);
         
         let weekStart;
         
@@ -1399,14 +1661,14 @@ Would love to hear your thoughts in the comments - this community always has the
           weekStart = today.getDay() === 0 ? 
             new Date(startOfWeek.getTime() + (weekNumber * 7 * 24 * 60 * 60 * 1000)) : 
             new Date(startOfWeek.getTime() + ((weekNumber + 1) * 7 * 24 * 60 * 60 * 1000));
-          console.log(`📅 Calendar Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}`);
+          debug(`📅 Calendar Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}`);
         } else {
           // Next day mode - start from tomorrow + weeks offset for 7 days
           weekStart = new Date(today);
           weekStart.setDate(today.getDate() + 1 + (weekNumber * 7));
           const endDate = new Date(weekStart);
           endDate.setDate(weekStart.getDate() + 6);
-          console.log(`🗓️ Next Day Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
+          debug(`🗓️ Next Day Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
         }
       
         const availableContent = {
@@ -1420,7 +1682,8 @@ Would love to hear your thoughts in the comments - this community always has the
           beauty: beautyContent,
           parenting: parentingContent,
           business: businessContent,
-          lifestyle: lifestyleContent
+          lifestyle: lifestyleContent,
+          events: events
         };
         
         // Generate content for each day of this week
@@ -1435,30 +1698,34 @@ Would love to hear your thoughts in the comments - this community always has the
           dayName = dayNames[date.getDay()]; // Get actual day name for the date
         }
         
+        debug(`🔍 Day ${i}: ${dayName} - Date: ${date.toDateString()}`);
+        
         let contentType = weeklySchedule[dayName];
         let content;
         
-        // Handle 'random' selection
-        if (contentType === 'random') {
-          const enabledTypes = Object.keys(contentMix).filter(key => 
-            contentMix[key] && (availableContent[key]?.length > 0 || ['motivational', 'educational'].includes(key))
-          );
-          if (enabledTypes.length > 0) {
-            contentType = enabledTypes[Math.floor(Math.random() * enabledTypes.length)];
-          } else {
-            contentType = 'motivational';
-          }
+        // Handle empty, null, undefined, or 'random' selection
+        if (!contentType || contentType === 'random' || contentType === '' || contentType === null) {
+          contentType = getRandomContentType(previousContentType);
+          debug(`🎲 Random topic selected for ${dayName}: ${contentType} (previous was ${previousContentType})`);
         }
+        
+        // Update previous content type for next iteration
+        previousContentType = contentType;
         
         // Generate rich, detailed content specific to each content type and day
         if (availableContent[contentType] && availableContent[contentType].length > 0) {
-          content = availableContent[contentType][Math.floor(Math.random() * availableContent[contentType].length)];
+          // Use novelty checking to ensure unique content
+          content = selectNovelContent(availableContent[contentType]);
+          if (!content) {
+            // Fallback if no content available
+            content = generateDetailedContentByType(contentType, dayName, date, weekNumber, i);
+          }
         } else {
           // Generate detailed, influencer-style content for each type
           content = generateDetailedContentByType(contentType, dayName, date, weekNumber, i);
         }
 
-        console.log(`📝 Generating enhanced ${contentType} content for ${dayName}:`, content.title);
+        debug(`📝 Generating enhanced ${contentType} content for ${dayName}:`, content.title);
         
         // Generate platform-specific variations with rich content
         const platformVariations = generateRichPlatformVariations(content, contentType, dayName);
@@ -1477,17 +1744,17 @@ Would love to hear your thoughts in the comments - this community always has the
           allWeeksContent.push(postData);
         }
         
-        console.log(`✅ Generated 7 posts for Week ${weekNumber + 1}`);
+        debug(`✅ Generated 7 posts for Week ${weekNumber + 1}`);
       }
       
-      console.log(`✅ Generated ${allWeeksContent.length} total posts for ${numberOfWeeks} week(s)`);
-      console.log('📅 Updating content calendar with:', allWeeksContent);
+      debug(`✅ Generated ${allWeeksContent.length} total posts for ${numberOfWeeks} week(s)`);
+      debug('📅 Updating content calendar with:', allWeeksContent);
       setContentCalendar(allWeeksContent);
-      console.log('🔧 DEBUG: setContentCalendar called with array length:', allWeeksContent.length);
+      debug('🔧 DEBUG: setContentCalendar called with array length:', allWeeksContent.length);
       
       // Force a state update check
       setTimeout(() => {
-        console.log('🔧 DEBUG: Delayed check - contentCalendar should now be updated');
+        debug('🔧 DEBUG: Delayed check - contentCalendar should now be updated');
       }, 100);
       
     } catch (error) {
@@ -1507,13 +1774,13 @@ Would love to hear your thoughts in the comments - this community always has the
           weekStart = today.getDay() === 0 ? 
             new Date(startOfWeek.getTime() + (weekNumber * 7 * 24 * 60 * 60 * 1000)) : 
             new Date(startOfWeek.getTime() + ((weekNumber + 1) * 7 * 24 * 60 * 60 * 1000));
-          console.log(`📅 Fallback Calendar Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}`);
+          debug(`📅 Fallback Calendar Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}`);
         } else {
           weekStart = new Date(today);
           weekStart.setDate(today.getDate() + 1 + (weekNumber * 7));
           const endDate = new Date(weekStart);
           endDate.setDate(weekStart.getDate() + 6);
-          console.log(`🗓️ Fallback Next Day Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
+          debug(`🗓️ Fallback Next Day Mode - Week ${weekNumber + 1}: ${weekStart.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
         }
       
         const availableContent = {
@@ -1556,7 +1823,11 @@ Would love to hear your thoughts in the comments - this community always has the
         }
         
         if (availableContent[contentType] && availableContent[contentType].length > 0) {
-          content = availableContent[contentType][Math.floor(Math.random() * availableContent[contentType].length)];
+          // Use novelty checking in fallback mode too
+          content = selectNovelContent(availableContent[contentType]);
+          if (!content) {
+            content = availableContent[contentType][0]; // Ultimate fallback
+          }
         } else if (contentType === 'motivational') {
           // Generate dynamic motivational content
           const motivationalTopics = [
@@ -1619,16 +1890,16 @@ Would love to hear your thoughts in the comments - this community always has the
         allWeeksFallback.push(postData);
       }
       
-      console.log(`✅ Fallback generated 7 posts for Week ${weekNumber + 1}`);
+      debug(`✅ Fallback generated 7 posts for Week ${weekNumber + 1}`);
     }
       
-      console.log('📅 Fallback: Updating content calendar with:', allWeeksFallback);
+      debug('📅 Fallback: Updating content calendar with:', allWeeksFallback);
       setContentCalendar(allWeeksFallback);
-      console.log('🔧 DEBUG: Fallback setContentCalendar called with array length:', allWeeksFallback.length);
+      debug('🔧 DEBUG: Fallback setContentCalendar called with array length:', allWeeksFallback.length);
     }
     
-    console.log('🔄 Generation complete, setting isGenerating to false');
-    setIsGenerating(false);
+    debug('🔄 Generation complete, setting isGeneratingWeek to false');
+    setIsGeneratingWeek(false);
   };
 
   const copyToClipboard = (text, platform) => {
@@ -1698,8 +1969,8 @@ Would love to hear your thoughts in the comments - this community always has the
       };
       
       setContentCalendar(prev => [...prev, calendarPost]);
-      console.log(`✅ Generated AI content for ${day} and added to calendar:`, newContent);
-      console.log(`📅 Calendar post scheduled for ${targetDate.toLocaleDateString()}`);
+      debug(`✅ Generated AI content for ${day} and added to calendar:`, newContent);
+      debug(`📅 Calendar post scheduled for ${targetDate.toLocaleDateString()}`);
     } catch (error) {
       console.error(`❌ Error generating AI content for ${day}:`, error);
     }
@@ -1710,7 +1981,7 @@ Would love to hear your thoughts in the comments - this community always has the
     const confirmDelete = window.confirm('Are you sure you want to discard this generated post? This action cannot be undone.');
     if (confirmDelete) {
       setContentCalendar(prevCalendar => prevCalendar.filter(post => post.id !== postId));
-      console.log(`🗑️ Deleted post with ID: ${postId}`);
+      debug(`🗑️ Deleted post with ID: ${postId}`);
     }
   };
 
@@ -1731,7 +2002,7 @@ Would love to hear your thoughts in the comments - this community always has the
       [topic]: [...(prev[topic] || []), newPost]
     }));
     
-    console.log(`🏦 Added post to topic bank: ${topic}`, newPost);
+    debug(`🏦 Added post to topic bank: ${topic}`, newPost);
   };
   
   const removeFromTopicBank = (topic, postId) => {
@@ -1740,7 +2011,7 @@ Would love to hear your thoughts in the comments - this community always has the
       [topic]: prev[topic].filter(post => post.id !== postId)
     }));
     
-    console.log(`🗑️ Removed post from topic bank: ${topic} - ${postId}`);
+    debug(`🗑️ Removed post from topic bank: ${topic} - ${postId}`);
   };
   
   const movePostFromTopicBank = (topic, postId, targetDay = null) => {
@@ -1756,11 +2027,11 @@ Would love to hear your thoughts in the comments - this community always has the
         usedFrom: 'topicBank'
       });
       
-      console.log(`📤 Used post from topic bank: ${topic} → ${dayToUse}`, post);
+      debug(`📤 Used post from topic bank: ${topic} → ${dayToUse}`, post);
     }
   };
 
-  // Handle URL fetch for topic bank
+  // Handle URL fetch for topic bank - using the same advanced parser as day tabs
   const handleBankUrlFetch = async (url) => {
     if (!url.trim()) {
       setBankInputs({ ...bankInputs, urlError: 'Please enter a valid URL' });
@@ -1770,23 +2041,54 @@ Would love to hear your thoughts in the comments - this community always has the
     setBankInputs({ ...bankInputs, isUrlLoading: true, urlError: null });
 
     try {
-      const response = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=false&video=false`);
-      const data = await response.json();
-
-      if (data.status === 'success' && data.data) {
-        const { title, description, image } = data.data;
+      // Use the same advanced fetchUrlMetadata function used by recipes/workouts
+      const metadata = await fetchUrlMetadata(url);
+      
+      if (metadata && metadata.title) {
+        // Build rich content from extracted metadata
+        let content = metadata.description || metadata.articleContent || `Content from: ${url}`;
+        
+        // If recipe data was extracted, format it nicely
+        if (metadata.ingredients || metadata.instructions) {
+          content = '';
+          if (metadata.description) {
+            content += `${metadata.description}\n\n`;
+          }
+          if (metadata.ingredients) {
+            content += `INGREDIENTS:\n${metadata.ingredients}\n\n`;
+          }
+          if (metadata.instructions) {
+            content += `INSTRUCTIONS:\n${metadata.instructions}`;
+          }
+        }
+        
+        // If workout data was extracted, include it
+        if (metadata.exercises && !metadata.ingredients) {
+          content = metadata.description || '';
+          if (metadata.exercises) {
+            content += `\n\nEXERCISES:\n${metadata.exercises}`;
+          }
+          if (metadata.duration) {
+            content += `\n\nDURATION: ${metadata.duration}`;
+          }
+        }
+        
+        // Use key insights if available for richer content
+        if (metadata.keyInsights && metadata.keyInsights.length > 0) {
+          content += `\n\nKEY INSIGHTS:\n${metadata.keyInsights.slice(0, 3).join('\n')}`;
+        }
         
         setBankInputs({
           ...bankInputs,
-          title: title || 'Untitled',
-          content: description || `Content from: ${url}`,
+          title: metadata.title,
+          content: content,
           tags: extractTagsFromUrl(url),
           isUrlLoading: false,
           urlError: null
         });
       } else {
         // Fallback to intelligent content generation
-        const fallbackContent = generateIntelligentFallback(url, data.data);
+        const fallbackContent = generateIntelligentFallback(url, null);
         setBankInputs({
           ...bankInputs,
           title: fallbackContent.title,
@@ -2025,7 +2327,7 @@ Would love to hear your thoughts in the comments - this community always has the
 
   // Function to fetch metadata from URL
   const fetchUrlMetadata = async (url) => {
-    console.log('🔍 Starting URL fetch for:', url);
+    debug('🔍 Starting URL fetch for:', url);
     
     try {
       // Try multiple CORS proxy services in order - enhanced with more services
@@ -2046,7 +2348,7 @@ Would love to hear your thoughts in the comments - this community always has the
       // Try each proxy service
       for (const proxy of proxyServices) {
         try {
-          console.log(`📡 Trying ${proxy.name}:`, proxy.url);
+          debug(`📡 Trying ${proxy.name}:`, proxy.url);
           
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -2062,7 +2364,7 @@ Would love to hear your thoughts in the comments - this community always has the
           
           clearTimeout(timeoutId);
 
-          console.log(`📊 ${proxy.name} response status:`, response.status, response.statusText);
+          debug(`📊 ${proxy.name} response status:`, response.status, response.statusText);
 
           // Enhanced error handling for different HTTP status codes
           if (response.status === 404) {
@@ -2094,8 +2396,8 @@ Would love to hear your thoughts in the comments - this community always has the
                 continue; // Try next proxy
               }
               
-              console.log('📄 AllOrigins response keys:', Object.keys(jsonResponse));
-              console.log('📄 AllOrigins status:', jsonResponse.status);
+              debug('📄 AllOrigins response keys:', Object.keys(jsonResponse));
+              debug('📄 AllOrigins status:', jsonResponse.status);
             } else {
               htmlContent = await response.text();
             }
@@ -2117,12 +2419,12 @@ Would love to hear your thoughts in the comments - this community always has the
             
             if (minLength && (isValidHtml || hasMetaTags)) {
               usedProxy = proxy.name;
-              console.log(`✅ Success with ${proxy.name}, content length:`, htmlContent.length);
-              console.log(`🔍 Content validation - HTML: ${isValidHtml}, Meta: ${hasMetaTags}, Length: ${minLength}`);
+              debug(`✅ Success with ${proxy.name}, content length:`, htmlContent.length);
+              debug(`🔍 Content validation - HTML: ${isValidHtml}, Meta: ${hasMetaTags}, Length: ${minLength}`);
               break;
             } else {
-              console.log(`❌ ${proxy.name} content validation failed - HTML: ${isValidHtml}, Meta: ${hasMetaTags}, Length: ${htmlContent?.length || 0}`);
-              console.log(`📝 Sample content:`, htmlContent?.substring(0, 200) || 'No content');
+              debug(`❌ ${proxy.name} content validation failed - HTML: ${isValidHtml}, Meta: ${hasMetaTags}, Length: ${htmlContent?.length || 0}`);
+              debug(`📝 Sample content:`, htmlContent?.substring(0, 200) || 'No content');
             }
           } catch (parseError) {
             console.warn(`❌ ${proxy.name} response parsing failed:`, parseError.message);
@@ -2131,7 +2433,7 @@ Would love to hear your thoughts in the comments - this community always has the
               htmlContent = await response.text();
               if (htmlContent && htmlContent.length > 200) {
                 usedProxy = proxy.name;
-                console.log(`✅ Fallback success with ${proxy.name} as text`);
+                debug(`✅ Fallback success with ${proxy.name} as text`);
                 break;
               }
             }
@@ -2146,7 +2448,7 @@ Would love to hear your thoughts in the comments - this community always has the
         throw new Error('All proxy services failed to return content');
       }
 
-      console.log('🔧 Parsing HTML content...');
+      debug('🔧 Parsing HTML content...');
       
       // Parse the HTML content
       const parser = new DOMParser();
@@ -2154,12 +2456,12 @@ Would love to hear your thoughts in the comments - this community always has the
       
       // Log available meta tags for debugging
       const allMetas = doc.querySelectorAll('meta');
-      console.log('🏷️ Available meta tags:');
+      debug('🏷️ Available meta tags:');
       allMetas.forEach(meta => {
         const name = meta.getAttribute('name') || meta.getAttribute('property');
         const content = meta.getAttribute('content');
         if (name && content) {
-          console.log(`  ${name}: ${content.substring(0, 100)}...`);
+          debug(`  ${name}: ${content.substring(0, 100)}...`);
         }
       });
 
@@ -2170,7 +2472,7 @@ Would love to hear your thoughts in the comments - this community always has the
           if (element) {
             const content = element.getAttribute('content') || element.textContent || '';
             if (content.trim()) {
-              console.log(`✅ Found content with selector "${selector}":`, content.substring(0, 100));
+              debug(`✅ Found content with selector "${selector}":`, content.substring(0, 100));
               return content.trim();
             }
           }
@@ -2234,7 +2536,7 @@ Would love to hear your thoughts in the comments - this community always has the
             const cleanText = textContent.replace(/\s+/g, ' ').trim();
             
             if (cleanText.length > 200) {
-              console.log(`✅ Found article content with selector "${selector}":`, cleanText.substring(0, 150) + '...');
+              debug(`✅ Found article content with selector "${selector}":`, cleanText.substring(0, 150) + '...');
               
               // Smart truncation for better descriptions
               const smartTruncate = (text, maxLength = 500) => {
@@ -2466,7 +2768,7 @@ Would love to hear your thoughts in the comments - this community always has the
         ...workoutData
       };
 
-      console.log('🎯 Final extracted data:', {
+      debug('🎯 Final extracted data:', {
         title: result.title,
         descriptionLength: result.description?.length || 0,
         contentLength: result.contentLength,
@@ -2475,15 +2777,15 @@ Would love to hear your thoughts in the comments - this community always has the
         domain: result.domain,
         usedProxy: result.usedProxy
       });
-      console.log('📋 Key insights found:', result.keyInsights || 'No insights extracted');
-      console.log('📄 Content sample:', result.description?.substring(0, 200) + '...' || 'No content');
+      debug('📋 Key insights found:', result.keyInsights || 'No insights extracted');
+      debug('📄 Content sample:', result.description?.substring(0, 200) + '...' || 'No content');
       return result;
 
     } catch (error) {
       console.error('💥 Error fetching URL metadata:', error);
       
       // Enhanced fallback logic with intelligent content generation
-      console.log('🔄 Activating enhanced fallback system...');
+      debug('🔄 Activating enhanced fallback system...');
       
       // First, try to extract basic info from URL structure
       const urlInfo = extractInfoFromUrl(url);
@@ -2491,7 +2793,7 @@ Would love to hear your thoughts in the comments - this community always has the
       // Generate intelligent fallback content based on URL domain and structure
       const fallbackContent = generateIntelligentFallback(url, urlInfo);
       
-      console.log('✨ Generated intelligent fallback:', fallbackContent);
+      debug('✨ Generated intelligent fallback:', fallbackContent);
       return fallbackContent;
     }
   };
@@ -2532,11 +2834,11 @@ Would love to hear your thoughts in the comments - this community always has the
   const extractWorkoutData = (doc, url) => {
     const workoutData = {};
     
-    console.log('🏋️ Extracting workout data from:', url);
+    debug('🏋️ Extracting workout data from:', url);
     
     // Check if it's a Muscle & Strength website
     if (url.includes('muscleandstrength.com')) {
-      console.log('💪 Detected Muscle & Strength website');
+      debug('💪 Detected Muscle & Strength website');
       
       // Skip description extraction - only use meta description if available
       const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content') ||
@@ -2544,7 +2846,7 @@ Would love to hear your thoughts in the comments - this community always has the
       
       if (metaDescription) {
         workoutData.description = metaDescription;
-        console.log('✅ Using meta description only:', metaDescription.substring(0, 100));
+        debug('✅ Using meta description only:', metaDescription.substring(0, 100));
       }
       
       // Extract workout exercises/routine from text patterns
@@ -2554,7 +2856,7 @@ Would love to hear your thoughts in the comments - this community always has the
       const durationMatch = allText.match(/(\d+)\s*week/i) || url.match(/(\d+)-?week/i);
       if (durationMatch) {
         workoutData.duration = `${durationMatch[1]} weeks`;
-        console.log('✅ Found duration from text:', workoutData.duration);
+        debug('✅ Found duration from text:', workoutData.duration);
       }
       
       // Look for difficulty/level patterns
@@ -2569,7 +2871,7 @@ Would love to hear your thoughts in the comments - this community always has the
       for (const pattern of difficultyPatterns) {
         if (pattern.test(allText)) {
           workoutData.difficulty = allText.match(pattern)[0];
-          console.log('✅ Found difficulty:', workoutData.difficulty);
+          debug('✅ Found difficulty:', workoutData.difficulty);
           break;
         }
       }
@@ -2578,13 +2880,13 @@ Would love to hear your thoughts in the comments - this community always has the
       const workoutSections = extractWorkoutTables(doc);
       if (workoutSections.length > 0) {
         workoutData.exercises = workoutSections.join('\n\n---\n\n'); // Separate sections with dividers
-        console.log('✅ Found structured workout sections:', workoutData.exercises.substring(0, 200));
+        debug('✅ Found structured workout sections:', workoutData.exercises.substring(0, 200));
       } else {
         // Fallback: extract exercise lists from text
         const exerciseList = extractExerciseList(doc, allText);
         if (exerciseList) {
           workoutData.exercises = exerciseList;
-          console.log('✅ Found exercise list:', workoutData.exercises.substring(0, 200));
+          debug('✅ Found exercise list:', workoutData.exercises.substring(0, 200));
         }
       }
       
@@ -2600,7 +2902,7 @@ Would love to hear your thoughts in the comments - this community always has the
     
     // Generic workout extraction for other fitness sites
     else if (url.includes('bodybuilding.com') || url.includes('fitness') || url.includes('workout')) {
-      console.log('🏃 Detected fitness website');
+      debug('🏃 Detected fitness website');
       
       const allText = doc.body?.textContent || '';
       
@@ -2608,7 +2910,7 @@ Would love to hear your thoughts in the comments - this community always has the
       const durationMatch = allText.match(/(\d+)\s*week/i);
       if (durationMatch) {
         workoutData.duration = `${durationMatch[1]} weeks`;
-        console.log('Found workout duration:', workoutData.duration);
+        debug('Found workout duration:', workoutData.duration);
       }
       
       // Use only meta description for generic sites
@@ -2623,10 +2925,10 @@ Would love to hear your thoughts in the comments - this community always has the
     // Ensure we have some workout content
     if (!workoutData.exercises && workoutData.description) {
       workoutData.exercises = workoutData.description;
-      console.log('📝 Using description as exercises fallback');
+      debug('📝 Using description as exercises fallback');
     }
     
-    console.log('🎯 Final workout data extracted:', {
+    debug('🎯 Final workout data extracted:', {
       ...workoutData,
       exercises: workoutData.exercises ? `${workoutData.exercises.length} chars` : 'No exercises'
     });
@@ -2637,21 +2939,21 @@ Would love to hear your thoughts in the comments - this community always has the
   const extractWorkoutTables = (doc) => {
     const workoutSections = [];
     
-    console.log('📋 Looking for workout tables with headings...');
+    debug('📋 Looking for workout tables with headings...');
     
     // Enhanced debugging to see document content
-    console.log('🔍 Document structure analysis:');
-    console.log('- Total elements:', doc.querySelectorAll('*').length);
-    console.log('- Document HTML length:', doc.documentElement.innerHTML.length);
+    debug('🔍 Document structure analysis:');
+    debug('- Total elements:', doc.querySelectorAll('*').length);
+    debug('- Document HTML length:', doc.documentElement.innerHTML.length);
     
     // Look for ALL tables first
     const tables = doc.querySelectorAll('table');
-    console.log(`📊 Found ${tables.length} total tables`);
+    debug(`📊 Found ${tables.length} total tables`);
     
     // Debug each table to see what's inside
     tables.forEach((table, index) => {
       const tableText = table.textContent?.trim() || '';
-      console.log(`Table ${index + 1}:`, {
+      debug(`Table ${index + 1}:`, {
         className: table.className,
         id: table.id,
         textLength: tableText.length,
@@ -2669,7 +2971,7 @@ Would love to hear your thoughts in the comments - this community always has the
       const tableText = table.textContent?.toLowerCase() || '';
       const rows = table.querySelectorAll('tr');
       
-      console.log(`🔍 Analyzing table ${i + 1} with ${rows.length} rows`);
+      debug(`🔍 Analyzing table ${i + 1} with ${rows.length} rows`);
       
       // More flexible workout detection
       const workoutKeywords = ['exercise', 'sets', 'reps', 'rest', 'weight', 'muscle', 'day'];
@@ -2678,7 +2980,7 @@ Would love to hear your thoughts in the comments - this community always has the
       const hasMultipleRows = rows.length > 1;
       
       if ((hasWorkoutKeywords || hasNumbers) && hasMultipleRows && tableText.length > 20) {
-        console.log('✅ Found potential workout table:', {
+        debug('✅ Found potential workout table:', {
           hasWorkoutKeywords,
           hasNumbers,
           rowCount: rows.length,
@@ -2700,9 +3002,9 @@ Would love to hear your thoughts in the comments - this community always has the
           workoutSection += workoutTable;
           
           workoutSections.push(workoutSection);
-          console.log('📝 Successfully parsed workout section with heading');
+          debug('📝 Successfully parsed workout section with heading');
         } else {
-          console.log('❌ Failed to parse workout table');
+          debug('❌ Failed to parse workout table');
         }
       }
     }
@@ -2716,19 +3018,19 @@ Would love to hear your thoughts in the comments - this community always has the
       '.workout-content', '.exercise-content', '.routine-content'
     ];
     
-    console.log('🔍 Searching for div-based workout content...');
+    debug('🔍 Searching for div-based workout content...');
     
     for (const selector of workoutSelectors) {
       const elements = doc.querySelectorAll(selector);
       if (elements.length > 0) {
-        console.log(`📝 Found ${elements.length} elements with selector: ${selector}`);
+        debug(`📝 Found ${elements.length} elements with selector: ${selector}`);
         
         for (const element of elements) {
           // Look for workout patterns within these elements
           const childTables = element.querySelectorAll('table');
           const elementText = element.textContent || '';
           
-          console.log(`Element content preview:`, elementText.substring(0, 200));
+          debug(`Element content preview:`, elementText.substring(0, 200));
           
           // Check if this element contains workout-like content
           const hasWorkoutPattern = /(\d+\s*(?:sets?|reps?|x|×))/i.test(elementText) ||
@@ -2736,7 +3038,7 @@ Would love to hear your thoughts in the comments - this community always has the
                                    childTables.length > 0;
           
           if (hasWorkoutPattern) {
-            console.log('✅ Found workout pattern in element');
+            debug('✅ Found workout pattern in element');
             
             // Try parsing tables within this element first
             for (const childTable of childTables) {
@@ -2767,7 +3069,7 @@ Would love to hear your thoughts in the comments - this community always has the
     
     // Look for structured lists with exercise patterns (only if no tables found)
     if (workoutSections.length === 0) {
-      console.log('🔍 No tables found, searching for exercise lists...');
+      debug('🔍 No tables found, searching for exercise lists...');
       const exerciseLists = doc.querySelectorAll('ol, ul');
       let listCount = 0;
       
@@ -2785,14 +3087,14 @@ Would love to hear your thoughts in the comments - this community always has the
       }
     }
     
-    console.log(`🎯 Total workout sections extracted: ${workoutSections.length}`);
+    debug(`🎯 Total workout sections extracted: ${workoutSections.length}`);
     return workoutSections;
   };
 
   // Extract heading information that appears before a workout table
   const extractTableHeading = (table, doc) => {
     try {
-      console.log('🔍 Looking for heading above table...');
+      debug('🔍 Looking for heading above table...');
       
       // Look for heading elements before the table
       let currentElement = table.previousElementSibling;
@@ -2807,7 +3109,7 @@ Would love to hear your thoughts in the comments - this community always has the
         // Check if it's a heading element
         if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
           if (text.length > 3 && text.length < 200) {
-            console.log('📝 Found heading:', text);
+            debug('📝 Found heading:', text);
             headings.unshift(text); // Add to beginning
           }
         }
@@ -2826,7 +3128,7 @@ Would love to hear your thoughts in the comments - this community always has the
                /day \d+/i.test(text) ||
                /week \d+/i.test(text) ||
                /phase \d+/i.test(text))) {
-            console.log('📝 Found section title:', text);
+            debug('📝 Found section title:', text);
             headings.unshift(text);
           }
         }
@@ -2867,7 +3169,7 @@ Would love to hear your thoughts in the comments - this community always has the
       }
       
       const result = headings.length > 0 ? headings.join(' - ') : null;
-      console.log('🎯 Final heading result:', result || 'No heading found');
+      debug('🎯 Final heading result:', result || 'No heading found');
       return result;
     } catch (error) {
       console.error('Error extracting table heading:', error);
@@ -2879,7 +3181,7 @@ Would love to hear your thoughts in the comments - this community always has the
   const parseWorkoutTable = (table) => {
     try {
       const rows = table.querySelectorAll('tr');
-      console.log(`🔍 Parsing table with ${rows.length} rows`);
+      debug(`🔍 Parsing table with ${rows.length} rows`);
       
       if (rows.length < 1) return null;
       
@@ -2900,7 +3202,7 @@ Would love to hear your thoughts in the comments - this community always has the
             headers.push(cell.textContent?.trim() || '');
           }
           dataStartIndex = 1;
-          console.log('📝 Found headers:', headers);
+          debug('📝 Found headers:', headers);
         } else {
           // No clear headers, create generic ones based on columns
           const cellCount = firstRowCells.length;
@@ -2908,7 +3210,7 @@ Would love to hear your thoughts in the comments - this community always has the
             headers.push(`Column ${i + 1}`);
           }
           dataStartIndex = 0;
-          console.log('📝 No headers found, using generic headers for', cellCount, 'columns');
+          debug('📝 No headers found, using generic headers for', cellCount, 'columns');
         }
       }
       
@@ -2921,7 +3223,7 @@ Would love to hear your thoughts in the comments - this community always has the
         // Skip empty rows
         if (rowText.length < 3) continue;
         
-        console.log(`Row ${i}: "${rowText}"`);
+        debug(`Row ${i}: "${rowText}"`);
         
         if (cells.length > 0) {
           const rowData = [];
@@ -2955,7 +3257,7 @@ Would love to hear your thoughts in the comments - this community always has the
       }
       
       const result = workoutText.trim();
-      console.log('📋 Parsed table result:', result ? result.substring(0, 200) + '...' : 'No content');
+      debug('📋 Parsed table result:', result ? result.substring(0, 200) + '...' : 'No content');
       
       return result ? result : null; // Remove "Workout Table:" prefix since we now have headings
     } catch (error) {
@@ -2967,14 +3269,14 @@ Would love to hear your thoughts in the comments - this community always has the
   // Parse workout div structures
   const parseWorkoutDiv = (div) => {
     try {
-      console.log('🔍 Parsing workout div:', div.tagName, div.className);
+      debug('🔍 Parsing workout div:', div.tagName, div.className);
       
       let workoutText = '';
       
       // First, try to find structured elements within the div
       const structuredElements = div.querySelectorAll('p, li, div, span, strong, b');
       
-      console.log(`Found ${structuredElements.length} structured elements`);
+      debug(`Found ${structuredElements.length} structured elements`);
       
       // Look for exercise patterns in structured elements
       for (const element of structuredElements) {
@@ -2994,14 +3296,14 @@ Would love to hear your thoughts in the comments - this community always has the
         const hasExerciseName = /squat|press|curl|row|pull|push|fly|raise|extension|lunge|dip|deadlift|bench/i.test(lowerText);
         
         if ((hasNumbers && hasExerciseTerms) || hasSetRep || hasExerciseName) {
-          console.log('✅ Found exercise pattern:', elementText.substring(0, 100));
+          debug('✅ Found exercise pattern:', elementText.substring(0, 100));
           workoutText += `• ${elementText}\n`;
         }
       }
       
       // If no structured content found, try parsing raw text
       if (!workoutText.trim()) {
-        console.log('📝 No structured content, trying raw text parsing...');
+        debug('📝 No structured content, trying raw text parsing...');
         
         const text = div.textContent?.trim();
         if (text && text.length > 50) {
@@ -3023,7 +3325,7 @@ Would love to hear your thoughts in the comments - this community always has the
       }
       
       const result = workoutText.trim();
-      console.log('📋 Div parsing result:', result ? result.substring(0, 200) + '...' : 'No content found');
+      debug('📋 Div parsing result:', result ? result.substring(0, 200) + '...' : 'No content found');
       
       return result ? result : null; // Remove prefix since we now have structured headings
     } catch (error) {
@@ -3061,8 +3363,8 @@ Would love to hear your thoughts in the comments - this community always has the
 
   // Extract exercise information from unstructured text
   const extractExerciseList = (doc, allText) => {
-    console.log('🔍 Looking for exercises in text content...');
-    console.log('📝 Text sample (first 500 chars):', allText.substring(0, 500));
+    debug('🔍 Looking for exercises in text content...');
+    debug('📝 Text sample (first 500 chars):', allText.substring(0, 500));
     
     // Common exercise names to look for
     const exerciseNames = [
@@ -3087,7 +3389,7 @@ Would love to hear your thoughts in the comments - this community always has the
     
     for (const pattern of exercisePatterns) {
       const matches = [...allText.matchAll(pattern)];
-      console.log(`Pattern found ${matches.length} matches:`, matches.slice(0, 3));
+      debug(`Pattern found ${matches.length} matches:`, matches.slice(0, 3));
       
       for (const match of matches.slice(0, 20)) {
         const exerciseLine = match[0].trim();
@@ -3167,7 +3469,7 @@ Would love to hear your thoughts in the comments - this community always has the
     }
     
     const result = exercises.trim() || null;
-    console.log('🎯 Extracted exercises result:', result ? `${result.length} chars: ${result.substring(0, 300)}...` : 'No exercises found');
+    debug('🎯 Extracted exercises result:', result ? `${result.length} chars: ${result.substring(0, 300)}...` : 'No exercises found');
     return result;
   };
 
@@ -3557,9 +3859,9 @@ Would love to hear your thoughts in the comments - this community always has the
     
     const topicalUrl = createTopicalPath(selectedWebsite, keywords, contentType);
     
-    console.log(`🌐 Generated topical website for ${contentType}:`, topicalUrl);
-    console.log(`🔍 Keywords extracted:`, keywords);
-    console.log(`📊 Website type selected:`, websiteType);
+    debug(`🌐 Generated topical website for ${contentType}:`, topicalUrl);
+    debug(`🔍 Keywords extracted:`, keywords);
+    debug(`📊 Website type selected:`, websiteType);
     
     return {
       url: topicalUrl,
@@ -3573,7 +3875,7 @@ Would love to hear your thoughts in the comments - this community always has the
   // Web Data Fetching Function
   const fetchWebData = async (url) => {
     try {
-      console.log(`🔍 Fetching data from: ${url}`);
+      debug(`🔍 Fetching data from: ${url}`);
       
       // For demo purposes, we'll simulate web data fetching
       // In a production app, you'd use a web scraping service or API
@@ -3603,7 +3905,7 @@ Would love to hear your thoughts in the comments - this community always has the
       };
       
       const webData = simulateWebData(url);
-      console.log(`✅ Successfully fetched web data:`, webData.title);
+      debug(`✅ Successfully fetched web data:`, webData.title);
       return webData;
       
     } catch (error) {
@@ -3622,13 +3924,100 @@ Would love to hear your thoughts in the comments - this community always has the
   // AI Content Generation Function
   const generateAIContent = async (contentType, data) => {
     try {
-      console.log(`🤖 Generating AI content for ${contentType}...`, data);
+      debug(`🤖 Generating AI content for ${contentType}...`, data);
+      
+      // Handle custom prompts using the modular post generation system
+      if (data.customPrompt) {
+        debug(`✨ Processing custom prompt: "${data.customPrompt}"`);
+        
+        try {
+          const userPrompt = data.customPrompt;
+          const promptLower = userPrompt.toLowerCase();
+          
+          // Extract day if mentioned in the prompt
+          const dayMatch = userPrompt.match(/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i);
+          const detectedDay = dayMatch ? dayMatch[0] : null;
+          
+          // Determine which day's template to use based on content or explicit day mention
+          let targetDay = detectedDay;
+          
+          if (!targetDay) {
+            // Auto-detect day based on content type
+            if (promptLower.includes('quote') || promptLower.includes('motivat')) {
+              targetDay = 'Monday';
+            } else if (promptLower.includes('meetup') || promptLower.includes('event') || /\d{1,2}:\d{2}/.test(promptLower)) {
+              targetDay = 'Wednesday'; // Default to main meetup day
+            } else if (promptLower.includes('real estate') || promptLower.includes('property') || promptLower.includes('market')) {
+              targetDay = 'Thursday';
+            } else if (promptLower.includes('recipe') || promptLower.includes('cooking') || promptLower.includes('meal')) {
+              targetDay = 'Friday';
+            } else if (promptLower.includes('workout') || promptLower.includes('fitness') || promptLower.includes('exercise')) {
+              targetDay = 'Saturday';
+            } else if (promptLower.includes('reflect') || promptLower.includes('gratitude') || promptLower.includes('sunday')) {
+              targetDay = 'Sunday';
+            } else {
+              // Default to current active tab's schedule if available
+              targetDay = activeTab ? activeTab.charAt(0).toUpperCase() + activeTab.slice(1) : 'Monday';
+            }
+          }
+          
+          debug(`📅 Using ${targetDay} template for custom prompt`);
+          
+          // Extract relevant data based on detected day
+          const timeMatch = userPrompt.match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)/i);
+          const locationMatch = userPrompt.match(/at\s+([A-Z][^.!?]+(?:Church|Center|Park|Hall|Building|Street|Ave|Road|Blvd|Pasadena))/i);
+          
+          // Prepare data object for the template
+          const templateData = {
+            // Event-specific
+            title: userPrompt.substring(0, 100),
+            date: dayMatch ? `${dayMatch[0]} ${timeMatch ? `at ${timeMatch[0]}` : ''}` : timeMatch ? `at ${timeMatch[0]}` : '',
+            time: timeMatch ? timeMatch[0] : '',
+            location: locationMatch ? locationMatch[1] : '',
+            details: userPrompt,
+            link: '',
+            
+            // Quote/motivation
+            quote: userPrompt,
+            context: '',
+            
+            // Insight/tip
+            tip: userPrompt,
+            
+            // Recipe
+            description: userPrompt,
+            ingredients: '',
+            
+            // Reflection
+            reflection: userPrompt,
+            gratitude: '',
+            
+            // General content fallback
+            content: userPrompt
+          };
+          
+          // Generate post using the modular system
+          const generatedPost = generatePost(targetDay, templateData);
+          
+          debug(`✅ Generated ${targetDay} post using modular template system`);
+          return generatedPost;
+          
+        } catch (error) {
+          console.error('Error using modular template system:', error);
+          // Fallback to simple format if modular system fails
+          return `✨ ${data.customPrompt}
+
+Join us for this special event!
+
+#ProjectComfort #Community #Connection`;
+        }
+      }
       
       // Step 1: Generate topical website and fetch web data
       const topicalSite = generateTopicalWebsite(contentType, data);
       const webData = await fetchWebData(topicalSite.url);
       
-      console.log(`📊 Integrating web insights from ${topicalSite.domain}:`, webData.title);
+      debug(`📊 Integrating web insights from ${topicalSite.domain}:`, webData.title);
       
       // Platform-specific SEO and formatting requirements
       const platformSpecs = {
@@ -3931,10 +4320,25 @@ Would love to hear your thoughts in the comments - this community always has the
       const randomStat = surprisingStats[Math.floor(Math.random() * surprisingStats.length)];
       const randomSocialProof = socialProofElements[Math.floor(Math.random() * socialProofElements.length)];
 
-      // SEO-optimized prompt engineering for top influencer style
+      // SEO-optimized prompt engineering for top influencer style (reserved for future API integration)
+      // eslint-disable-next-line no-unused-vars
       let prompt = `You are a VIRAL ${selectedPlatform.toUpperCase()} CONTENT CREATOR with authentic personality and millions of engaged followers.
 
 🗓️ CURRENT CONTEXT: ${currentMonth} ${currentDate.getFullYear()} | ${currentSeason} | ${dayOfWeek} ${timeOfDay}
+
+${data.customPrompt ? `
+🎯 USER'S SPECIFIC REQUEST:
+"${data.customPrompt}"
+
+IMPORTANT: Your primary goal is to fulfill this exact request while incorporating the platform optimization below.
+- Address ALL elements mentioned in the user's prompt
+- If they ask for multiple topics, cover each one thoroughly
+- If they specify a format (list, story, tutorial), use that format
+- If they mention specific details, incorporate them naturally
+- Expand on their ideas with your expertise and creativity
+- Keep their original intent while adding viral content elements
+
+` : ''}
 
 PLATFORM: ${selectedPlatform.toUpperCase()}
 - Character Limit: ${currentPlatform.characterLimit}
@@ -4065,7 +4469,6 @@ ${selectedPlatform === 'tiktok' ?
 Generate content that feels like advice from a knowledgeable friend, not a generic fitness guru.`;
 
         break;
-          break;
           
         case 'recipe':
           prompt += `🍳 FOOD CONTENT CREATOR for ${selectedPlatform.toUpperCase()}:
@@ -4646,6 +5049,7 @@ Generate aspirational yet attainable lifestyle content that inspires followers t
           break;
           
         default:
+          // eslint-disable-next-line no-unused-vars
           prompt = `Create engaging social media copy for this content:
 Title: ${data.title || 'Interesting Content'}
 Description: ${data.description || 'Valuable information'}
@@ -4653,7 +5057,8 @@ Description: ${data.description || 'Valuable information'}
 Write a compelling social media post that engages your audience and encourages interaction.`;
       }
       
-      // Generate SEO-optimized, platform-specific content templates  
+      // Generate SEO-optimized, platform-specific content templates
+      // eslint-disable-next-line no-unused-vars
       const generatePlatformOptimizedContent = () => {
         const platformConfig = {
           instagram: { 
@@ -4715,9 +5120,11 @@ Write a compelling social media post that engages your audience and encourages i
         };
       };
 
-      const { hashtags, charLimit } = generatePlatformOptimizedContent();
+      // Get platform configuration
+      const { hashtags } = generatePlatformOptimizedContent();
 
-      // SEO-Optimized Templates with Platform Specificity
+      // SEO-Optimized Templates with Platform Specificity (reserved for future AI integration)
+      // eslint-disable-next-line no-unused-vars
       const templates = {
         workout: [
           // Authority Expert Approach
@@ -4820,53 +5227,54 @@ Your future self is either thanking you or wondering "what if?" Which version ar
       // Platform-specific content limits for optimization
       const platformLimits = {
         instagram: { 
-          targetChars: 125, maxChars: 180, 
-          minWords: 20, maxWords: 30, 
-          idealLength: 'First 125 characters optimized, keep under 180 total'
+          targetChars: 1500, maxChars: 2200, 
+          minWords: 100, maxWords: 300, 
+          idealLength: 'Instagram allows up to 2,200 characters, aim for engaging captions'
         },
         tiktok: { 
-          targetChars: 100, maxChars: 100, 
-          minWords: 15, maxWords: 20, 
-          idealLength: 'First 100 characters visible, punchy hook essential'
+          targetChars: 2000, maxChars: 2200, 
+          minWords: 150, maxWords: 300, 
+          idealLength: 'TikTok captions can be up to 2,200 characters'
         },
         linkedin: { 
-          targetChars: 1500, maxChars: 1800, 
-          minWords: 200, maxWords: 300, 
-          idealLength: '1200-1800 characters optimal, professional storytelling'
+          targetChars: 2000, maxChars: 3000, 
+          minWords: 200, maxWords: 500, 
+          idealLength: 'LinkedIn posts work well with 1,300-2,000 characters'
         },
         twitter: { 
-          targetChars: 250, maxChars: 259, 
-          minWords: 40, maxWords: 45, 
-          idealLength: '240-259 characters ideal, thread-worthy content'
+          targetChars: 250, maxChars: 280, 
+          minWords: 40, maxWords: 50, 
+          idealLength: '240-280 characters for Twitter/X'
         },
         youtube: { 
-          targetChars: 125, maxChars: 150, 
-          minWords: 20, maxWords: 25, 
-          idealLength: 'First 100-150 characters visible in description'
+          targetChars: 3000, maxChars: 5000, 
+          minWords: 300, maxWords: 700, 
+          idealLength: 'YouTube descriptions can be lengthy and detailed'
         },
         facebook: { 
-          targetChars: 60, maxChars: 80, 
-          minWords: 8, maxWords: 12, 
-          idealLength: '40-80 characters optimal for engagement'
+          targetChars: 1500, maxChars: 2000, 
+          minWords: 100, maxWords: 300, 
+          idealLength: 'Facebook posts work well with 1,000-2,000 characters'
         },
         pinterest: { 
-          targetChars: 125, maxChars: 150, 
-          minWords: 15, maxWords: 25, 
-          idealLength: '100-150 characters for title/description'
+          targetChars: 400, maxChars: 500, 
+          minWords: 50, maxWords: 100, 
+          idealLength: 'Pinterest descriptions are best at 400-500 characters'
         }
       };
       
       // Enhanced content generation with comprehensive prompts
       const generateComprehensiveContent = () => {
         
-        const currentLimit = platformLimits[selectedPlatform] || platformLimits.instagram;
+        // Platform limit available for future use
+        // const currentLimit = platformLimits[selectedPlatform] || platformLimits.instagram;
         
         // Enhanced AI generation with web data integration
         const contentStructure = {
           hook: randomHook,
           personalStory: `I ${randomPersonal} when I discovered this approach to ${contentType}. `,
           valueProposition: `Here's what makes this different from everything else you've tried: `,
-          specifics: `${JSON.stringify(data).replace(/[{}":]/g, '').replace(/,/g, ', ')}`,
+          specifics: `${data.title || data.content || webData.keyPoints[2] || 'this game-changing insight'}`,
           webInsights: `Latest research from ${webData.source} reveals: "${webData.keyPoints[0]}" and shows ${webData.stats}. `,
           expertBacking: `${webData.expertQuote} `,
           authorityProof: `According to ${webData.credibility} sources updated ${webData.fetchDate}, `,
@@ -4882,11 +5290,9 @@ Your future self is either thanking you or wondering "what if?" Which version ar
         if (contentComplexity === 'beginner') {
           generatedContent = `${contentStructure.hook}
 
-${contentStructure.personalStory}${contentStructure.valueProposition}
+${contentStructure.personalStory}${contentStructure.valueProposition} ${contentStructure.specifics}.
 
 ${contentStructure.webInsights}
-
-${contentStructure.specifics}
 
 ${contentStructure.engagement}${contentStructure.cta}
 
@@ -4895,9 +5301,7 @@ ${contentStructure.hashtags}`;
         } else if (contentComplexity === 'intermediate') {
           generatedContent = `${contentStructure.hook}
 
-${contentStructure.personalStory}${contentStructure.valueProposition}
-
-Here's exactly what I learned: ${contentStructure.specifics}
+${contentStructure.personalStory}${contentStructure.valueProposition} ${contentStructure.specifics}.
 
 ${contentStructure.authorityProof}${webData.keyPoints[1]} This works because it taps into ${currentSeason.toLowerCase()} energy and ${dayOfWeek} motivation patterns.
 
@@ -4914,9 +5318,7 @@ ${contentStructure.hashtags}`;
 
 Let me get vulnerable for a second: ${contentStructure.personalStory}
 
-The breakthrough came when I realized: ${contentStructure.valueProposition}
-
-Here's the exact framework: ${contentStructure.specifics}
+The breakthrough came when I realized: ${contentStructure.valueProposition} ${contentStructure.specifics}.
 
 🧠 The science behind why this works: ${contentStructure.authorityProof}${webData.description}
 
@@ -4941,6 +5343,19 @@ ${contentStructure.hashtags}`;
       };
       
       let comprehensiveContent = generateComprehensiveContent();
+      
+      // 🎯 SIMPLE CUSTOM PROMPT HANDLING - Keep natural flow
+      if (data.customPrompt) {
+        debug('🚀 Custom prompt detected, adding subtle context...');
+        const wordCount = data.customPrompt.split(' ').length;
+        
+        
+        // Keep natural AI content - just add simple intro for longer prompts
+        if (wordCount > 10) {
+          comprehensiveContent = `💬 "${data.customPrompt}"\n\n` + comprehensiveContent;
+          debug('✅ Added context intro for custom prompt');
+        }
+      }
       
       // Platform-specific content optimization based on ideal character limits
       const currentLimit = platformLimits[selectedPlatform] || platformLimits.instagram;
@@ -4989,15 +5404,223 @@ ${contentStructure.hashtags}`;
         }
       }
       
-      console.log(`✅ Generated ${selectedPlatform} optimized content for ${contentType}:`, comprehensiveContent.substring(0, 100) + '...');
-      console.log(`📝 Final content length: ${comprehensiveContent.length} characters (target: ${currentLimit.targetChars}, max: ${currentLimit.maxChars})`);
-      console.log(`🎯 Platform optimization: ${currentLimit.idealLength}`);
+      debug(`✅ Generated ${selectedPlatform} optimized content for ${contentType}:`, comprehensiveContent.substring(0, 100) + '...');
+      debug(`📝 Final content length: ${comprehensiveContent.length} characters (target: ${currentLimit.targetChars}, max: ${currentLimit.maxChars})`);
+      debug(`🎯 Platform optimization: ${currentLimit.idealLength}`);
       
+      debug('📤 Returning generated content:', comprehensiveContent.length, 'characters');
       return comprehensiveContent;
       
     } catch (error) {
-      console.error('Error generating AI content:', error);
-      return `Check out ${data.title || 'this amazing content'}! 🚀 #Content #Social #Engagement`;
+      console.error('❌ Error generating AI content:', error);
+      console.error('Error details:', error.message, error.stack);
+      debug('Data received:', data);
+      return `Check out ${data.customPrompt || data.title || 'this amazing content'}! 🚀 #Content #Social #Engagement`;
+    }
+  };
+
+  // API Integration Handlers
+  
+  // Change tone of caption using AI API
+  const handleToneChange = async (tone) => {
+    if (!baseCaption && !currentCaption) {
+      alert('Please generate a caption first!');
+      return;
+    }
+    
+    setIsChangingTone(true);
+    setSelectedTone(tone);
+    
+    try {
+      const res = await fetch("/api/ai/variation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          baseCaption: currentCaption || baseCaption, 
+          tone 
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setCurrentCaption(data.caption);
+        debug(`✅ Tone changed to ${tone}:`, data.caption.substring(0, 100));
+      } else {
+        console.error('Tone change failed:', data.message);
+        alert(`Failed to change tone: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Error changing tone:', error);
+      alert('Error changing tone. Make sure the API server is running.');
+    } finally {
+      setIsChangingTone(false);
+    }
+  };
+
+  // Open design in Canva
+  const handleCanvaDesign = async () => {
+    if (!currentCaption && !baseCaption) {
+      alert('Please generate a caption first!');
+      return;
+    }
+    
+    if (!canvaTemplateId) {
+      alert('Please enter a Canva template ID!');
+      return;
+    }
+    
+    setIsCreatingDesign(true);
+    
+    try {
+      const res = await fetch("/api/canva/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          templateId: canvaTemplateId, 
+          variables: { 
+            caption: currentCaption || baseCaption,
+            date: new Date().toLocaleDateString(),
+            hashtags: "#ProjectComfort"
+          } 
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        debug('✅ Canva design created:', data.designLink);
+        window.open(data.designLink, "_blank");
+      } else {
+        console.error('Canva creation failed:', data.message);
+        alert(`Failed to create design: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Error creating Canva design:', error);
+      alert('Error creating Canva design. Make sure the API server is running.');
+    } finally {
+      setIsCreatingDesign(false);
+    }
+  };
+
+  // Generate weekly posts with AI (prompt-based)
+  const handleGenerateWeekWithAI = async () => {
+    if (!weeklyPrompt.trim()) {
+      alert('Please enter a prompt describing the content you want to generate for the week.');
+      return;
+    }
+
+    setIsGeneratingWeek(true);
+    
+    try {
+      // Call AI to generate content for the entire week based on prompt
+      const res = await fetch("/api/ai/generate-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          prompt: weeklyPrompt,
+          tone: selectedTone,
+          platforms: ['instagram', 'linkedin', 'facebook']
+        }),
+      });
+      
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      
+      if (data.success && data.posts) {
+        // Add the generated posts to the calendar
+        const newPosts = data.posts.map((post, index) => {
+          const postData = {
+            id: Date.now() + index,
+            date: post.date || new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            dayName: post.day || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][index],
+            contentType: post.type || 'general',
+            content: {
+              title: post.title || `${post.day} Post`,
+              description: post.description || post.content || '',
+              tags: post.tags || post.hashtags || '',
+            },
+            variations: post.variations || {
+              instagram: post.instagram || post.content || '',
+              linkedin: post.linkedin || post.content || '',
+              facebook: post.facebook || post.content || ''
+            },
+            createdAt: new Date().toISOString()
+          };
+          
+          // Mark AI-generated content as used to prevent duplicates
+          markContentAsUsed(postData.content);
+          
+          return postData;
+        });
+        
+        setContentCalendar(prev => [...prev, ...newPosts]);
+        debug('✅ Generated AI weekly posts:', newPosts);
+        alert(`Successfully generated ${newPosts.length} posts for the week!`);
+        setWeeklyPrompt(''); // Clear the prompt
+      } else {
+        alert(`Failed to generate week: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error generating AI weekly posts:', error);
+      alert('Error generating weekly posts. Make sure the API server is running and OpenAI API key is configured.');
+    } finally {
+      setIsGeneratingWeek(false);
+    }
+  };
+
+  // Generate weekly posts (template-based - legacy)
+  const handleGenerateWeek = async () => {
+    setIsGeneratingWeek(true);
+    
+    try {
+      // Build content data from current state
+      const contentData = {
+        quotes: motivationalContent[0] || { quote: "Progress, not perfection", author: "Unknown", context: "Start your week with intention" },
+        events: { title: "Community Meetup", date: "Wednesday", time: "6:45pm", location: "All Saints Church" },
+        insights: realEstateTips[0] || { tip: "Market insight for the week", context: "Real estate trends" },
+        recipes: recipes[0] || { title: "Weekly Recipe", description: "Delicious meal", ingredients: "Fresh ingredients" },
+        workouts: workouts[0] || { title: "Weekly Workout", exercises: "Full body routine", duration: "30 minutes" },
+        desserts: mindfulnessPosts[0] || { title: "Sunday Reflection", reflection: "Gratitude practice", content: "Take time to reflect on the week" }
+      };
+      
+      const res = await fetch("/api/schedule/generate-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentData }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setWeeklyPosts(data.posts);
+        debug('✅ Generated weekly posts:', data.posts);
+        alert(`Successfully generated ${data.posts.length} posts for the week!`);
+      } else {
+        // Handle errors - could be from message or errors array
+        let errorMsg = data.message;
+        if (!errorMsg && data.errors && data.errors.length > 0) {
+          errorMsg = `Generated ${data.count || 0} posts with ${data.errors.length} errors:\n` + 
+                     data.errors.map(e => `${e.day}: ${e.error}`).join('\n');
+        }
+        console.error('Weekly generation failed:', errorMsg || 'Unknown error', data);
+        
+        // Still show the posts that were generated successfully
+        if (data.posts && data.posts.length > 0) {
+          setWeeklyPosts(data.posts);
+          alert(`Partial success: Generated ${data.posts.length} out of 7 posts.\n\nMissing data for:\n${data.errors.map(e => `- ${e.day}`).join('\n')}\n\nPlease add content for these days in the Topic Bank.`);
+        } else {
+          alert(`Failed to generate week: ${errorMsg || 'Unknown error'}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating weekly posts:', error);
+      alert('Error generating weekly posts. Make sure the API server is running.');
+    } finally {
+      setIsGeneratingWeek(false);
     }
   };
 
@@ -5020,7 +5643,7 @@ ${contentStructure.hashtags}`;
             url
           }));
         } else {
-          console.log('No metadata found or empty response');
+          debug('No metadata found or empty response');
         }
       } catch (error) {
         console.error('Failed to fetch recipe metadata:', error);
@@ -5041,7 +5664,7 @@ ${contentStructure.hashtags}`;
         const metadata = await fetchUrlMetadata(url);
         
         if (metadata && metadata.title) {
-          console.log('🎯 Assigning workout metadata to form:', {
+          debug('🎯 Assigning workout metadata to form:', {
             title: metadata.title,
             exercises: metadata.exercises ? metadata.exercises.substring(0, 100) + '...' : 'No exercises found',
             description: metadata.description,
@@ -5119,11 +5742,17 @@ ${contentStructure.hashtags}`;
   // AI Generation Functions for each content type
   const generateWorkoutContent = async () => {
     try {
+      // If user provided details, use them as a prompt
+      const prompt = newWorkout.title ?
+        `Create motivational social media content for a workout: ${newWorkout.title}. ${newWorkout.exercises ? `Exercises: ${newWorkout.exercises}.` : ''} ${newWorkout.duration ? `Duration: ${newWorkout.duration}.` : ''} ${newWorkout.difficulty ? `Difficulty: ${newWorkout.difficulty}.` : ''} Make it motivating and engaging for ${selectedPlatform}.` :
+        `Create motivating social media content about a great workout routine for ${selectedPlatform}. Make it inspiring and include relevant fitness hashtags.`;
+      
       const generatedContent = await generateAIContent('workout', {
         title: newWorkout.title,
         duration: newWorkout.duration,
         difficulty: newWorkout.difficulty,
-        exercises: newWorkout.exercises
+        exercises: newWorkout.exercises,
+        customPrompt: prompt
       });
       
       // Create generated content entry
@@ -5143,18 +5772,26 @@ ${contentStructure.hashtags}`;
       setWorkouts(prev => [generatedWorkout, ...prev]);
       setNewWorkout({ title: '', exercises: '', duration: '', difficulty: '', tags: '', url: '' });
       
-      console.log('✅ Generated workout content:', generatedWorkout);
+      debug('✅ Generated workout content:', generatedWorkout);
+      alert('✅ Workout content generated successfully!');
     } catch (error) {
       console.error('Error generating workout content:', error);
+      alert('Error generating workout content. Please try again.');
     }
   };
 
   const generateRecipeContent = async () => {
     try {
+      // If user provided details, use them as a prompt
+      const prompt = newRecipe.title ? 
+        `Create social media content for a recipe: ${newRecipe.title}. ${newRecipe.ingredients ? `Ingredients: ${newRecipe.ingredients}.` : ''} ${newRecipe.instructions ? `Instructions: ${newRecipe.instructions}.` : ''} Make it engaging and appetizing for ${selectedPlatform}.` :
+        `Create engaging social media content about a delicious recipe for ${selectedPlatform}. Make it appetizing and include relevant hashtags.`;
+      
       const generatedContent = await generateAIContent('recipe', {
         title: newRecipe.title,
         ingredients: newRecipe.ingredients,
-        instructions: newRecipe.instructions
+        instructions: newRecipe.instructions,
+        customPrompt: prompt
       });
       
       const generatedRecipe = {
@@ -5172,9 +5809,11 @@ ${contentStructure.hashtags}`;
       setRecipes(prev => [generatedRecipe, ...prev]);
       setNewRecipe({ title: '', ingredients: '', instructions: '', tags: '', url: '' });
       
-      console.log('✅ Generated recipe content:', generatedRecipe);
+      debug('✅ Generated recipe content:', generatedRecipe);
+      alert('✅ Recipe content generated successfully!');
     } catch (error) {
       console.error('Error generating recipe content:', error);
+      alert('Error generating recipe content. Please try again.');
     }
   };
 
@@ -5199,7 +5838,7 @@ ${contentStructure.hashtags}`;
       setRealEstateTips(prev => [generatedTip, ...prev]);
       setNewRealEstateTip({ title: '', description: '', tags: '', url: '' });
       
-      console.log('✅ Generated real estate content:', generatedTip);
+      debug('✅ Generated real estate content:', generatedTip);
     } catch (error) {
       console.error('Error generating real estate content:', error);
     }
@@ -5226,7 +5865,7 @@ ${contentStructure.hashtags}`;
       setMindfulnessPosts(prev => [generatedMindfulness, ...prev]);
       setNewMindfulness({ title: '', content: '', tags: '', url: '' });
       
-      console.log('✅ Generated mindfulness content:', generatedMindfulness);
+      debug('✅ Generated mindfulness content:', generatedMindfulness);
     } catch (error) {
       console.error('Error generating mindfulness content:', error);
     }
@@ -5255,7 +5894,7 @@ ${contentStructure.hashtags}`;
       setEducationalContent(prev => [generatedEducational, ...prev]);
       setNewEducational({ title: '', content: '', category: '', tags: '', url: '' });
       
-      console.log('✅ Generated educational content:', generatedEducational);
+      debug('✅ Generated educational content:', generatedEducational);
     } catch (error) {
       console.error('Error generating educational content:', error);
     }
@@ -5284,7 +5923,7 @@ ${contentStructure.hashtags}`;
       setMotivationalContent(prev => [generatedMotivational, ...prev]);
       setNewMotivational({ title: '', content: '', theme: '', tags: '', url: '' });
       
-      console.log('✅ Generated motivational content:', generatedMotivational);
+      debug('✅ Generated motivational content:', generatedMotivational);
     } catch (error) {
       console.error('Error generating motivational content:', error);
     }
@@ -5292,8 +5931,8 @@ ${contentStructure.hashtags}`;
 
   // Generate Travel Content
   const generateTravelContent = async () => {
-    console.log('🚀 Travel generation started');
-    console.log('📊 Travel data:', { destination: newTravel.destination, content: newTravel.content, category: newTravel.category, title: newTravel.title });
+    debug('🚀 Travel generation started');
+    debug('📊 Travel data:', { destination: newTravel.destination, content: newTravel.content, category: newTravel.category, title: newTravel.title });
     setIsGenerating(true);
     try {
       const generatedContent = await generateAIContent('travel', {
@@ -5302,7 +5941,7 @@ ${contentStructure.hashtags}`;
         category: newTravel.category,
         title: newTravel.title
       });
-      console.log('✅ Generated travel content:', generatedContent);
+      debug('✅ Generated travel content:', generatedContent);
       
       const generatedTravel = {
         id: Date.now(),
@@ -5338,11 +5977,10 @@ ${contentStructure.hashtags}`;
       const generatedTech = {
         id: Date.now(),
         title: newTech.title || 'AI Generated Tech Content',
-        content: newTech.content || 'Tech insight',
+        content: generatedContent || newTech.content || 'Tech insight',
         category: newTech.category || 'Reviews',
         tags: newTech.tags || 'tech,innovation,review',
         url: newTech.url || '',
-        content: generatedContent,
         date: new Date().toLocaleDateString(),
         platform: `${selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1)} | ${contentComplexity} | SEO Optimized`
       };
@@ -5370,7 +6008,7 @@ ${contentStructure.hashtags}`;
         id: Date.now(),
         title: newFinance.title || 'AI Generated Finance Content',
         type: newFinance.type || 'Financial Strategy',
-        content: generatedContent,
+        content: generatedContent || newFinance.content,
         tags: newFinance.tags || 'finance,money,investing',
         url: newFinance.url || '',
         date: new Date().toLocaleDateString(),
@@ -5509,11 +6147,11 @@ ${contentStructure.hashtags}`;
   // Test function for debugging URL fetching
   const testUrlFetch = async (customUrl = null) => {
     const testUrl = customUrl || 'https://www.muscleandstrength.com/workouts/12-week-total-transformation-workout';
-    console.log('Testing URL fetch with:', testUrl);
+    debug('Testing URL fetch with:', testUrl);
     
     try {
       const result = await fetchUrlMetadata(testUrl);
-      console.log('URL fetch result:', result);
+      debug('URL fetch result:', result);
       alert(`Test result: ${JSON.stringify(result, null, 2)}`);
     } catch (error) {
       console.error('Test failed:', error);
@@ -5521,125 +6159,8 @@ ${contentStructure.hashtags}`;
     }
   };
 
-  // Buffer Export Functions
-  const exportToBufferCSV = () => {
-    if (contentCalendar.length === 0) {
-      alert('No content to export. Please generate some content first!');
-      return;
-    }
-
-    // Buffer CSV format: Text, Profile, Date, Time, Link, Media
-    const csvHeaders = ['Text', 'Profile', 'Date', 'Time', 'Link', 'Media'];
-    const csvRows = [];
-
-    contentCalendar.forEach(post => {
-      Object.entries(platforms).forEach(([platform, config]) => {
-        if (post.variations[platform]) {
-          // Format the post content for Buffer
-          let postText = post.variations[platform];
-          
-          // Clean up the text (remove excessive newlines, trim)
-          postText = postText.replace(/\n+/g, ' ').trim();
-          
-          // Escape quotes for CSV
-          postText = `"${postText.replace(/"/g, '""')}"`;
-          
-          // Set default time based on platform best practices
-          const defaultTimes = {
-            instagram: '14:00', // 2 PM - peak engagement
-            linkedin: '09:00',  // 9 AM - professional hours
-            facebook: '15:00'   // 3 PM - afternoon peak
-          };
-
-          const csvRow = [
-            postText,
-            config.name,
-            post.date, // Already in MM/DD/YYYY format
-            defaultTimes[platform] || '12:00',
-            post.content.url || '', // Include URL if available
-            '' // Media - empty for now, could be enhanced later
-          ];
-          
-          csvRows.push(csvRow.join(','));
-        }
-      });
-    });
-
-    // Create CSV content
-    const csvContent = [csvHeaders.join(','), ...csvRows].join('\n');
-    
-    // Create and download the file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `buffer-export-${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
-  const exportToBufferJSON = () => {
-    if (contentCalendar.length === 0) {
-      alert('No content to export. Please generate some content first!');
-      return;
-    }
-
-    // Buffer API format
-    const bufferData = {
-      posts: contentCalendar.map(post => ({
-        text: post.variations.instagram || post.variations.linkedin || post.variations.facebook,
-        profiles: Object.entries(platforms).map(([platform, config]) => ({
-          platform: platform,
-          name: config.name,
-          text: post.variations[platform]
-        })).filter(p => p.text),
-        scheduled_at: `${post.date}T12:00:00Z`, // Default to noon UTC
-        media: post.content.url ? [{ url: post.content.url }] : [],
-        metadata: {
-          title: post.content.title,
-          contentType: post.contentType,
-          tags: post.content.tags || '',
-          generatedBy: 'Social Media Agent'
-        }
-      }))
-    };
-
-    // Create and download JSON
-    const jsonContent = JSON.stringify(bufferData, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
-    const link = document.createElement('a');
-    
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `buffer-export-${new Date().toISOString().split('T')[0]}.json`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
   return (
     <div className="max-w-7xl mx-auto p-6 min-h-screen font-comfort transition-colors duration-300 bg-comfort-tan/20 text-comfort-navy">
-      <input
-        type="file"
-        ref={recipeFileInputRef}
-        accept=".json,.csv,.txt"
-        style={{ display: 'none' }}
-      />
-      <input
-        type="file"
-        ref={workoutFileInputRef}
-        accept=".json,.csv,.txt"
-        style={{ display: 'none' }}
-      />
-
       {/* Calendar-Inspired Header */}
       <div className="rounded-xl shadow-lg mb-6 border overflow-hidden transition-colors duration-300 bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white border-comfort-tan/30">
         {/* Calendar Header Bar */}
@@ -5654,9 +6175,9 @@ ${contentStructure.hashtags}`;
             {/* App Title - Centered */}
             <div className="text-center text-amber-900 flex-1">
               <h1 className="text-3xl font-bold leading-tight mb-1">
-                Content Calendar ⚡ V2.0
+                Post Planner
               </h1>
-              <p className="text-base font-medium text-amber-800/80">AI-Powered Social Media Planner</p>
+              <p className="text-base font-medium text-amber-800/80">AI-Powered Social Media Content</p>
             </div>
             
             {/* Current Week Display */}
@@ -5672,39 +6193,47 @@ ${contentStructure.hashtags}`;
         {/* Calendar Grid Navigation */}
         <div className="p-4 bg-comfort-tan/10">
           <div className="grid grid-cols-8 gap-2">
-            {['dashboard', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((tab, index) => {
+            {['dashboard', 'categories', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((tab, index) => {
               const isActive = activeTab === tab;
               const isDashboard = tab === 'dashboard';
+              const isCategories = tab === 'categories';
               
-              // Calculate dates for the current week
+              // Calculate dates starting from today and going forward
               const today = new Date();
-              const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+              const currentDayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
               
               let dayDate = null;
               let isToday = false;
               
-              if (!isDashboard) {
-                // Calculate the date for this day tab
-                const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(tab);
+              if (!isDashboard && !isCategories) {
+                // Map day names to JavaScript day numbers (0 = Sunday, 1 = Monday, etc.)
+                const dayNameToNumber = {
+                  'sunday': 0,
+                  'monday': 1,
+                  'tuesday': 2,
+                  'wednesday': 3,
+                  'thursday': 4,
+                  'friday': 5,
+                  'saturday': 6
+                };
                 
-                if (tab === 'sunday') {
-                  // For Sunday, show next Sunday (October 12, 2025)
-                  const nextSunday = new Date(today);
-                  const daysUntilNextSunday = (7 - currentDay) % 7;
-                  nextSunday.setDate(today.getDate() + (daysUntilNextSunday === 0 ? 7 : daysUntilNextSunday));
-                  dayDate = nextSunday;
+                const targetDayNumber = dayNameToNumber[tab];
+                
+                // Calculate days from today to the target day
+                let daysFromToday;
+                if (targetDayNumber >= currentDayOfWeek) {
+                  // Target day is today or later this week
+                  daysFromToday = targetDayNumber - currentDayOfWeek;
                 } else {
-                  // For other days, calculate from this week's Monday
-                  const mondayOfWeek = new Date(today);
-                  const daysFromMonday = currentDay === 0 ? -6 : 1 - currentDay; // Adjust for Sunday being 0
-                  mondayOfWeek.setDate(today.getDate() + daysFromMonday);
-                  
-                  // Calculate days from Monday (Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5)
-                  const mondayBasedIndex = dayIndex === 0 ? 6 : dayIndex - 1; // Sunday becomes 6, others shift down
-                  dayDate = new Date(mondayOfWeek);
-                  dayDate.setDate(mondayOfWeek.getDate() + mondayBasedIndex);
+                  // Target day is next week
+                  daysFromToday = 7 - currentDayOfWeek + targetDayNumber;
                 }
                 
+                // Calculate the date for this tab
+                dayDate = new Date(today);
+                dayDate.setDate(today.getDate() + daysFromToday);
+                
+                // Check if this is today
                 isToday = dayDate.toDateString() === today.toDateString();
               }
               
@@ -5724,6 +6253,16 @@ ${contentStructure.hashtags}`;
                     <div className="flex flex-col items-center justify-center h-full">
                       <div className="text-xl mb-1">📊</div>
                       <div className="text-xs uppercase tracking-wide font-bold">Dashboard</div>
+                    </div>
+                  ) : isCategories ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="text-xl mb-1">🏷️</div>
+                      <div className="text-xs uppercase tracking-wide font-bold">Categories</div>
+                      {Object.keys(customCategories).length > 0 && (
+                        <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                          {Object.keys(customCategories).length}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full">
@@ -5764,257 +6303,523 @@ ${contentStructure.hashtags}`;
       </div>
 
       {activeTab === 'dashboard' && (
-        <div className="space-y-8">
-          {/* Main Categories Overview */}
-          <div>
-            <h3 className="text-lg font-semibold text-comfort-navy mb-4">📊 Main Categories</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-              <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-comfort-tan/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-comfort-navy/70 text-sm">Recipes</p>
-                    <p className="text-2xl font-bold text-comfort-accent">{recipes.length}</p>
-                  </div>
-                  <ChefHat className="text-comfort-accent" size={28} />
+        <div className="relative min-h-screen">
+          {/* Planner Cover Design */}
+          <div 
+            className="relative bg-gradient-to-br from-amber-900 via-amber-800 to-amber-950 rounded-2xl shadow-2xl p-8 md:p-12 border-8 border-amber-950/30"
+            style={{
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg width="40" height="40" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23000" fill-opacity="0.05"%3E%3Cpath d="M0 40L40 0H20L0 20M40 40V20L20 40"/%3E%3C/g%3E%3C/svg%3E")',
+              minHeight: '600px'
+            }}
+          >
+            {/* Leather Texture Overlay */}
+            <div 
+              className="absolute inset-0 rounded-xl opacity-20 pointer-events-none"
+              style={{
+                backgroundImage: 'radial-gradient(circle at 20% 50%, transparent 0%, rgba(0,0,0,0.3) 100%)',
+                mixBlendMode: 'multiply'
+              }}
+            ></div>
+
+            {/* Embossed Title Section */}
+            <div className="relative text-center mb-12 pb-8 border-b-2 border-amber-700/40">
+              <div className="mb-6">
+                <h1 
+                  className="text-6xl md:text-7xl font-bold mb-2 tracking-wide"
+                  style={{
+                    fontFamily: 'Georgia, serif',
+                    color: '#d4af37',
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.5), 0 0 20px rgba(212,175,55,0.3)',
+                    letterSpacing: '0.05em'
+                  }}
+                >
+                  Post Planner
+                </h1>
+                <div 
+                  className="text-xl md:text-2xl font-medium tracking-widest"
+                  style={{
+                    fontFamily: 'Georgia, serif',
+                    color: '#b8941f',
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
+                  }}
+                >
+                  2 0 2 5
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-comfort-tan/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-comfort-navy/70 text-sm">Workouts</p>
-                    <p className="text-2xl font-bold text-comfort-olive">{workouts.length}</p>
-                  </div>
-                  <Dumbbell className="text-comfort-olive" size={28} />
-                </div>
+              {/* Decorative Elements */}
+              <div className="flex justify-center items-center gap-4 text-amber-600/70">
+                <div className="w-24 h-0.5 bg-gradient-to-r from-transparent via-amber-600/50 to-transparent"></div>
+                <span className="text-2xl">✦</span>
+                <div className="w-24 h-0.5 bg-gradient-to-r from-transparent via-amber-600/50 to-transparent"></div>
               </div>
-
-              <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-comfort-tan/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-comfort-navy/70 text-sm">Real Estate</p>
-                    <p className="text-2xl font-bold text-comfort-navy">{realEstateTips.length}</p>
-                  </div>
-                  <FileText className="text-comfort-navy" size={28} />
+              
+              {/* Weekly Generation Section - Merged */}
+              <div className="mt-6 bg-amber-100/10 backdrop-blur-sm p-6 rounded-lg border-2 border-amber-700/30">
+                <h4 className="text-xl font-semibold text-amber-200 mb-3 flex items-center gap-2" style={{fontFamily: 'Georgia, serif'}}>
+                  <Calendar className="w-5 h-5" />
+                  Weekly Content Generation
+                </h4>
+                
+                {/* Mode Toggle */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setWeeklyGenMode('ai')}
+                    className={`flex-1 px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 font-medium ${
+                      weeklyGenMode === 'ai'
+                        ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg'
+                        : 'bg-amber-950/40 text-amber-300 hover:bg-amber-950/60 border-2 border-amber-700/30'
+                    }`}
+                    disabled={isGeneratingWeek}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    AI-Powered
+                  </button>
+                  <button
+                    onClick={() => setWeeklyGenMode('template')}
+                    className={`flex-1 px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 font-medium ${
+                      weeklyGenMode === 'template'
+                        ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg'
+                        : 'bg-amber-950/40 text-amber-300 hover:bg-amber-950/60 border-2 border-amber-700/30'
+                    }`}
+                    disabled={isGeneratingWeek}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Template-Based
+                  </button>
                 </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-comfort-tan/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-comfort-navy/70 text-sm">Mindfulness</p>
-                    <p className="text-2xl font-bold text-comfort-accent">{mindfulnessPosts.length}</p>
-                  </div>
-                  <Target className="text-comfort-accent" size={28} />
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-comfort-tan/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-comfort-navy/70 text-sm">Calendar</p>
-                    <p className="text-2xl font-bold text-comfort-olive">{contentCalendar.length}</p>
-                  </div>
-                  <Calendar className="text-comfort-olive" size={28} />
-                </div>
-              </div>
-
-              {/* Specialized Categories Combined */}
-              <div className="bg-gradient-to-br from-comfort-tan/20 to-comfort-accent/20 p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-comfort-tan">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-comfort-accent text-sm font-medium">Specialized</p>
-                    <p className="text-2xl font-bold text-comfort-accent">
-                      {educationalContent.length + motivationalContent.length + travelContent.length + 
-                       techContent.length + financeContent.length + beautyContent.length + 
-                       parentingContent.length + businessContent.length + lifestyleContent.length}
+                
+                {/* Novelty Notice */}
+                <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-2 border-green-600/40 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-green-300/90 leading-relaxed">
+                      <strong>Smart Novelty:</strong> The system automatically tracks generated content and ensures you never get duplicate posts. Each generation pulls from fresh, unused content. ({generatedContentHistory.size} unique posts generated so far)
                     </p>
                   </div>
-                  <div className="text-comfort-accent">
-                    <Lightbulb size={28} />
+                </div>
+                
+                {/* AI Mode */}
+                {weeklyGenMode === 'ai' && (
+                  <div className="space-y-4">
+                    <p className="text-amber-300/80 text-sm">
+                      Describe what you want to post about this week, and AI will generate a full week's worth of content.
+                    </p>
+                    
+                    {/* Prompt Input */}
+                    <div>
+                      <label className="block text-amber-300 text-sm font-medium mb-2">
+                        Weekly Theme or Topic
+                      </label>
+                      <textarea
+                        value={weeklyPrompt}
+                        onChange={(e) => setWeeklyPrompt(e.target.value)}
+                        placeholder="e.g., 'Focus on holiday home buying tips, winter recipes, and staying motivated during the busy season'"
+                        className="w-full px-4 py-3 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none resize-none"
+                        rows="3"
+                        disabled={isGeneratingWeek}
+                      />
+                    </div>
+                    
+                    {/* Tone Selector */}
+                    <div className="flex items-center gap-4">
+                      <label className="text-amber-300 text-sm font-medium">
+                        Tone:
+                      </label>
+                      <select
+                        value={selectedTone}
+                        onChange={(e) => setSelectedTone(e.target.value)}
+                        className="px-4 py-2 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 focus:border-amber-500 focus:outline-none"
+                        disabled={isGeneratingWeek}
+                      >
+                        <option value="casual">Casual</option>
+                        <option value="professional">Professional</option>
+                        <option value="inspirational">Inspirational</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="enthusiastic">Enthusiastic</option>
+                      </select>
+                    </div>
+                    
+                    {/* Generate Button */}
+                    <button
+                      onClick={handleGenerateWeekWithAI}
+                      disabled={isGeneratingWeek || !weeklyPrompt.trim()}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
+                      style={{fontFamily: 'Georgia, serif'}}
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      {isGeneratingWeek ? 'Generating...' : 'Generate Week with AI'}
+                    </button>
+                    
+                    <p className="text-amber-400/60 text-xs italic">
+                      💡 Tip: Be specific! Include topics, themes, or events you want to cover each day.
+                    </p>
+                  </div>
+                )}
+                
+                {/* Template Mode */}
+                {weeklyGenMode === 'template' && (
+                  <div className="space-y-5">
+                    <p className="text-amber-300/80 text-sm">
+                      Generate content using your Topic Bank (quotes, events, recipes, workouts, etc.) with advanced scheduling options.
+                    </p>
+                    
+                    {/* Week Generation Controls - Clean Grid Layout */}
+                    <div className="bg-amber-950/30 border-2 border-amber-700/30 rounded-lg p-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Number of Weeks */}
+                        <div className="space-y-3">
+                          <label className="text-sm font-semibold text-amber-300">Number of Weeks</label>
+                          <div className="flex items-center gap-3 bg-amber-950/40 p-3 rounded-lg">
+                            <input
+                              type="number"
+                              min="1"
+                              max="4"
+                              value={numberOfWeeks}
+                              onChange={(e) => setNumberOfWeeks(Math.max(1, Math.min(4, parseInt(e.target.value) || 1)))}
+                              className="w-20 px-3 py-2 border-2 border-amber-700/30 rounded-lg bg-amber-950/60 text-amber-200 text-center font-semibold text-lg focus:border-amber-500 focus:outline-none"
+                              disabled={isGeneratingWeek}
+                            />
+                            <div className="flex-1">
+                              <div className="text-sm text-amber-300 font-medium">
+                                {numberOfWeeks === 1 ? '1 week' : `${numberOfWeeks} weeks`}
+                              </div>
+                              <div className="text-xs text-amber-300/60">
+                                {numberOfWeeks * 7} posts total
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Generation Mode */}
+                        <div className="space-y-3">
+                          <label className="text-sm font-semibold text-amber-300">
+                            Generation Mode
+                          </label>
+                          <div className="space-y-2 bg-amber-950/40 p-3 rounded-lg">
+                            <label className="flex items-start gap-3 cursor-pointer hover:bg-amber-950/40 p-2 rounded transition-colors">
+                              <input
+                                type="radio"
+                                name="generationMode"
+                                value="nextDay"
+                                checked={generationMode === 'nextDay'}
+                                onChange={(e) => setGenerationMode(e.target.value)}
+                                className="mt-1 text-amber-400 focus:ring-amber-500"
+                                disabled={isGeneratingWeek}
+                              />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-amber-300">📅 Next 7 Days</div>
+                                <div className="text-xs text-amber-300/70 leading-relaxed">
+                                  Start tomorrow, generate consecutive days
+                                </div>
+                              </div>
+                            </label>
+                            <label className="flex items-start gap-3 cursor-pointer hover:bg-amber-950/40 p-2 rounded transition-colors">
+                              <input
+                                type="radio"
+                                name="generationMode"
+                                value="calendar"
+                                checked={generationMode === 'calendar'}
+                                onChange={(e) => setGenerationMode(e.target.value)}
+                                className="mt-1 text-amber-400 focus:ring-amber-500"
+                                disabled={isGeneratingWeek}
+                              />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-amber-300">📆 Calendar Week</div>
+                                <div className="text-xs text-amber-300/70 leading-relaxed">
+                                  Generate Sunday through Saturday
+                                </div>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Topic Schedule Editor - Enhanced Layout */}
+                    <div className="bg-amber-950/30 border-2 border-amber-700/30 rounded-lg p-5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-lg">📋</span>
+                        <h4 className="text-sm font-semibold text-amber-300">Weekly Topic Schedule</h4>
+                        <span className="text-xs text-amber-300/60 ml-auto">(Day-by-Day Selection)</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+                        {['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map((day) => (
+                          <div key={day} className="space-y-2">
+                            <label className="text-xs font-semibold text-amber-300 capitalize block text-center">
+                              {day}
+                            </label>
+                            <select
+                              value={dayTopicSelections[day] || 'random'}
+                              onChange={(e) => setDayTopicSelections({...dayTopicSelections, [day]: e.target.value})}
+                              className="w-full px-2 py-2 text-xs border-2 border-amber-700/30 rounded-lg bg-amber-950/60 text-amber-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all hover:bg-amber-950/80"
+                              disabled={isGeneratingWeek}
+                            >
+                              <option value="random">🎲 Random</option>
+                              <option value="recipe">🍳 Recipe</option>
+                              <option value="workout">💪 Workout</option>
+                              <option value="realEstate">🏠 Real Estate</option>
+                              <option value="mindfulness">🧘 Mindfulness</option>
+                              <option value="travel">✈️ Travel</option>
+                              <option value="tech">💻 Tech</option>
+                              <option value="finance">💰 Finance</option>
+                              <option value="beauty">💄 Beauty</option>
+                              <option value="parenting">👶 Parenting</option>
+                              <option value="business">💼 Business</option>
+                              <option value="lifestyle">🌟 Lifestyle</option>
+                              <option value="motivational">⚡ Motivational</option>
+                              <option value="educational">📚 Educational</option>
+                              <option value="events">📅 Events</option>
+                              {Object.keys(customCategories).map(categoryKey => (
+                                <option key={categoryKey} value={categoryKey}>
+                                  {newCategoryIcon} {categoryKey.replace(/([A-Z])/g, ' $1').trim()}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-4 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                        <p className="text-xs text-amber-300/80 italic flex items-start gap-2">
+                          <span className="text-amber-400">💡</span>
+                          <span>Select specific topics for each day or leave as "Random" - the system ensures no back-to-back duplicate topics</span>
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Tone Selector */}
+                    <div className="flex items-center gap-4">
+                      <label className="text-amber-300 text-sm font-medium">
+                        Tone:
+                      </label>
+                      <select
+                        value={selectedTone}
+                        onChange={(e) => setSelectedTone(e.target.value)}
+                        className="px-4 py-2 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 focus:border-amber-500 focus:outline-none"
+                        disabled={isGeneratingWeek}
+                      >
+                        <option value="casual">Casual</option>
+                        <option value="professional">Professional</option>
+                        <option value="inspirational">Inspirational</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="enthusiastic">Enthusiastic</option>
+                      </select>
+                    </div>
+                    
+                    {/* Generate Button */}
+                    <button
+                      onClick={generateWeeklyContent}
+                      disabled={isGeneratingWeek}
+                      className="w-full px-6 py-4 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-lg"
+                      style={{fontFamily: 'Georgia, serif'}}
+                    >
+                      {isGeneratingWeek ? `Generating ${numberOfWeeks} ${numberOfWeeks === 1 ? 'week' : 'weeks'}...` : `Generate ${numberOfWeeks} ${numberOfWeeks === 1 ? 'Week' : 'Weeks'} of Content`}
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Weekly Posts Display */}
+              {weeklyPosts.length > 0 && (
+                <div className="mt-6 bg-amber-100/20 backdrop-blur-sm p-6 rounded-lg border-2 border-amber-700/30">
+                  <h4 className="text-xl font-semibold text-amber-200 mb-4" style={{fontFamily: 'Georgia, serif'}}>
+                    Generated Weekly Posts ({weeklyPosts.length})
+                  </h4>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {weeklyPosts.map((post, index) => (
+                      <div key={index} className="bg-amber-950/40 p-4 rounded border border-amber-700/30">
+                        <div className="flex justify-between items-start mb-2">
+                          <h5 className="font-semibold text-amber-300" style={{fontFamily: 'Georgia, serif'}}>
+                            {post.day} - {post.type}
+                          </h5>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(post.caption);
+                              alert(`Copied ${post.day}'s post!`);
+                            }}
+                            className="text-amber-400 hover:text-amber-300 transition-colors"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <p className="text-amber-200/80 text-sm whitespace-pre-wrap" style={{fontFamily: 'Georgia, serif'}}>
+                          {post.caption.substring(0, 200)}...
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Content Stats Grid - Planner Style */}
+            <div className="relative space-y-8">
+              {/* Main Categories Overview */}
+              <div>
+                <h3 
+                  className="text-2xl font-semibold mb-6 text-amber-200"
+                  style={{fontFamily: 'Georgia, serif', textShadow: '1px 1px 2px rgba(0,0,0,0.5)'}}
+                >
+                  Content Overview
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                  {/* Planner-styled stat cards */}
+                  <div className="bg-amber-100/20 backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-2 border-amber-700/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-amber-200/80 text-sm font-medium" style={{fontFamily: 'Georgia, serif'}}>Recipes</p>
+                        <p className="text-3xl font-bold text-amber-300" style={{fontFamily: 'Georgia, serif'}}>{recipes.length}</p>
+                      </div>
+                      <ChefHat className="text-amber-400/70" size={32} />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-amber-100/20 backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-2 border-amber-700/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-amber-200/80 text-sm font-medium" style={{fontFamily: 'Georgia, serif'}}>Workouts</p>
+                        <p className="text-3xl font-bold text-amber-300" style={{fontFamily: 'Georgia, serif'}}>{workouts.length}</p>
+                      </div>
+                      <Dumbbell className="text-amber-400/70" size={32} />
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-100/20 backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-2 border-amber-700/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-amber-200/80 text-sm font-medium" style={{fontFamily: 'Georgia, serif'}}>Real Estate</p>
+                        <p className="text-3xl font-bold text-amber-300" style={{fontFamily: 'Georgia, serif'}}>{realEstateTips.length}</p>
+                      </div>
+                      <FileText className="text-amber-400/70" size={32} />
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-100/20 backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-2 border-amber-700/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-amber-200/80 text-sm font-medium" style={{fontFamily: 'Georgia, serif'}}>Mindfulness</p>
+                        <p className="text-3xl font-bold text-amber-300" style={{fontFamily: 'Georgia, serif'}}>{mindfulnessPosts.length}</p>
+                      </div>
+                      <Target className="text-amber-400/70" size={32} />
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-100/20 backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-2 border-amber-700/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-amber-200/80 text-sm font-medium" style={{fontFamily: 'Georgia, serif'}}>Calendar</p>
+                        <p className="text-3xl font-bold text-amber-300" style={{fontFamily: 'Georgia, serif'}}>{contentCalendar.length}</p>
+                      </div>
+                      <Calendar className="text-amber-400/70" size={32} />
+                    </div>
+                  </div>
+
+                  {/* Specialized Categories Combined */}
+                  <div className="bg-amber-200/30 backdrop-blur-sm p-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-2 border-amber-600/40">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-amber-300 text-sm font-bold" style={{fontFamily: 'Georgia, serif'}}>Specialized</p>
+                        <p className="text-3xl font-bold text-amber-200" style={{fontFamily: 'Georgia, serif'}}>
+                          {educationalContent.length + motivationalContent.length + travelContent.length + 
+                           techContent.length + financeContent.length + beautyContent.length + 
+                           parentingContent.length + businessContent.length + lifestyleContent.length + events.length}
+                        </p>
+                      </div>
+                      <div className="text-amber-300">
+                        <Lightbulb size={32} />
+                      </div>
+                    </div>
+                  </div>
+            </div>
+          </div>
+
+              {/* Specialized Categories Breakdown */}
+              <div>
+                <h3 
+                  className="text-2xl font-semibold mb-6 text-amber-200"
+                  style={{fontFamily: 'Georgia, serif', textShadow: '1px 1px 2px rgba(0,0,0,0.5)'}}
+                >
+                  Specialized Topics
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+                  {[
+                    { name: 'Educational', count: educationalContent.length, icon: '🎓' },
+                    { name: 'Motivational', count: motivationalContent.length, icon: '💪' },
+                    { name: 'Travel', count: travelContent.length, icon: '✈️' },
+                    { name: 'Tech', count: techContent.length, icon: '💻' },
+                    { name: 'Finance', count: financeContent.length, icon: '💰' },
+                    { name: 'Beauty', count: beautyContent.length, icon: '💄' },
+                    { name: 'Parenting', count: parentingContent.length, icon: '👶' },
+                    { name: 'Business', count: businessContent.length, icon: '📈' },
+                    { name: 'Lifestyle', count: lifestyleContent.length, icon: '☕' },
+                    { name: 'Events', count: events.length, icon: '📅' }
+                  ].map((category, index) => (
+                    <div key={index} className="bg-amber-100/10 backdrop-blur-sm p-4 rounded-lg shadow-md hover:shadow-lg transition-all text-center border border-amber-700/20">
+                      <div className="text-3xl mb-2 filter drop-shadow-lg">{category.icon}</div>
+                      <p className="text-xs text-amber-200/80 mb-1 font-medium" style={{fontFamily: 'Georgia, serif'}}>{category.name}</p>
+                      <p className="text-xl font-bold text-amber-300" style={{fontFamily: 'Georgia, serif'}}>{category.count}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Stats - Embossed Panel */}
+              <div className="bg-amber-950/40 backdrop-blur-sm p-8 rounded-lg border-2 border-amber-700/30 shadow-xl">
+                <h3 
+                  className="text-2xl font-semibold mb-6 text-amber-200"
+                  style={{fontFamily: 'Georgia, serif', textShadow: '1px 1px 2px rgba(0,0,0,0.5)'}}
+                >
+                  Statistics
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                  <div className="p-4 bg-amber-100/10 rounded-lg border border-amber-700/20">
+                    <p className="text-3xl font-bold text-amber-300 mb-2" style={{fontFamily: 'Georgia, serif'}}>
+                      {stats.mainContent}
+                    </p>
+                    <p className="text-sm text-amber-200/70 font-medium" style={{fontFamily: 'Georgia, serif'}}>Main Content</p>
+                  </div>
+                  <div className="p-4 bg-amber-100/10 rounded-lg border border-amber-700/20">
+                    <p className="text-3xl font-bold text-amber-300 mb-2" style={{fontFamily: 'Georgia, serif'}}>
+                      {stats.specializedContent}
+                    </p>
+                    <p className="text-sm text-amber-200/70 font-medium" style={{fontFamily: 'Georgia, serif'}}>Specialized</p>
+                  </div>
+                  <div className="p-4 bg-amber-100/10 rounded-lg border border-amber-700/20">
+                    <p className="text-3xl font-bold text-amber-300 mb-2" style={{fontFamily: 'Georgia, serif'}}>{stats.scheduledContent}</p>
+                    <p className="text-sm text-amber-200/70 font-medium" style={{fontFamily: 'Georgia, serif'}}>Scheduled</p>
+                  </div>
+                  <div className="p-4 bg-amber-100/10 rounded-lg border border-amber-700/20">
+                    <p className="text-3xl font-bold text-amber-300 mb-2" style={{fontFamily: 'Georgia, serif'}}>
+                      {stats.totalContent}
+                    </p>
+                    <p className="text-sm text-amber-200/70 font-medium" style={{fontFamily: 'Georgia, serif'}}>Total Posts</p>
+                  </div>
+                  <div className="p-4 bg-green-100/10 rounded-lg border border-green-700/30">
+                    <p className="text-3xl font-bold text-green-400 mb-2" style={{fontFamily: 'Georgia, serif'}}>{stats.uniqueGenerated}</p>
+                    <p className="text-sm text-green-300/70 font-medium" style={{fontFamily: 'Georgia, serif'}}>Unique Generated</p>
+                    <button
+                      onClick={() => {
+                        setGeneratedContentHistory(new Set());
+                        alert('✅ Content history cleared! All posts are now available for generation again.');
+                      }}
+                      className="mt-2 px-2 py-1 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded transition-colors"
+                      title="Reset novelty tracking"
+                    >
+                      Reset History
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Specialized Categories Breakdown */}
-          <div>
-            <h3 className="text-lg font-semibold text-comfort-navy mb-4">🎯 Specialized Categories</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
-              {[
-                { name: 'Educational', count: educationalContent.length, color: 'text-comfort-navy', icon: '🎓' },
-                { name: 'Motivational', count: motivationalContent.length, color: 'text-comfort-accent', icon: '💪' },
-                { name: 'Travel', count: travelContent.length, color: 'text-comfort-olive', icon: '✈️' },
-                { name: 'Tech', count: techContent.length, color: 'text-comfort-navy', icon: '💻' },
-                { name: 'Finance', count: financeContent.length, color: 'text-comfort-olive', icon: '💰' },
-                { name: 'Beauty', count: beautyContent.length, color: 'text-comfort-accent', icon: '💄' },
-                { name: 'Parenting', count: parentingContent.length, color: 'text-comfort-accent', icon: '👶' },
-                { name: 'Business', count: businessContent.length, color: 'text-comfort-navy', icon: '📈' },
-                { name: 'Lifestyle', count: lifestyleContent.length, color: 'text-comfort-olive', icon: '☕' }
-              ].map((category, index) => (
-                <div key={index} className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all text-center border border-comfort-tan/30">
-                  <div className="text-2xl mb-2">{category.icon}</div>
-                  <p className="text-xs text-comfort-navy/70 mb-1 font-medium">{category.name}</p>
-                  <p className={`text-lg font-bold ${category.color}`}>{category.count}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-100">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">📈 Quick Stats</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold text-blue-600">
-                  {recipes.length + workouts.length + realEstateTips.length + mindfulnessPosts.length}
-                </p>
-                <p className="text-sm text-gray-600">Main Content</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-purple-600">
-                  {educationalContent.length + motivationalContent.length + travelContent.length + 
-                   techContent.length + financeContent.length + beautyContent.length + 
-                   parentingContent.length + businessContent.length + lifestyleContent.length}
-                </p>
-                <p className="text-sm text-gray-600">Specialized</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-green-600">{contentCalendar.length}</p>
-                <p className="text-sm text-gray-600">Scheduled</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-orange-600">
-                  {recipes.length + workouts.length + realEstateTips.length + mindfulnessPosts.length +
-                   educationalContent.length + motivationalContent.length + travelContent.length + 
-                   techContent.length + financeContent.length + beautyContent.length + 
-                   parentingContent.length + businessContent.length + lifestyleContent.length + contentCalendar.length}
-                </p>
-                <p className="text-sm text-gray-600">Total Posts</p>
-              </div>
-            </div>
-          </div>
           
-          {/* Weekly Content Generation */}
-          <div className="bg-gradient-to-br from-comfort-accent/10 via-comfort-olive/5 to-comfort-navy/10 p-6 rounded-xl border border-comfort-tan/30">
-            <h3 className="text-lg font-semibold text-comfort-navy mb-4 flex items-center gap-2">
-              📅 Generate Weekly Content
-            </h3>
-            <p className="text-sm text-comfort-navy/70 mb-6">
-              Generate a complete week of content using your day-specific topic selections. Content will appear in the calendar below.
-            </p>
-            
-            {/* Week Generation Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Number of Weeks */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-comfort-accent" />
-                  <label className="text-sm font-medium text-comfort-navy">Generate Content For:</label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="4"
-                    value={numberOfWeeks}
-                    onChange={(e) => setNumberOfWeeks(Math.max(1, Math.min(4, parseInt(e.target.value) || 1)))}
-                    className="w-16 px-2 py-1 border border-comfort-tan/50 rounded text-center text-sm focus:border-comfort-olive focus:outline-none"
-                  />
-                  <span className="text-sm text-comfort-navy">
-                    {numberOfWeeks === 1 ? 'week' : 'weeks'} 
-                    <span className="text-comfort-navy/60 ml-1">
-                      ({numberOfWeeks * 7} posts total)
-                    </span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Generation Mode */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-comfort-navy">Generation Mode:</label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="generationMode"
-                      value="nextDay"
-                      checked={generationMode === 'nextDay'}
-                      onChange={(e) => setGenerationMode(e.target.value)}
-                      className="text-comfort-accent"
-                    />
-                    <div>
-                      <div className="text-sm font-medium text-comfort-navy">Next 7 Days</div>
-                      <div className="text-xs text-comfort-navy/70">
-                        Start tomorrow and generate for the next 7 days
-                      </div>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="generationMode"
-                      value="calendar"
-                      checked={generationMode === 'calendar'}
-                      onChange={(e) => setGenerationMode(e.target.value)}
-                      className="text-comfort-accent"
-                    />
-                    <div>
-                      <div className="text-sm font-medium text-comfort-navy">Calendar Week</div>
-                      <div className="text-xs text-comfort-navy/70">
-                        Generate for Sunday through Saturday
-                      </div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Topic Schedule Preview */}
-            <div className="bg-comfort-white/50 border border-comfort-tan/30 rounded-lg p-4 mb-6">
-              <h4 className="text-sm font-medium text-comfort-navy mb-3">Current Topic Schedule:</h4>
-              <div className="grid grid-cols-7 gap-2 text-xs">
-                {['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map((day) => (
-                  <div key={day} className="text-center">
-                    <div className="font-medium text-comfort-navy capitalize mb-1">{day.slice(0, 3)}</div>
-                    <div className={`px-2 py-1 rounded text-xs capitalize ${
-                      dayTopicSelections[day] === 'recipes' ? 'bg-orange-100 text-orange-800' :
-                      dayTopicSelections[day] === 'workouts' ? 'bg-green-100 text-green-800' :
-                      dayTopicSelections[day] === 'realestate' ? 'bg-blue-100 text-blue-800' :
-                      dayTopicSelections[day] === 'mindfulness' ? 'bg-purple-100 text-purple-800' :
-                      dayTopicSelections[day] === 'travel' ? 'bg-indigo-100 text-indigo-800' :
-                      dayTopicSelections[day] === 'tech' ? 'bg-gray-100 text-gray-800' :
-                      dayTopicSelections[day] === 'finance' ? 'bg-emerald-100 text-emerald-800' :
-                      'bg-comfort-tan/20 text-comfort-navy'
-                    }`}>
-                      {dayTopicSelections[day]}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-comfort-navy/60 mt-3">
-                💡 Modify topic selections in the individual day tabs if needed
-              </p>
-            </div>
-
-            {/* Generate Button */}
-            <button
-              onClick={generateWeeklyContent}
-              disabled={isGenerating}
-              className="w-full px-6 py-3 bg-comfort-accent text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            >
-              {isGenerating ? `Generating ${numberOfWeeks} ${numberOfWeeks === 1 ? 'week' : 'weeks'}...` : `🚀 Generate ${numberOfWeeks} ${numberOfWeeks === 1 ? 'Week' : 'Weeks'} of Content`}
-            </button>
-          </div>
-
-          {/* Calendar Section */}
-          <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white rounded-xl shadow-md p-6 border border-comfort-tan/30">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-comfort-navy flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-comfort-accent" />
-                Content Calendar
-              </h3>
+              {/* Calendar Section - Maintained as White Page */}
+              <div className="bg-white rounded-xl shadow-2xl p-8 border-4 border-amber-800/20">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-3" style={{fontFamily: 'Georgia, serif'}}>
+                    <Calendar className="w-6 h-6 text-amber-600" />
+                    Scheduled Posts
+                  </h3>
               
               <div className="flex items-center gap-3">
                 {/* Export Options */}
@@ -6105,12 +6910,12 @@ ${contentStructure.hashtags}`;
               <div className="text-center py-12">
                 <div className="bg-comfort-tan/20 border border-comfort-tan/50 rounded-lg p-6 max-w-md mx-auto">
                   <Calendar className="w-12 h-12 text-comfort-accent mx-auto mb-4" />
-                  <h4 className="font-medium text-comfort-navy mb-2">📅 Your Content Calendar</h4>
+                  <h4 className="font-medium text-comfort-navy mb-2">📅 Your Post Schedule</h4>
                   <p className="text-sm text-comfort-navy/80 mb-4">
-                    Generate content from the day tabs to see it appear in this calendar view.
+                    Generate content from the day tabs to see it appear in your schedule.
                   </p>
                   <p className="text-xs text-comfort-navy/60">
-                    Switch between day, week, month, and list views to organize your content
+                    Switch between day, week, month, and list views to organize your posts
                   </p>
                 </div>
               </div>
@@ -6327,20 +7132,24 @@ ${contentStructure.hashtags}`;
                       ))}
                   </div>
                 )}
-              </div>
-            )}
-          </div>
-
-          {/* Topic Bank */}
-          <div className="bg-gradient-to-br from-amber-50/50 via-orange-50/30 to-amber-50/50 p-6 rounded-xl border border-amber-200/50 shadow-md">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-amber-800 flex items-center gap-2">
-                🏦 Topic Bank
-              </h3>
-              <div className="text-sm text-amber-700/80">
-                Store and reuse pre-written posts by topic
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Topic Bank - Still within Dashboard Cover */}
+            <div className="bg-amber-950/40 backdrop-blur-sm p-8 rounded-lg border-2 border-amber-700/30 shadow-xl mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 
+                  className="text-2xl font-semibold text-amber-200 flex items-center gap-3"
+                  style={{fontFamily: 'Georgia, serif', textShadow: '1px 1px 2px rgba(0,0,0,0.5)'}}
+                >
+                  🏦 Topic Bank
+                </h3>
+                <div className="text-sm text-amber-200/70" style={{fontFamily: 'Georgia, serif'}}>
+                  Store and reuse pre-written posts by topic
+                </div>
+              </div>
 
             {/* Topic Selector */}
             <div className="mb-6">
@@ -6516,11 +7325,24 @@ ${contentStructure.hashtags}`;
                             </div>
                           )}
                         </div>
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex gap-2 ml-4 items-center">
+                          <select
+                            value={selectedDayForBank[post.id] || 'monday'}
+                            onChange={(e) => setSelectedDayForBank({...selectedDayForBank, [post.id]: e.target.value})}
+                            className="px-2 py-1 border border-amber-300 rounded text-sm bg-white text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          >
+                            <option value="monday">Monday</option>
+                            <option value="tuesday">Tuesday</option>
+                            <option value="wednesday">Wednesday</option>
+                            <option value="thursday">Thursday</option>
+                            <option value="friday">Friday</option>
+                            <option value="saturday">Saturday</option>
+                            <option value="sunday">Sunday</option>
+                          </select>
                           <button
-                            onClick={() => movePostFromTopicBank(selectedBankTopic, post.id)}
-                            className="px-3 py-1 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 transition-colors"
-                            title="Use this post (will be added to current day tab)"
+                            onClick={() => movePostFromTopicBank(selectedBankTopic, post.id, selectedDayForBank[post.id] || 'monday')}
+                            className="px-3 py-1 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 transition-colors whitespace-nowrap"
+                            title="Add this post to the selected day"
                           >
                             Use
                           </button>
@@ -6536,359 +7358,681 @@ ${contentStructure.hashtags}`;
                     </div>
                   ))
                 ) : (
-                  <div className="p-6 bg-amber-50/30 border border-amber-200/50 rounded-lg text-center text-amber-700/70">
+                  <div className="p-6 bg-amber-50/30 border border-amber-200/50 rounded-lg text-center text-gray-600">
                     <div className="text-4xl mb-3">🏪</div>
-                    <p className="font-medium mb-2">No posts in this topic bank yet</p>
-                    <p className="text-sm text-amber-600/80">
+                    <p className="font-medium mb-2 text-gray-600">No posts in this topic bank yet</p>
+                    <p className="text-sm text-gray-600">
                       Save posts above to build your {selectedBankTopic} content library
                     </p>
-                    <p className="text-xs text-amber-600/60 mt-2">
+                    <p className="text-xs text-gray-600 mt-2">
                       Posts can be used on any day of the week
                     </p>
                   </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Day-based Content Tabs */}
-      {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].includes(activeTab) && (
-        <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white rounded-xl shadow-md p-6 border border-comfort-tan/30">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-comfort-navy flex items-center gap-2">
-              📅 {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Content
+      {/* Categories Management Tab */}
+      {activeTab === 'categories' && (
+        <div className="bg-gradient-to-br from-amber-900/20 via-amber-800/10 to-orange-900/20 backdrop-blur-sm p-8 rounded-xl border-2 border-amber-700/30 shadow-2xl">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-amber-200 flex items-center gap-3" style={{fontFamily: 'Georgia, serif'}}>
+              🏷️ Custom Categories
             </h2>
-            
-            {/* Topic Selector for this day */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-comfort-navy">Topic:</label>
-              <select
-                value={dayTopicSelections[activeTab]}
-                onChange={(e) => setDayTopicSelections({
-                  ...dayTopicSelections,
-                  [activeTab]: e.target.value
-                })}
-                className="px-3 py-1.5 border border-comfort-tan/50 rounded-lg bg-comfort-white focus:border-comfort-olive focus:outline-none text-sm"
-              >
-                {topicOptions.map((topic) => (
-                  <option key={topic.value} value={topic.value}>
-                    {topic.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <button
+              onClick={() => setIsAddingCategory(true)}
+              className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-lg flex items-center gap-2 font-medium"
+            >
+              <span>+</span> Add Category
+            </button>
           </div>
 
-          {/* AI Content Settings */}
-          <div className="bg-gradient-to-r from-comfort-olive/10 to-comfort-navy/10 p-4 rounded-lg mb-6 border border-comfort-tan/30">
-            <h3 className="font-medium text-comfort-navy mb-3 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-comfort-accent" />
-              AI Content Settings
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-comfort-navy/80 mb-1">Platform</label>
-                <select
-                  value={selectedPlatform}
-                  onChange={(e) => setSelectedPlatform(e.target.value)}
-                  className="w-full p-2 border border-comfort-tan/50 rounded-lg text-sm focus:border-comfort-olive focus:outline-none"
-                >
-                  <option value="instagram">Instagram</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="linkedin">LinkedIn</option>
-                  <option value="twitter">Twitter</option>
-                  <option value="youtube">YouTube</option>
-                  <option value="facebook">Facebook</option>
-                  <option value="pinterest">Pinterest</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-comfort-navy/80 mb-1">Complexity</label>
-                <select
-                  value={contentComplexity}
-                  onChange={(e) => setContentComplexity(e.target.value)}
-                  className="w-full p-2 border border-comfort-tan/50 rounded-lg text-sm focus:border-comfort-olive focus:outline-none"
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </div>
-            </div>
-            <p className="text-xs text-comfort-navy/60 mt-2">
-              Content will be optimized for {selectedPlatform} with {contentComplexity} level complexity
-            </p>
-          </div>
-
-          {/* Dynamic Content Input based on selected topic */}
-          {(() => {
-            const currentSelectedTopic = dayTopicSelections[activeTab];
-            const currentTopicOption = topicOptions.find(t => t.value === currentSelectedTopic);
-            const IconComponent = currentTopicOption?.icon || FileText;
-            
-            return (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 p-3 bg-comfort-tan/10 rounded-lg border border-comfort-tan/20">
-                  <IconComponent className="w-5 h-5 text-comfort-accent" />
-                  <span className="font-medium text-comfort-navy">
-                    Creating {currentTopicOption?.label} content for {activeTab}
-                  </span>
-                </div>
-                
-                {/* URL Input Section */}
-                <div className="mb-4 p-4 bg-comfort-tan/20 rounded-xl border border-comfort-tan/30">
-                  <p className="text-sm text-comfort-navy mb-3">
-                    💡 <strong>Quick Add:</strong> Paste a URL to auto-populate content fields
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder={`Enter ${dayTopicSelections[activeTab]} URL (blog, video, recipe, etc.)`}
-                      value={dayInputs[activeTab]?.url || ''}
-                      onChange={(e) => setDayInputs({
-                        ...dayInputs,
-                        [activeTab]: { ...(dayInputs[activeTab] || {}), url: e.target.value }
-                      })}
-                      className="flex-1 p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                    />
-                    <button
-                      onClick={() => {
-                        // TODO: Implement URL fetching functionality
-                        alert('URL fetching functionality will be implemented next!');
-                      }}
-                      disabled={!dayInputs[activeTab]?.url}
-                      className="px-4 py-3 bg-comfort-accent text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Fetch
-                    </button>
-                  </div>
-                </div>
-
-                {/* Manual Content Input */}
-                <div className="space-y-3">
+          {/* Add Category Form */}
+          {isAddingCategory && (
+            <div className="bg-amber-950/30 border-2 border-amber-700/40 rounded-lg p-6 mb-6">
+              <h3 className="text-lg font-semibold text-amber-200 mb-4">Create New Category</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-amber-300 text-sm font-medium mb-2">Category Name</label>
                   <input
                     type="text"
-                    placeholder={`${dayTopicSelections[activeTab]} title`}
-                    value={dayInputs[activeTab]?.title || ''}
-                    onChange={(e) => setDayInputs({
-                      ...dayInputs,
-                      [activeTab]: { ...(dayInputs[activeTab] || {}), title: e.target.value }
-                    })}
-                    className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="e.g., Photography Tips, Book Reviews"
+                    className="w-full px-3 py-2 border-2 border-amber-700/30 rounded-lg bg-amber-950/40 text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none"
                   />
-                  <textarea
-                    placeholder={`${dayTopicSelections[activeTab]} description or content`}
-                    value={dayInputs[activeTab]?.content || ''}
-                    onChange={(e) => setDayInputs({
-                      ...dayInputs,
-                      [activeTab]: { ...(dayInputs[activeTab] || {}), content: e.target.value }
-                    })}
-                    className="w-full p-3 border border-comfort-tan/50 rounded-lg h-24 focus:border-comfort-olive focus:outline-none"
-                  />
-                  
-                  {/* Topic-specific additional fields */}
-                  {currentSelectedTopic === 'recipes' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Ingredients (comma separated)"
-                        value={dayInputs[activeTab]?.field1 || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { ...(dayInputs[activeTab] || {}), field1: e.target.value }
-                        })}
-                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Cooking time (e.g., 30 minutes)"
-                        value={dayInputs[activeTab]?.field2 || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
-                        })}
-                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                      />
-                    </>
-                  )}
-                  
-                  {currentSelectedTopic === 'workouts' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Duration (e.g., 20 minutes)"
-                        value={dayInputs[activeTab]?.field1 || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
-                        })}
-                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Difficulty (Beginner/Intermediate/Advanced)"
-                        value={dayInputs[activeTab]?.field2 || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
-                        })}
-                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                      />
-                    </>
-                  )}
-                  
-                  {currentSelectedTopic === 'realestate' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Property type or market area"
-                        value={dayInputs[activeTab]?.field1 || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
-                        })}
-                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Tips category (buying/selling/investing)"
-                        value={dayInputs[activeTab]?.field2 || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
-                        })}
-                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                      />
-                    </>
-                  )}
-                  
-                  {currentSelectedTopic === 'travel' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Destination"
-                        value={dayInputs[activeTab]?.field1 || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
-                        })}
-                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Category (adventure/budget/luxury/family)"
-                        value={dayInputs[activeTab]?.field2 || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-          [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
-                        })}
-                        className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
-                      />
-                    </>
-                  )}
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-4">
-                  <button 
+                <div>
+                  <label className="block text-amber-300 text-sm font-medium mb-2">Icon (Optional)</label>
+                  <input
+                    type="text"
+                    value={newCategoryIcon}
+                    onChange={(e) => setNewCategoryIcon(e.target.value)}
+                    placeholder="📸, 📚, etc."
+                    className="w-full px-3 py-2 border-2 border-amber-700/30 rounded-lg bg-amber-950/40 text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={addCustomCategory}
+                    disabled={!newCategoryName.trim()}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Create
+                  </button>
+                  <button
                     onClick={() => {
-                      const inputs = dayInputs[activeTab];
-                      if (inputs.title || inputs.content) {
-                        const newContent = {
-                          id: Date.now(),
-                          title: inputs.title || `${dayTopicSelections[activeTab]} content`,
-                          content: inputs.content || 'Manual content entry',
-                          topic: dayTopicSelections[activeTab],
-                          day: activeTab,
-                          field1: inputs.field1,
-                          field2: inputs.field2
-                        };
-                        addContentToDay(activeTab, newContent);
-                        
-                        // Also add to content calendar for dashboard calendar view
-                        const today = new Date();
-                        const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(activeTab);
-                        const targetDate = new Date(today);
-                        
-                        // Calculate the next occurrence of this day
-                        const currentDayIndex = today.getDay();
-                        let daysToAdd = dayIndex - currentDayIndex;
-                        if (daysToAdd <= 0) {
-                          daysToAdd += 7; // Next week if the day has already passed this week
-                        }
-                        targetDate.setDate(today.getDate() + daysToAdd);
-                        
-                        const calendarPost = {
-                          id: Date.now() + Math.random(),
-                          date: targetDate.toISOString().split('T')[0],
-                          dayName: activeTab,
-                          contentType: dayTopicSelections[activeTab],
-                          content: {
-                            title: newContent.title,
-                            content: newContent.content,
-                            description: `Manual ${dayTopicSelections[activeTab]} content for ${activeTab}`
-                          },
-                          platforms: ['instagram', 'linkedin', 'facebook'],
-                          status: 'draft',
-                          variations: {
-                            instagram: newContent.content,
-                            linkedin: newContent.content,
-                            facebook: newContent.content
-                          }
-                        };
-                        
-                        setContentCalendar(prev => [...prev, calendarPost]);
-                        console.log(`✅ Added manual content for ${activeTab} and added to calendar`);
-                        console.log(`📅 Calendar post scheduled for ${targetDate.toLocaleDateString()}`);
-                        
-                        // Clear inputs
-                        setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { title: '', content: '', url: '', field1: '', field2: '' }
-                        });
-                      }
+                      setIsAddingCategory(false);
+                      setNewCategoryName('');
+                      setNewCategoryIcon('📝');
                     }}
-                    disabled={!dayInputs[activeTab]?.title && !dayInputs[activeTab]?.content}
-                    className="flex-1 px-4 py-3 bg-comfort-navy text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                   >
-                    Add to {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                  </button>
-                  <button 
-                    onClick={() => generateDayAIContent(activeTab)}
-                    disabled={isGenerating}
-                    className="flex-1 px-4 py-3 bg-comfort-accent text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isGenerating ? 'Generating...' : 'Generate AI Content'}
+                    Cancel
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
 
-                {/* Content List */}
-                <div className="mt-6">
-                  <h3 className="font-medium text-comfort-navy mb-3">
-                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Content ({dayContent[activeTab]?.length || 0})
-                  </h3>
-                  <div className="space-y-2">
-                    {dayContent[activeTab]?.length > 0 ? (
-                      dayContent[activeTab].map((item, index) => (
-                        <div key={index} className="p-3 bg-comfort-white border border-comfort-tan/30 rounded-lg">
-                          <div className="font-medium text-comfort-navy">{item.title}</div>
-                          <div className="text-sm text-comfort-navy/70 mt-1">{item.content}</div>
+          {/* Categories List */}
+          <div className="space-y-6">
+            {Object.keys(customCategories).length === 0 ? (
+              <div className="text-center p-8 bg-amber-950/20 border-2 border-amber-700/20 rounded-lg">
+                <div className="text-4xl mb-4">🏷️</div>
+                <p className="text-amber-300 text-lg font-medium mb-2">No custom categories yet</p>
+                <p className="text-amber-400/70">Create your first custom category to organize specialized content</p>
+              </div>
+            ) : (
+              Object.entries(customCategories).map(([categoryKey, content]) => (
+                <div key={categoryKey} className="bg-amber-950/30 border-2 border-amber-700/30 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{newCategoryIcon}</span>
+                      <h3 className="text-xl font-semibold text-amber-200 capitalize">
+                        {categoryKey.replace(/([A-Z])/g, ' $1').trim()}
+                      </h3>
+                      <span className="bg-amber-600/30 text-amber-200 px-2 py-1 rounded-full text-sm">
+                        {content.length} posts
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => deleteCustomCategory(categoryKey)}
+                      className="text-red-400 hover:text-red-300 transition-colors"
+                      title="Delete category"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Category Content */}
+                  <div className="space-y-3">
+                    {content.length === 0 ? (
+                      <p className="text-amber-400/70 italic">No content in this category yet. Add content from the day tabs or create posts directly.</p>
+                    ) : (
+                      content.map((item) => (
+                        <div key={item.id} className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-amber-200 mb-1">{item.title}</h4>
+                              <p className="text-amber-300/80 text-sm line-clamp-2">{item.content || item.description}</p>
+                              {item.tags && (
+                                <p className="text-amber-400/60 text-xs mt-2">{item.tags}</p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => removeContentFromCustomCategory(categoryKey, item.id)}
+                              className="text-red-400 hover:text-red-300 transition-colors ml-4"
+                              title="Remove from category"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       ))
-                    ) : (
-                      <div className="p-4 bg-comfort-tan/10 rounded-lg text-center text-comfort-navy/60">
-                        No {currentSelectedTopic} content added yet. Add some content above!
-                      </div>
                     )}
                   </div>
                 </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
-
+      {/* Day-based Content Tabs - Day Planner Notebook Style */}
+      {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].includes(activeTab) && (
+        <div className="relative bg-white rounded-xl shadow-2xl border-l-8 border-amber-800/30" style={{
+          backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, #e5e7eb 31px, #e5e7eb 32px)',
+          backgroundSize: '100% 32px',
+          minHeight: '600px'
+        }}>
+          {/* Notebook Binding Holes */}
+          <div className="absolute left-4 top-0 bottom-0 flex flex-col justify-around py-12">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="w-3 h-3 rounded-full bg-gray-300 shadow-inner border border-gray-400"></div>
+            ))}
+          </div>
+          
+          {/* Red Margin Line */}
+          <div className="absolute left-20 top-0 bottom-0 w-0.5 bg-red-400/40"></div>
+          
+          {/* Planner Page Content */}
+          <div className="pl-24 pr-8 py-8">
+            {/* Date Header - Planner Style */}
+            <div className="mb-6 pb-4 border-b-2 border-amber-900/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-800 tracking-tight mb-1" style={{fontFamily: 'Georgia, serif'}}>
+                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                  </h2>
+                  <p className="text-sm text-gray-500" style={{fontFamily: 'Georgia, serif'}}>
+                    {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+                
+                {/* Topic Selector for this day - Planner Style */}
+                <div className="flex items-center gap-2 bg-amber-50/50 px-4 py-2 rounded border border-amber-200/50">
+                  <label className="text-sm font-medium text-gray-700" style={{fontFamily: 'Georgia, serif'}}>Today's Focus:</label>
+                  <select
+                    value={dayTopicSelections[activeTab]}
+                    onChange={(e) => setDayTopicSelections({
+                      ...dayTopicSelections,
+                      [activeTab]: e.target.value
+                    })}
+                    className="px-3 py-1.5 border border-gray-300 rounded bg-white focus:border-amber-500 focus:outline-none text-sm"
+                    style={{fontFamily: 'Georgia, serif'}}
+                  >
+                    {topicOptions.map((topic) => (
+                      <option key={topic.value} value={topic.value}>
+                        {topic.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            );
-          })()}
+            </div>
+
+            {/* AI Content Settings - Planner Style */}
+            <div className="bg-amber-50/30 p-5 rounded-lg mb-6 border-l-4 border-amber-600/40 shadow-sm">
+              <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2" style={{fontFamily: 'Georgia, serif'}}>
+                <Sparkles className="w-5 h-5 text-amber-600" />
+                Content Settings
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Georgia, serif'}}>Platform</label>
+                  <select
+                    value={selectedPlatform}
+                    onChange={(e) => setSelectedPlatform(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded bg-white text-gray-800 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                    style={{fontFamily: 'Georgia, serif'}}
+                  >
+                    <option value="instagram">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="twitter">Twitter</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="pinterest">Pinterest</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Georgia, serif'}}>Complexity</label>
+                  <select
+                    value={contentComplexity}
+                    onChange={(e) => setContentComplexity(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded bg-white text-gray-800 text-sm focus:border-amber-500 focus:ring-1 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                    style={{fontFamily: 'Georgia, serif'}}
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600 mt-3 italic" style={{fontFamily: 'Georgia, serif'}}>
+                Optimized for {selectedPlatform} • {contentComplexity} level
+              </p>
+            </div>
+
+            {/* Dynamic Content Input based on selected topic - Planner Style */}
+            {(() => {
+              const currentSelectedTopic = dayTopicSelections[activeTab];
+              const currentTopicOption = topicOptions.find(t => t.value === currentSelectedTopic);
+              const IconComponent = currentTopicOption?.icon || FileText;
+              
+              return (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded border-l-3 border-amber-600/50 shadow-sm">
+                    <IconComponent className="w-5 h-5 text-amber-600" />
+                    <span className="font-medium text-gray-800" style={{fontFamily: 'Georgia, serif'}}>
+                      Creating {currentTopicOption?.label} content for {activeTab}
+                    </span>
+                  </div>
+                  
+                  {/* AI Prompt Generation - Planner Style */}
+                  <div className="mb-4 p-4 bg-gradient-to-r from-purple-50/50 to-blue-50/50 rounded-lg border border-purple-200/50 shadow-sm">
+                    <p className="text-sm text-gray-700 mb-3 flex items-center gap-2" style={{fontFamily: 'Georgia, serif'}}>
+                      <span className="text-lg">✨</span>
+                      <strong>AI Generation:</strong> Describe what you want to create
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder={`e.g., "Write about healthy breakfast smoothies with tropical fruits" or "Share tips for beginner yoga poses"`}
+                        value={dayInputs[activeTab]?.prompt || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...(dayInputs[activeTab] || {}), prompt: e.target.value }
+                        })}
+                        className="flex-1 p-3 border border-purple-300 rounded bg-white text-gray-800 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                        style={{fontFamily: 'Georgia, serif'}}
+                      />
+                      <button
+                        onClick={async () => {
+                          const prompt = dayInputs[activeTab]?.prompt;
+                          if (!prompt) return;
+                          
+                          setIsGenerating(true);
+                          try {
+                            // Generate AI content based on the prompt
+                            const generatedContent = await generateAIContent(currentSelectedTopic, {
+                              type: currentSelectedTopic,
+                              title: prompt.substring(0, 100),
+                              content: prompt,
+                              customPrompt: prompt
+                            });
+                            
+                            // Auto-fill the manual input fields with generated content
+                            setDayInputs({
+                              ...dayInputs,
+                              [activeTab]: {
+                                ...(dayInputs[activeTab] || {}),
+                                title: `AI: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
+                                content: generatedContent || 'Generated content will appear here',
+                                prompt: ''
+                              }
+                            });
+                          } catch (error) {
+                            console.error('Error generating from prompt:', error);
+                            alert('Error generating content. Please try again.');
+                          } finally {
+                            setIsGenerating(false);
+                          }
+                        }}
+                        disabled={!dayInputs[activeTab]?.prompt || isGenerating}
+                        className="px-5 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded hover:from-purple-700 hover:to-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        style={{fontFamily: 'Georgia, serif'}}
+                      >
+                        <span>✨</span>
+                        {isGenerating ? 'Generating...' : 'Generate'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2 italic" style={{fontFamily: 'Georgia, serif'}}>
+                      AI will create platform-optimized content based on your description
+                    </p>
+                  </div>
+
+                  {/* API Integration Controls */}
+                  {(dayInputs[activeTab]?.content) && (
+                    <div className="mb-4 p-4 bg-blue-50/50 rounded-lg border border-blue-200/50 shadow-sm space-y-4">
+                      <p className="text-sm font-semibold text-gray-800 mb-3" style={{fontFamily: 'Georgia, serif'}}>
+                        🎨 Post Enhancements
+                      </p>
+                      
+                      {/* Tone Selector */}
+                      <div>
+                        <label className="text-xs text-gray-600 mb-2 block" style={{fontFamily: 'Georgia, serif'}}>
+                          Change Tone:
+                        </label>
+                        <select 
+                          value={selectedTone}
+                          onChange={(e) => {
+                            setBaseCaption(dayInputs[activeTab]?.content);
+                            setCurrentCaption(dayInputs[activeTab]?.content);
+                            handleToneChange(e.target.value);
+                          }}
+                          disabled={isChangingTone}
+                          className="w-full p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:opacity-50"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        >
+                          <option value="Casual">Casual</option>
+                          <option value="Inspirational">Inspirational</option>
+                          <option value="Educational">Educational</option>
+                          <option value="Vulnerable">Vulnerable</option>
+                          <option value="Direct">Direct</option>
+                          <option value="Professional">Professional</option>
+                          <option value="Urgent">Urgent</option>
+                        </select>
+                        {isChangingTone && (
+                          <p className="text-xs text-blue-600 mt-1">Changing tone...</p>
+                        )}
+                      </div>
+
+                      {/* Canva Integration */}
+                      <div className="space-y-2">
+                        <label className="text-xs text-gray-600 block" style={{fontFamily: 'Georgia, serif'}}>
+                          Canva Template ID:
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="DAF_Monday_Quote"
+                            value={canvaTemplateId}
+                            onChange={(e) => setCanvaTemplateId(e.target.value)}
+                            className="flex-1 p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
+                            style={{fontFamily: 'Georgia, serif'}}
+                          />
+                          <button 
+                            onClick={() => {
+                              setBaseCaption(dayInputs[activeTab]?.content);
+                              setCurrentCaption(currentCaption || dayInputs[activeTab]?.content);
+                              handleCanvaDesign();
+                            }}
+                            disabled={!canvaTemplateId || isCreatingDesign}
+                            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            {isCreatingDesign ? '🎨...' : '🎨 Open in Canva'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Optional Image URL */}
+                      <div className="space-y-2">
+                        <label className="text-xs text-gray-600 block" style={{fontFamily: 'Georgia, serif'}}>
+                          Image URL (optional):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://example.com/image.jpg"
+                          value={imageUrl}
+                          onChange={(e) => setImageUrl(e.target.value)}
+                          className="w-full p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                      </div>
+
+                      <p className="text-xs text-gray-500 italic mt-2" style={{fontFamily: 'Georgia, serif'}}>
+                        💡 Generate content first, then enhance with tone changes and Canva designs
+                      </p>
+                    </div>
+                  )}
+
+                  {/* URL Input Section - Planner Style */}
+                  <div className="mb-4 p-4 bg-amber-50/40 rounded-lg border border-amber-200/50 shadow-sm">
+                    <p className="text-sm text-gray-700 mb-3" style={{fontFamily: 'Georgia, serif'}}>
+                      💡 <strong>Quick Add:</strong> Paste a URL to auto-populate content fields
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder={`Enter ${dayTopicSelections[activeTab]} URL (blog, video, recipe, etc.)`}
+                        value={dayInputs[activeTab]?.url || ''}
+                        onChange={(e) => setDayInputs({
+                          ...dayInputs,
+                          [activeTab]: { ...(dayInputs[activeTab] || {}), url: e.target.value }
+                        })}
+                        className="flex-1 p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                        style={{fontFamily: 'Georgia, serif'}}
+                      />
+                      <button
+                        onClick={() => {
+                          // TODO: Implement URL fetching functionality
+                          alert('URL fetching functionality will be implemented next!');
+                        }}
+                        disabled={!dayInputs[activeTab]?.url}
+                        className="px-5 py-3 bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{fontFamily: 'Georgia, serif'}}
+                      >
+                        Fetch
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Manual Content Input - Planner Style */}
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder={`${dayTopicSelections[activeTab]} title`}
+                      value={dayInputs[activeTab]?.title || ''}
+                      onChange={(e) => setDayInputs({
+                        ...dayInputs,
+                        [activeTab]: { ...(dayInputs[activeTab] || {}), title: e.target.value }
+                      })}
+                      className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                      style={{fontFamily: 'Georgia, serif'}}
+                    />
+                    <textarea
+                      placeholder={`${dayTopicSelections[activeTab]} description or content`}
+                      value={dayInputs[activeTab]?.content || ''}
+                      onChange={(e) => setDayInputs({
+                        ...dayInputs,
+                        [activeTab]: { ...(dayInputs[activeTab] || {}), content: e.target.value }
+                      })}
+                      className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 h-24 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                      style={{
+                        fontFamily: 'Georgia, serif',
+                        backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, #f3f4f6 31px, #f3f4f6 32px)',
+                        backgroundSize: '100% 32px',
+                        lineHeight: '32px',
+                        paddingTop: '8px'
+                      }}
+                    />
+                  
+                    {/* Topic-specific additional fields - Planner Style */}
+                    {currentSelectedTopic === 'recipes' && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Ingredients (comma separated)"
+                          value={dayInputs[activeTab]?.field1 || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...(dayInputs[activeTab] || {}), field1: e.target.value }
+                          })}
+                          className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Cooking time (e.g., 30 minutes)"
+                          value={dayInputs[activeTab]?.field2 || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
+                          })}
+                          className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                      </>
+                    )}
+                    
+                    {currentSelectedTopic === 'workouts' && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Duration (e.g., 20 minutes)"
+                          value={dayInputs[activeTab]?.field1 || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
+                          })}
+                          className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Difficulty (Beginner/Intermediate/Advanced)"
+                          value={dayInputs[activeTab]?.field2 || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
+                          })}
+                          className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                      </>
+                    )}
+                    
+                    {currentSelectedTopic === 'realestate' && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Property type or market area"
+                          value={dayInputs[activeTab]?.field1 || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
+                          })}
+                          className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Tips category (buying/selling/investing)"
+                          value={dayInputs[activeTab]?.field2 || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
+                          })}
+                          className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                      </>
+                    )}
+                    
+                    {currentSelectedTopic === 'travel' && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Destination"
+                          value={dayInputs[activeTab]?.field1 || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...dayInputs[activeTab], field1: e.target.value }
+                          })}
+                          className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Category (adventure/budget/luxury/family)"
+                          value={dayInputs[activeTab]?.field2 || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...(dayInputs[activeTab] || {}), field2: e.target.value }
+                          })}
+                          className="w-full p-3 border border-gray-300 rounded bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none shadow-sm"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* Action Buttons - Planner Style */}
+                  <div className="flex gap-3 pt-5">
+                    <button 
+                      onClick={() => {
+                        const inputs = dayInputs[activeTab];
+                        if (inputs.title || inputs.content) {
+                          const newContent = {
+                            id: Date.now(),
+                            title: inputs.title || `${dayTopicSelections[activeTab]} content`,
+                            content: inputs.content || 'Manual content entry',
+                            topic: dayTopicSelections[activeTab],
+                            day: activeTab,
+                            field1: inputs.field1,
+                            field2: inputs.field2
+                          };
+                          addContentToDay(activeTab, newContent);
+                          
+                          // Also add to content calendar for dashboard calendar view
+                          const today = new Date();
+                          const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(activeTab);
+                          const targetDate = new Date(today);
+                          
+                          // Calculate the next occurrence of this day
+                          const currentDayIndex = today.getDay();
+                          let daysToAdd = dayIndex - currentDayIndex;
+                          if (daysToAdd <= 0) {
+                            daysToAdd += 7; // Next week if the day has already passed this week
+                          }
+                          targetDate.setDate(today.getDate() + daysToAdd);
+                          
+                          const calendarPost = {
+                            id: Date.now() + Math.random(),
+                            date: targetDate.toISOString().split('T')[0],
+                            dayName: activeTab,
+                            contentType: dayTopicSelections[activeTab],
+                            content: {
+                              title: newContent.title,
+                              content: newContent.content,
+                              description: `Manual ${dayTopicSelections[activeTab]} content for ${activeTab}`
+                            },
+                            platforms: ['instagram', 'linkedin', 'facebook'],
+                            status: 'draft',
+                            variations: {
+                              instagram: newContent.content,
+                              linkedin: newContent.content,
+                              facebook: newContent.content
+                            }
+                          };
+                          
+                          setContentCalendar(prev => [...prev, calendarPost]);
+                          debug(`✅ Added manual content for ${activeTab} and added to calendar`);
+                          debug(`📅 Calendar post scheduled for ${targetDate.toLocaleDateString()}`);
+                          
+                          // Clear inputs
+                          setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { title: '', content: '', url: '', field1: '', field2: '' }
+                          });
+                        }
+                      }}
+                      disabled={!dayInputs[activeTab]?.title && !dayInputs[activeTab]?.content}
+                      className="flex-1 px-5 py-3 bg-gray-800 text-white rounded shadow-md hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{fontFamily: 'Georgia, serif'}}
+                    >
+                      Add to {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                    </button>
+                    <button 
+                      onClick={() => generateDayAIContent(activeTab)}
+                      disabled={isGenerating}
+                      className="flex-1 px-5 py-3 bg-amber-600 text-white rounded shadow-md hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{fontFamily: 'Georgia, serif'}}
+                    >
+                      {isGenerating ? 'Generating...' : 'Generate AI Content'}
+                    </button>
+                  </div>
+
+                  {/* Content List - Planner Style */}
+                  <div className="mt-6">
+                    <h3 className="font-semibold text-gray-800 mb-4 text-lg" style={{fontFamily: 'Georgia, serif'}}>
+                      {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Content ({dayContent[activeTab]?.length || 0})
+                    </h3>
+                    <div className="space-y-3">
+                      {dayContent[activeTab]?.length > 0 ? (
+                        dayContent[activeTab].map((item, index) => (
+                          <div key={index} className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                            <div className="font-semibold text-gray-800 mb-2" style={{fontFamily: 'Georgia, serif'}}>{item.title}</div>
+                            <div className="text-sm text-gray-600" style={{fontFamily: 'Georgia, serif'}}>{item.content}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-5 bg-gray-50 rounded-lg text-center text-gray-500 border border-gray-200 border-dashed">
+                          <p style={{fontFamily: 'Georgia, serif'}}>No {currentSelectedTopic} content added yet. Add some content above!</p>
+                        </div>
+                        )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
 
@@ -6937,10 +8081,17 @@ ${contentStructure.hashtags}`;
             </div>
           </div>
 
-          <div className="mb-4 p-4 bg-comfort-tan/20 rounded-xl border border-comfort-tan/30 shadow-sm">
-            <p className="text-sm text-comfort-navy">
-              💡 <strong>Tip:</strong> Paste any recipe URL (like from AllRecipes, Food Network, or YouTube cooking videos) to auto-populate the fields!
-            </p>
+          <div className="mb-4 space-y-3">
+            <div className="p-4 bg-comfort-tan/20 rounded-xl border border-comfort-tan/30 shadow-sm">
+              <p className="text-sm text-comfort-navy">
+                💡 <strong>Tip:</strong> Paste any recipe URL (like from AllRecipes, Food Network, or YouTube cooking videos) to auto-populate the fields!
+              </p>
+            </div>
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border-2 border-amber-300 shadow-sm">
+              <p className="text-sm text-amber-900 font-medium">
+                ✨ <strong>AI Generation:</strong> Just enter a title (or leave blank) and click "Generate with AI" - the AI will create engaging content even without all details!
+              </p>
+            </div>
           </div>
           <div className="space-y-3">
             <input
@@ -7069,16 +8220,23 @@ ${contentStructure.hashtags}`;
             </div>
           </div>
           
-          <div className="mb-4 p-3 bg-comfort-olive/10 rounded-lg border border-comfort-olive/30">
-            <p className="text-sm text-comfort-navy mb-2">
-              💡 <strong>Tip:</strong> Paste any workout URL (like from Muscle & Strength, Bodybuilding.com, or YouTube fitness videos) to auto-populate the fields!
-            </p>
-            <button 
-              onClick={() => testUrlFetch('https://www.muscleandstrength.com/workouts/12-week-total-transformation-workout')}
-              className="text-xs bg-comfort-olive/20 hover:bg-comfort-olive/30 text-comfort-navy px-3 py-1 rounded transition-colors"
-            >
-              🔧 Test M&S URL Parsing
-            </button>
+          <div className="mb-4 space-y-3">
+            <div className="p-3 bg-comfort-olive/10 rounded-lg border border-comfort-olive/30">
+              <p className="text-sm text-comfort-navy mb-2">
+                💡 <strong>Tip:</strong> Paste any workout URL (like from Muscle & Strength, Bodybuilding.com, or YouTube fitness videos) to auto-populate the fields!
+              </p>
+              <button 
+                onClick={() => testUrlFetch('https://www.muscleandstrength.com/workouts/12-week-total-transformation-workout')}
+                className="text-xs bg-comfort-olive/20 hover:bg-comfort-olive/30 text-comfort-navy px-3 py-1 rounded transition-colors"
+              >
+                🔧 Test M&S URL Parsing
+              </button>
+            </div>
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border-2 border-amber-300 shadow-sm">
+              <p className="text-sm text-amber-900 font-medium">
+                ✨ <strong>AI Generation:</strong> Just enter a title (or leave blank) and click "Generate with AI" - the AI will create motivating content even without all details!
+              </p>
+            </div>
           </div>
           <div className="space-y-3">
             <input
@@ -8337,7 +9495,143 @@ ${contentStructure.hashtags}`;
         </div>
       )}
 
-
+      {activeTab === 'events' && (
+        <div className="bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white rounded-xl shadow-md p-6 border border-comfort-tan/30">
+          <h2 className="text-xl font-semibold mb-4 text-comfort-navy flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-comfort-accent" />
+            Events Management
+          </h2>
+          
+          <div className="mb-4 p-3 bg-comfort-olive/10 rounded-lg border border-comfort-olive/30">
+            <p className="text-sm text-comfort-navy">
+              💡 <strong>Tip:</strong> Add upcoming events, webinars, open houses, workshops, or community gatherings. Perfect for promoting real estate events, fitness classes, cooking workshops, and more!
+            </p>
+          </div>
+          
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Event title (e.g., 'Open House at 123 Main Street')"
+              value={newEvent.title}
+              onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+              className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="date"
+                placeholder="Event date"
+                value={newEvent.date}
+                onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+                className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+              />
+              <input
+                type="time"
+                placeholder="Event time"
+                value={newEvent.time}
+                onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
+                className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Location (e.g., '123 Main Street, Downtown' or 'Virtual - Zoom Link')"
+              value={newEvent.location}
+              onChange={(e) => setNewEvent({...newEvent, location: e.target.value})}
+              className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+            />
+            <textarea
+              placeholder="Event description (What is the event about? What can attendees expect?)"
+              value={newEvent.description}
+              onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
+              className="w-full p-3 border border-comfort-tan/50 rounded-lg h-24 focus:border-comfort-olive focus:outline-none"
+            />
+            <input
+              type="url"
+              placeholder="Event URL or Registration Link (optional)"
+              value={newEvent.url}
+              onChange={(e) => setNewEvent({...newEvent, url: e.target.value})}
+              className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+            />
+            <input
+              type="text"
+              placeholder="Tags (comma separated, e.g., 'realestate, openhouse, community')"
+              value={newEvent.tags}
+              onChange={(e) => setNewEvent({...newEvent, tags: e.target.value})}
+              className="w-full p-3 border border-comfort-tan/50 rounded-lg focus:border-comfort-olive focus:outline-none"
+            />
+            <button
+              onClick={addEvent}
+              className="w-full px-4 py-3 bg-comfort-accent text-comfort-white rounded-lg hover:bg-comfort-olive transition-colors shadow-md font-semibold"
+            >
+              📅 Add Event
+            </button>
+          </div>
+          
+          <div className="mt-6 space-y-2">
+            {events.length === 0 ? (
+              <div className="text-center p-6 bg-comfort-tan/10 rounded-lg border-2 border-dashed border-comfort-tan/30">
+                <Calendar className="w-12 h-12 text-comfort-tan mx-auto mb-2" />
+                <p className="text-comfort-navy/60">No events added yet. Add your first event above!</p>
+              </div>
+            ) : (
+              events.map((event) => (
+                <div key={event.id} className="p-4 border border-comfort-tan/30 rounded-lg bg-comfort-tan/10 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="font-semibold text-comfort-navy text-lg mb-1">{event.title}</div>
+                      <div className="text-sm text-comfort-navy/80 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-comfort-accent" />
+                          <span><strong>Date:</strong> {new Date(event.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        </div>
+                        {event.time && (
+                          <div className="flex items-center gap-2">
+                            <span className="ml-6"><strong>Time:</strong> {event.time}</span>
+                          </div>
+                        )}
+                        {event.location && (
+                          <div className="flex items-center gap-2">
+                            <span className="ml-6"><strong>Location:</strong> {event.location}</span>
+                          </div>
+                        )}
+                        {event.description && (
+                          <div className="mt-2 text-comfort-navy/70">{event.description}</div>
+                        )}
+                        {event.url && (
+                          <a 
+                            href={event.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-comfort-olive hover:text-comfort-navy text-sm transition-colors inline-flex items-center gap-1 mt-2"
+                          >
+                            🔗 Event Link / Registration
+                          </a>
+                        )}
+                        {event.tags && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {event.tags.split(',').map((tag, idx) => (
+                              <span key={idx} className="text-xs bg-comfort-accent/20 text-comfort-navy px-2 py-1 rounded">
+                                {tag.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => deleteEvent(event.id)} 
+                      className="text-comfort-accent hover:text-red-600 transition-colors ml-3"
+                      title="Delete event"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {activeTab === 'generate' && (
         <div className="bg-white rounded-lg shadow p-6">
@@ -8447,6 +9741,12 @@ ${contentStructure.hashtags}`;
                     <option value="parenting">👨‍👩‍👧‍👦 Parenting</option>
                     <option value="business">💼 Business</option>
                     <option value="lifestyle">🌟 Lifestyle</option>
+                    <option value="events">📅 Events</option>
+                    {Object.keys(customCategories).map(categoryKey => (
+                      <option key={categoryKey} value={categoryKey}>
+                        🏷️ {categoryKey.replace(/([A-Z])/g, ' $1').trim()}
+                      </option>
+                    ))}
                     <option value="random">🎲 Random Mix</option>
                   </select>
                 </div>
@@ -8566,6 +9866,14 @@ ${contentStructure.hashtags}`;
                 />
                 <span className="text-sm">🌟 Lifestyle ({lifestyleContent.length})</span>
               </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={contentMix.events}
+                  onChange={(e) => setContentMix({...contentMix, events: e.target.checked})}
+                />
+                <span className="text-sm">📅 Events ({events.length})</span>
+              </div>
             </div>
             <p className="text-xs text-green-600 mt-2">
               These checkboxes control which content types are available for "Random Mix" days.
@@ -8625,45 +9933,39 @@ ${contentStructure.hashtags}`;
                   Generated Content Calendar
                 </h3>
                 
-                {/* Export and Management Buttons - Only show when content exists */}
+                {/* Management Buttons - Only show when content exists */}
                 {contentCalendar.length > 0 && (
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-comfort-navy/70">Export:</span>
-                      <button
-                        onClick={exportToBufferCSV}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-comfort-olive text-comfort-white text-xs rounded hover:bg-comfort-navy transition-colors shadow"
-                        title="Export as CSV for Buffer import"
-                      >
-                        <Download size={14} />
-                        CSV
-                      </button>
-                      <button
-                        onClick={exportToBufferJSON}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-comfort-accent text-comfort-white text-xs rounded hover:bg-comfort-navy transition-colors shadow"
-                        title="Export as JSON for Buffer API"
-                      >
-                        <Download size={14} />
-                        JSON
-                      </button>
-                    </div>
-                    
-                    <div className="border-l border-comfort-tan/30 pl-3">
-                      <button
-                        onClick={() => {
-                          const confirmClear = window.confirm(`Are you sure you want to discard ALL ${contentCalendar.length} generated posts? This action cannot be undone.`);
-                          if (confirmClear) {
-                            setContentCalendar([]);
-                            console.log('🗑️ Cleared all generated content');
-                          }
-                        }}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors shadow"
-                        title="Discard all generated posts"
-                      >
-                        <Trash2 size={14} />
-                        Clear All
-                      </button>
-                    </div>
+                    <button
+                      onClick={exportToCSV}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-comfort-green text-white text-xs rounded hover:bg-comfort-green/90 transition-colors shadow"
+                      title="Export calendar to CSV format"
+                    >
+                      <Download size={14} />
+                      Export CSV
+                    </button>
+                    <button
+                      onClick={exportToJSON}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-comfort-blue text-white text-xs rounded hover:bg-comfort-blue/90 transition-colors shadow"
+                      title="Export calendar to JSON format"
+                    >
+                      <Download size={14} />
+                      Export JSON
+                    </button>
+                    <button
+                      onClick={() => {
+                        const confirmClear = window.confirm(`Are you sure you want to discard ALL ${contentCalendar.length} generated posts? This action cannot be undone.`);
+                        if (confirmClear) {
+                          setContentCalendar([]);
+                          debug('🗑️ Cleared all generated content');
+                        }
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors shadow"
+                      title="Discard all generated posts"
+                    >
+                      <Trash2 size={14} />
+                      Clear All
+                    </button>
                   </div>
                 )}
               </div>
