@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors({
   origin: [
-    'https://your-app.vercel.app', // TODO: replace with your actual Vercel URL
+    'https://social-media-agent-673r9z80m-james-stowes-projects.vercel.app',
     'http://localhost:3000'
   ]
 }));
