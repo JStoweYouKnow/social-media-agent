@@ -6160,28 +6160,27 @@ ${contentStructure.hashtags}`;
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 min-h-screen font-comfort transition-colors duration-300 bg-comfort-tan/20 text-comfort-navy">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 min-h-screen font-comfort transition-colors duration-300 bg-comfort-tan/20 text-comfort-navy">
       {/* Calendar-Inspired Header */}
       <div className="rounded-xl shadow-lg mb-6 border overflow-hidden transition-colors duration-300 bg-gradient-to-br from-comfort-white via-comfort-tan/10 to-comfort-white border-comfort-tan/30">
         {/* Calendar Header Bar */}
-        <div className="p-6 border-b transition-colors duration-300 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 border-amber-200">
-          <div className="flex items-center justify-between">
-            {/* CACHE TEST VERSION 2.0 - If you see this, cache is cleared! */}
+        <div className="p-4 md:p-6 border-b transition-colors duration-300 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 border-amber-200">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Left Calendar Icon */}
-            <div className="flex items-center justify-center w-20 h-20">
-              <Calendar className="w-12 h-12 text-amber-700" />
+            <div className="flex items-center justify-center w-16 h-16 md:w-20 md:h-20">
+              <Calendar className="w-10 h-10 md:w-12 md:h-12 text-amber-700" />
             </div>
             
             {/* App Title - Centered */}
             <div className="text-center text-amber-900 flex-1">
-              <h1 className="text-3xl font-bold leading-tight mb-1">
+              <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-1">
                 Post Planner
               </h1>
-              <p className="text-base font-medium text-amber-800/80">AI-Powered Social Media Content</p>
+              <p className="text-sm md:text-base font-medium text-amber-800/80">AI-Powered Social Media Content</p>
             </div>
             
             {/* Current Week Display */}
-            <div className="text-right text-amber-900 w-20">
+            <div className="text-center md:text-right text-amber-900 w-16 md:w-20">
               <div className="text-xs text-amber-700/70 uppercase tracking-wide font-medium mb-1">This Week</div>
               <div className="text-sm font-semibold leading-tight">
                 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -6191,8 +6190,8 @@ ${contentStructure.hashtags}`;
         </div>
 
         {/* Calendar Grid Navigation */}
-        <div className="p-4 bg-comfort-tan/10">
-          <div className="grid grid-cols-8 gap-2">
+        <div className="p-3 md:p-4 bg-comfort-tan/10">
+          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2 md:gap-2">
             {['dashboard', 'categories', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((tab, index) => {
               const isActive = activeTab === tab;
               const isDashboard = tab === 'dashboard';
@@ -6241,7 +6240,7 @@ ${contentStructure.hashtags}`;
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`relative p-4 rounded-xl font-medium transition-all duration-200 min-h-16 ${
+                  className={`relative p-3 md:p-4 rounded-xl font-medium transition-all duration-200 min-h-16 ${
                     isActive
                       ? 'bg-comfort-navy text-white shadow-xl transform scale-105 border-2 border-comfort-accent'
                       : isToday && !isDashboard
@@ -6306,10 +6305,10 @@ ${contentStructure.hashtags}`;
         <div className="relative min-h-screen">
           {/* Planner Cover Design */}
           <div 
-            className="relative bg-gradient-to-br from-amber-900 via-amber-800 to-amber-950 rounded-2xl shadow-2xl p-8 md:p-12 border-8 border-amber-950/30"
+            className="relative bg-gradient-to-br from-amber-900 via-amber-800 to-amber-950 rounded-2xl shadow-2xl p-6 md:p-8 lg:p-12 border-8 border-amber-950/30"
             style={{
               backgroundImage: 'url("data:image/svg+xml,%3Csvg width="40" height="40" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23000" fill-opacity="0.05"%3E%3Cpath d="M0 40L40 0H20L0 20M40 40V20L20 40"/%3E%3C/g%3E%3C/svg%3E")',
-              minHeight: '600px'
+              minHeight: '400px md:600px'
             }}
           >
             {/* Leather Texture Overlay */}
@@ -6325,7 +6324,7 @@ ${contentStructure.hashtags}`;
             <div className="relative text-center mb-12 pb-8 border-b-2 border-amber-700/40">
               <div className="mb-6">
                 <h1 
-                  className="text-6xl md:text-7xl font-bold mb-2 tracking-wide"
+                  className="text-4xl md:text-6xl lg:text-7xl font-bold mb-2 tracking-wide"
                   style={{
                     fontFamily: 'Georgia, serif',
                     color: '#d4af37',
@@ -6336,7 +6335,7 @@ ${contentStructure.hashtags}`;
                   Post Planner
                 </h1>
                 <div 
-                  className="text-xl md:text-2xl font-medium tracking-widest"
+                  className="text-lg md:text-xl lg:text-2xl font-medium tracking-widest"
                   style={{
                     fontFamily: 'Georgia, serif',
                     color: '#b8941f',
@@ -6365,7 +6364,7 @@ ${contentStructure.hashtags}`;
                 <div className="flex gap-2 mb-4">
                   <button
                     onClick={() => setWeeklyGenMode('ai')}
-                    className={`flex-1 px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 font-medium ${
+                    className={`flex-1 px-4 py-3 rounded-lg transition-all flex items-center justify-center gap-2 font-medium min-h-11 ${
                       weeklyGenMode === 'ai'
                         ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg'
                         : 'bg-amber-950/40 text-amber-300 hover:bg-amber-950/60 border-2 border-amber-700/30'
@@ -6377,7 +6376,7 @@ ${contentStructure.hashtags}`;
                   </button>
                   <button
                     onClick={() => setWeeklyGenMode('template')}
-                    className={`flex-1 px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 font-medium ${
+                    className={`flex-1 px-4 py-3 rounded-lg transition-all flex items-center justify-center gap-2 font-medium min-h-11 ${
                       weeklyGenMode === 'template'
                         ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg'
                         : 'bg-amber-950/40 text-amber-300 hover:bg-amber-950/60 border-2 border-amber-700/30'
@@ -6415,21 +6414,21 @@ ${contentStructure.hashtags}`;
                         value={weeklyPrompt}
                         onChange={(e) => setWeeklyPrompt(e.target.value)}
                         placeholder="e.g., 'Focus on holiday home buying tips, winter recipes, and staying motivated during the busy season'"
-                        className="w-full px-4 py-3 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none resize-none"
-                        rows="3"
+                        className="w-full px-4 py-3 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none resize-none text-base"
+                        rows="4"
                         disabled={isGeneratingWeek}
                       />
                     </div>
                     
                     {/* Tone Selector */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                       <label className="text-amber-300 text-sm font-medium">
                         Tone:
                       </label>
                       <select
                         value={selectedTone}
                         onChange={(e) => setSelectedTone(e.target.value)}
-                        className="px-4 py-2 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 focus:border-amber-500 focus:outline-none"
+                        className="px-4 py-3 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 focus:border-amber-500 focus:outline-none text-base min-h-11"
                         disabled={isGeneratingWeek}
                       >
                         <option value="casual">Casual</option>
@@ -6444,7 +6443,7 @@ ${contentStructure.hashtags}`;
                     <button
                       onClick={handleGenerateWeekWithAI}
                       disabled={isGeneratingWeek || !weeklyPrompt.trim()}
-                      className="w-full px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
+                      className="w-full px-6 py-4 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold min-h-11"
                       style={{fontFamily: 'Georgia, serif'}}
                     >
                       <Sparkles className="w-5 h-5" />
@@ -6590,14 +6589,14 @@ ${contentStructure.hashtags}`;
                     </div>
                     
                     {/* Tone Selector */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                       <label className="text-amber-300 text-sm font-medium">
                         Tone:
                       </label>
                       <select
                         value={selectedTone}
                         onChange={(e) => setSelectedTone(e.target.value)}
-                        className="px-4 py-2 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 focus:border-amber-500 focus:outline-none"
+                        className="px-4 py-3 bg-amber-950/40 border-2 border-amber-700/30 rounded-lg text-amber-100 focus:border-amber-500 focus:outline-none text-base min-h-11"
                         disabled={isGeneratingWeek}
                       >
                         <option value="casual">Casual</option>
