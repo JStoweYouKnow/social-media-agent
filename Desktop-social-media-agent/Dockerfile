@@ -3,7 +3,11 @@
 FROM node:18-alpine AS builder
 WORKDIR /usr/src/app
 COPY package.json package-lock.json* ./
-RUN npm ci --silent || npm install --silent
+# Prefer `npm install` in the builder so builds don't fail when a lockfile
+# is not present in the build context (some CI providers run in subpaths).
+# If you want deterministic installs in CI, ensure `package-lock.json` is
+# present and replace `npm install` with `npm ci` here.
+RUN npm install --silent
 COPY . .
 RUN npm run build --silent
 
@@ -12,7 +16,8 @@ FROM node:18-alpine
 WORKDIR /usr/src/app
 ENV NODE_ENV=production
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production --silent || npm install --only=production --silent
+# Use npm install in production stage as a fallback when lockfile is missing.
+RUN npm install --only=production --silent
 COPY --from=builder /usr/src/app/build ./build
 COPY . .
 EXPOSE 3000
