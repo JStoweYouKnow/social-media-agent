@@ -1,0 +1,20 @@
+# Render blueprint (two services) for Post Planner
+# - web: Node web service that will serve API and optionally the React build
+# - static: (optional) static site service if you prefer separate frontend hosting
+
+services:
+  - type: web
+    name: post-planner-backend
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: "npm install"
+    startCommand: "npm run api"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000" # Render will override with assigned port during runtime
+
+# If you prefer a separate static site for the frontend, create a static site on Render
+# using `npm run build` and publish the `build/` directory.

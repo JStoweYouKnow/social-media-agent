@@ -30,6 +30,21 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/canva', canvaRoutes);
 app.use('/api/schedule', scheduleRoutes);
 
+// Serve React build (if it exists) for a single-service deploy
+const path = require('path');
+const fs = require('fs');
+const buildPath = path.join(__dirname, 'build');
+if (fs.existsSync(buildPath)) {
+  console.log('Static build detected. Serving React build from /build');
+  app.use(express.static(buildPath));
+
+  // Serve index.html for any non-API routes (client-side routing)
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
