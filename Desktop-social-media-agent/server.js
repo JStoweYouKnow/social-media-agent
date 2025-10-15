@@ -15,7 +15,12 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://your-app.vercel.app', // TODO: replace with your actual Vercel URL
+    'http://localhost:3000'
+  ]
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
