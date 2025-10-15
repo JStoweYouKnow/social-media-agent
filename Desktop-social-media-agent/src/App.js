@@ -6192,10 +6192,9 @@ ${contentStructure.hashtags}`;
         {/* Calendar Grid Navigation */}
         <div className="p-3 md:p-4 bg-comfort-tan/10">
           <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2 md:gap-2">
-            {['dashboard', 'categories', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((tab, index) => {
+            {['dashboard', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((tab, index) => {
               const isActive = activeTab === tab;
               const isDashboard = tab === 'dashboard';
-              const isCategories = tab === 'categories';
               
               // Calculate dates starting from today and going forward
               const today = new Date();
@@ -6204,7 +6203,7 @@ ${contentStructure.hashtags}`;
               let dayDate = null;
               let isToday = false;
               
-              if (!isDashboard && !isCategories) {
+              if (!isDashboard) {
                 // Map day names to JavaScript day numbers (0 = Sunday, 1 = Monday, etc.)
                 const dayNameToNumber = {
                   'sunday': 0,
@@ -6252,16 +6251,6 @@ ${contentStructure.hashtags}`;
                     <div className="flex flex-col items-center justify-center h-full">
                       <div className="text-xl mb-1">📊</div>
                       <div className="text-xs uppercase tracking-wide font-bold">Dashboard</div>
-                    </div>
-                  ) : isCategories ? (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <div className="text-xl mb-1">🏷️</div>
-                      <div className="text-xs uppercase tracking-wide font-bold">Categories</div>
-                      {Object.keys(customCategories).length > 0 && (
-                        <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                          {Object.keys(customCategories).length}
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full">
@@ -7158,19 +7147,32 @@ ${contentStructure.hashtags}`;
                 onChange={(e) => setSelectedBankTopic(e.target.value)}
                 className="w-full max-w-md p-3 border border-amber-300 rounded-lg focus:border-amber-500 focus:outline-none bg-white"
               >
-                <option value="recipes">Recipes</option>
-                <option value="workouts">Workouts</option>
-                <option value="realEstate">Real Estate</option>
-                <option value="mindfulness">Mindfulness</option>
-                <option value="educational">Educational</option>
-                <option value="motivational">Motivational</option>
-                <option value="travel">Travel</option>
-                <option value="tech">Tech</option>
-                <option value="finance">Finance</option>
-                <option value="beauty">Beauty</option>
-                <option value="parenting">Parenting</option>
-                <option value="business">Business</option>
-                <option value="lifestyle">Lifestyle</option>
+                {/* Predefined Topics */}
+                <option value="recipes">🍳 Recipes</option>
+                <option value="workouts">💪 Workouts</option>
+                <option value="realEstate">🏡 Real Estate</option>
+                <option value="mindfulness">🧘 Mindfulness</option>
+                <option value="educational">📚 Educational</option>
+                <option value="motivational">⚡ Motivational</option>
+                <option value="travel">✈️ Travel</option>
+                <option value="tech">💻 Tech</option>
+                <option value="finance">💰 Finance</option>
+                <option value="beauty">✨ Beauty</option>
+                <option value="parenting">👶 Parenting</option>
+                <option value="business">📈 Business</option>
+                <option value="lifestyle">☕ Lifestyle</option>
+                
+                {/* Custom Categories */}
+                {Object.keys(customCategories).length > 0 && (
+                  <>
+                    <option disabled>────────── Custom ──────────</option>
+                    {Object.keys(customCategories).map(categoryKey => (
+                      <option key={categoryKey} value={categoryKey}>
+                        {customCategories[categoryKey].icon || '📝'} {categoryKey.replace(/([A-Z])/g, ' $1').trim()}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
 
@@ -7285,220 +7287,243 @@ ${contentStructure.hashtags}`;
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-medium text-amber-800">
-                  📚 {selectedBankTopic.charAt(0).toUpperCase() + selectedBankTopic.slice(1)} Posts
+                  📚 {selectedBankTopic.charAt(0).toUpperCase() + selectedBankTopic.slice(1).replace(/([A-Z])/g, ' $1').trim()} Posts
                 </h4>
                 <div className="text-sm text-amber-700/80">
-                  {topicBank[selectedBankTopic]?.length || 0} posts saved
+                  {(() => {
+                    const isCustomCategory = customCategories[selectedBankTopic];
+                    if (isCustomCategory) {
+                      return customCategories[selectedBankTopic].length;
+                    }
+                    return topicBank[selectedBankTopic]?.length || 0;
+                  })()} posts saved
                 </div>
               </div>
               
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {topicBank[selectedBankTopic]?.length > 0 ? (
-                  topicBank[selectedBankTopic].map((post, index) => (
-                    <div key={post.id} className="p-4 bg-gradient-to-r from-white to-amber-50/50 border border-amber-200 rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="font-medium text-amber-900 mb-1">{post.title}</div>
-                          <div className="text-sm text-amber-800/80 mb-2">{post.content}</div>
-                          {post.tags && (
-                            <div className="text-xs text-amber-700/60 mb-2">Tags: {post.tags}</div>
-                          )}
-                          <div className="flex items-center gap-2 mb-2">
-                            {post.source === 'url' && (
-                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                                🔗 From URL
-                              </span>
+                {(() => {
+                  const isCustomCategory = customCategories[selectedBankTopic];
+                  const posts = isCustomCategory ? customCategories[selectedBankTopic] : topicBank[selectedBankTopic] || [];
+                  
+                  return posts.length > 0 ? (
+                    posts.map((post, index) => (
+                      <div key={post.id} className="p-4 bg-gradient-to-r from-white to-amber-50/50 border border-amber-200 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="font-medium text-amber-900 mb-1">{post.title}</div>
+                            <div className="text-sm text-amber-800/80 mb-2">{post.content || post.description}</div>
+                            {post.tags && (
+                              <div className="text-xs text-amber-700/60 mb-2">Tags: {post.tags}</div>
                             )}
-                            {post.source === 'manual' && (
-                              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                                ✏️ Manual
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-amber-600/50">
-                            Saved: {new Date(post.createdAt).toLocaleDateString()}
-                          </div>
-                          {post.sourceUrl && (
-                            <div className="text-xs text-blue-600/70 mt-1">
-                              Source: <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">{post.sourceUrl}</a>
+                            <div className="flex items-center gap-2 mb-2">
+                              {post.source === 'url' && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                  🔗 From URL
+                                </span>
+                              )}
+                              {post.source === 'manual' && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                  ✏️ Manual
+                                </span>
+                              )}
+                              {isCustomCategory && (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                                  🏷️ Custom Category
+                                </span>
+                              )}
                             </div>
-                          )}
+                            <div className="text-xs text-amber-600/50">
+                              Saved: {new Date(post.createdAt || Date.now()).toLocaleDateString()}
+                            </div>
+                            {post.sourceUrl && (
+                              <div className="text-xs text-blue-600/70 mt-1">
+                                Source: <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">{post.sourceUrl}</a>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2 ml-4 items-center">
+                            <select
+                              value={selectedDayForBank[post.id] || 'monday'}
+                              onChange={(e) => setSelectedDayForBank({...selectedDayForBank, [post.id]: e.target.value})}
+                              className="px-2 py-1 border border-amber-300 rounded text-sm bg-white text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            >
+                              <option value="monday">Monday</option>
+                              <option value="tuesday">Tuesday</option>
+                              <option value="wednesday">Wednesday</option>
+                              <option value="thursday">Thursday</option>
+                              <option value="friday">Friday</option>
+                              <option value="saturday">Saturday</option>
+                              <option value="sunday">Sunday</option>
+                            </select>
+                            <button
+                              onClick={() => movePostFromTopicBank(selectedBankTopic, post.id, selectedDayForBank[post.id] || 'monday')}
+                              className="px-3 py-1 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 transition-colors whitespace-nowrap"
+                              title="Add this post to the selected day"
+                            >
+                              Use
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (isCustomCategory) {
+                                  removeContentFromCustomCategory(selectedBankTopic, post.id);
+                                } else {
+                                  removeFromTopicBank(selectedBankTopic, post.id);
+                                }
+                              }}
+                              className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
+                              title="Delete from bank"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex gap-2 ml-4 items-center">
-                          <select
-                            value={selectedDayForBank[post.id] || 'monday'}
-                            onChange={(e) => setSelectedDayForBank({...selectedDayForBank, [post.id]: e.target.value})}
-                            className="px-2 py-1 border border-amber-300 rounded text-sm bg-white text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          >
-                            <option value="monday">Monday</option>
-                            <option value="tuesday">Tuesday</option>
-                            <option value="wednesday">Wednesday</option>
-                            <option value="thursday">Thursday</option>
-                            <option value="friday">Friday</option>
-                            <option value="saturday">Saturday</option>
-                            <option value="sunday">Sunday</option>
-                          </select>
-                          <button
-                            onClick={() => movePostFromTopicBank(selectedBankTopic, post.id, selectedDayForBank[post.id] || 'monday')}
-                            className="px-3 py-1 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 transition-colors whitespace-nowrap"
-                            title="Add this post to the selected day"
-                          >
-                            Use
-                          </button>
-                          <button
-                            onClick={() => removeFromTopicBank(selectedBankTopic, post.id)}
-                            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
-                            title="Delete from bank"
-                          >
-                            ✕
-                          </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-6 bg-amber-50/30 border border-amber-200/50 rounded-lg text-center text-gray-600">
+                      <div className="text-4xl mb-3">🏪</div>
+                      <p className="font-medium mb-2 text-gray-600">No posts in this topic bank yet</p>
+                      <p className="text-sm text-gray-600">
+                        Save posts above to build your {selectedBankTopic.replace(/([A-Z])/g, ' $1').trim().toLowerCase()} content library
+                      </p>
+                      <p className="text-xs text-gray-600 mt-2">
+                        Posts can be used on any day of the week
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Custom Categories Management - Integrated into Topic Bank */}
+            <div className="bg-amber-950/40 backdrop-blur-sm p-8 rounded-lg border-2 border-amber-700/30 shadow-xl mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 
+                  className="text-2xl font-semibold text-amber-200 flex items-center gap-3"
+                  style={{fontFamily: 'Georgia, serif', textShadow: '1px 1px 2px rgba(0,0,0,0.5)'}}
+                >
+                  🏷️ Custom Categories
+                </h3>
+                <button
+                  onClick={() => setIsAddingCategory(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-lg flex items-center gap-2 font-medium"
+                >
+                  <span>+</span> Add Category
+                </button>
+              </div>
+
+              {/* Add Category Form */}
+              {isAddingCategory && (
+                <div className="bg-amber-950/30 border-2 border-amber-700/40 rounded-lg p-6 mb-6">
+                  <h4 className="text-lg font-semibold text-amber-200 mb-4">Create New Category</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-amber-300 text-sm font-medium mb-2">Category Name</label>
+                      <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="e.g., Photography Tips, Book Reviews"
+                        className="w-full px-3 py-2 border-2 border-amber-700/30 rounded-lg bg-amber-950/40 text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-amber-300 text-sm font-medium mb-2">Icon (Optional)</label>
+                      <input
+                        type="text"
+                        value={newCategoryIcon}
+                        onChange={(e) => setNewCategoryIcon(e.target.value)}
+                        placeholder="📸, 📚, etc."
+                        className="w-full px-3 py-2 border-2 border-amber-700/30 rounded-lg bg-amber-950/40 text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <button
+                        onClick={addCustomCategory}
+                        disabled={!newCategoryName.trim()}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Create
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsAddingCategory(false);
+                          setNewCategoryName('');
+                          setNewCategoryIcon('📝');
+                        }}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Categories List */}
+              <div className="space-y-6">
+                {Object.keys(customCategories).length === 0 ? (
+                  <div className="text-center p-8 bg-amber-950/20 border-2 border-amber-700/20 rounded-lg">
+                    <div className="text-4xl mb-4">🏷️</div>
+                    <p className="text-amber-300 text-lg font-medium mb-2">No custom categories yet</p>
+                    <p className="text-amber-400/70">Create your first custom category to organize specialized content</p>
+                  </div>
+                ) : (
+                  Object.entries(customCategories).map(([categoryKey, content]) => (
+                    <div key={categoryKey} className="bg-amber-950/30 border-2 border-amber-700/30 rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{newCategoryIcon}</span>
+                          <h4 className="text-xl font-semibold text-amber-200 capitalize">
+                            {categoryKey.replace(/([A-Z])/g, ' $1').trim()}
+                          </h4>
+                          <span className="bg-amber-600/30 text-amber-200 px-2 py-1 rounded-full text-sm">
+                            {content.length} posts
+                          </span>
                         </div>
+                        <button
+                          onClick={() => deleteCustomCategory(categoryKey)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                          title="Delete category"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Category Content */}
+                      <div className="space-y-3">
+                        {content.length === 0 ? (
+                          <p className="text-amber-400/70 italic">No content in this category yet. Add content from the day tabs or create posts directly.</p>
+                        ) : (
+                          content.map((item) => (
+                            <div key={item.id} className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <h5 className="font-medium text-amber-200 mb-1">{item.title}</h5>
+                                  <p className="text-amber-300/80 text-sm line-clamp-2">{item.content || item.description}</p>
+                                  {item.tags && (
+                                    <p className="text-amber-400/60 text-xs mt-2">{item.tags}</p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => removeContentFromCustomCategory(categoryKey, item.id)}
+                                  className="text-red-400 hover:text-red-300 transition-colors ml-4"
+                                  title="Remove from category"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   ))
-                ) : (
-                  <div className="p-6 bg-amber-50/30 border border-amber-200/50 rounded-lg text-center text-gray-600">
-                    <div className="text-4xl mb-3">🏪</div>
-                    <p className="font-medium mb-2 text-gray-600">No posts in this topic bank yet</p>
-                    <p className="text-sm text-gray-600">
-                      Save posts above to build your {selectedBankTopic} content library
-                    </p>
-                    <p className="text-xs text-gray-600 mt-2">
-                      Posts can be used on any day of the week
-                    </p>
-                  </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
         </div>
-      )}
-
-      {/* Categories Management Tab */}
-      {activeTab === 'categories' && (
-        <div className="bg-gradient-to-br from-amber-900/20 via-amber-800/10 to-orange-900/20 backdrop-blur-sm p-8 rounded-xl border-2 border-amber-700/30 shadow-2xl">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold text-amber-200 flex items-center gap-3" style={{fontFamily: 'Georgia, serif'}}>
-              🏷️ Custom Categories
-            </h2>
-            <button
-              onClick={() => setIsAddingCategory(true)}
-              className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-lg flex items-center gap-2 font-medium"
-            >
-              <span>+</span> Add Category
-            </button>
-          </div>
-
-          {/* Add Category Form */}
-          {isAddingCategory && (
-            <div className="bg-amber-950/30 border-2 border-amber-700/40 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-semibold text-amber-200 mb-4">Create New Category</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="block text-amber-300 text-sm font-medium mb-2">Category Name</label>
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="e.g., Photography Tips, Book Reviews"
-                    className="w-full px-3 py-2 border-2 border-amber-700/30 rounded-lg bg-amber-950/40 text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-amber-300 text-sm font-medium mb-2">Icon (Optional)</label>
-                  <input
-                    type="text"
-                    value={newCategoryIcon}
-                    onChange={(e) => setNewCategoryIcon(e.target.value)}
-                    placeholder="📸, 📚, etc."
-                    className="w-full px-3 py-2 border-2 border-amber-700/30 rounded-lg bg-amber-950/40 text-amber-100 placeholder-amber-400/40 focus:border-amber-500 focus:outline-none"
-                  />
-                </div>
-                <div className="flex items-end gap-2">
-                  <button
-                    onClick={addCustomCategory}
-                    disabled={!newCategoryName.trim()}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Create
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsAddingCategory(false);
-                      setNewCategoryName('');
-                      setNewCategoryIcon('📝');
-                    }}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Categories List */}
-          <div className="space-y-6">
-            {Object.keys(customCategories).length === 0 ? (
-              <div className="text-center p-8 bg-amber-950/20 border-2 border-amber-700/20 rounded-lg">
-                <div className="text-4xl mb-4">🏷️</div>
-                <p className="text-amber-300 text-lg font-medium mb-2">No custom categories yet</p>
-                <p className="text-amber-400/70">Create your first custom category to organize specialized content</p>
-              </div>
-            ) : (
-              Object.entries(customCategories).map(([categoryKey, content]) => (
-                <div key={categoryKey} className="bg-amber-950/30 border-2 border-amber-700/30 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{newCategoryIcon}</span>
-                      <h3 className="text-xl font-semibold text-amber-200 capitalize">
-                        {categoryKey.replace(/([A-Z])/g, ' $1').trim()}
-                      </h3>
-                      <span className="bg-amber-600/30 text-amber-200 px-2 py-1 rounded-full text-sm">
-                        {content.length} posts
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => deleteCustomCategory(categoryKey)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                      title="Delete category"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Category Content */}
-                  <div className="space-y-3">
-                    {content.length === 0 ? (
-                      <p className="text-amber-400/70 italic">No content in this category yet. Add content from the day tabs or create posts directly.</p>
-                    ) : (
-                      content.map((item) => (
-                        <div key={item.id} className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-amber-200 mb-1">{item.title}</h4>
-                              <p className="text-amber-300/80 text-sm line-clamp-2">{item.content || item.description}</p>
-                              {item.tags && (
-                                <p className="text-amber-400/60 text-xs mt-2">{item.tags}</p>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => removeContentFromCustomCategory(categoryKey, item.id)}
-                              className="text-red-400 hover:text-red-300 transition-colors ml-4"
-                              title="Remove from category"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
         </div>
       )}
 
