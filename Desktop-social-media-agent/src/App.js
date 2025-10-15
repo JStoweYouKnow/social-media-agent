@@ -6191,7 +6191,7 @@ ${contentStructure.hashtags}`;
 
         {/* Calendar Grid Navigation */}
         <div className="p-3 md:p-4 bg-comfort-tan/10">
-          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2 md:gap-2">
+          <div className="flex gap-1 md:gap-2">
             {['dashboard', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((tab, index) => {
               const isActive = activeTab === tab;
               const isDashboard = tab === 'dashboard';
@@ -6239,7 +6239,7 @@ ${contentStructure.hashtags}`;
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`relative p-3 md:p-4 rounded-xl font-medium transition-all duration-200 min-h-16 ${
+                  className={`relative flex-1 p-3 md:p-4 rounded-xl font-medium transition-all duration-200 min-h-16 ${
                     isActive
                       ? 'bg-comfort-navy text-white shadow-xl transform scale-105 border-2 border-comfort-accent'
                       : isToday && !isDashboard
