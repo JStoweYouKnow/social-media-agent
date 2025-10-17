@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "YOUR_FIREBASE_PROJECT_ID",
+    "production": "social-media-agent-93136-3c801"
+  },
+  "targets": {},
+  "etags": {}
+}

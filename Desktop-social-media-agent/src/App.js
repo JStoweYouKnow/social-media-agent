@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Calendar, Copy, Target, FileText, ChefHat, Dumbbell, Lightbulb, X, Plane, Smartphone, DollarSign, Sparkles, Heart, Building, Coffee, ChevronDown, Download, Home, GraduationCap, Zap, Trash2 } from 'lucide-react';
 import { generatePost } from './utils/postGenerator';
+import { getTemplate } from './templates/index.js';
+import contentLibrary from './data/contentLibrary';
 
 // Debug utility - only logs in development mode
 const DEBUG = process.env.NODE_ENV === 'development';
@@ -85,6 +87,35 @@ function PreBuffer() {
     isUrlLoading: false,
     urlError: null
   });
+
+  // Shared generation context defaults (used throughout generation helpers)
+  const _monthIndex = new Date().getMonth();
+  const currentSeason = (_monthIndex >= 2 && _monthIndex <= 4) ? 'Spring' : (_monthIndex >= 5 && _monthIndex <= 7) ? 'Summer' : (_monthIndex >= 8 && _monthIndex <= 10) ? 'Fall' : 'Winter';
+  const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+  const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const timeOfDay = 'day';
+  const currentPlatform = 'instagram';
+  const webData = {};
+  const topicalSite = null;
+  // Minimal theme maps for contextual personalization used in templates
+  const seasonalThemes = {
+    Winter: ['cozy vibes', 'self-care'],
+    Spring: ['fresh starts', 'renewal'],
+    Summer: ['sunshine', 'vacation mode'],
+    Fall: ['cozy comfort', 'gratitude']
+  };
+  const monthlyTrends = {
+    January: ['fresh starts'], February: ['self-love'], March: ['renewal'], April: ['spring vibes'],
+    May: ['growth'], June: ['summer prep'], July: ['summer fun'], August: ['productivity'],
+    September: ['back to routine'], October: ['transformation'], November: ['gratitude'], December: ['holiday']
+  };
+  const daySpecificVibes = {
+    Monday: ['motivation'], Tuesday: ['productivity'], Wednesday: ['midweek'], Thursday: ['determination'],
+    Friday: ['celebration'], Saturday: ['adventure'], Sunday: ['reflection']
+  };
+  const seasonalVibe = (seasonalThemes[currentSeason] && seasonalThemes[currentSeason][0]) || 'general';
+  const monthlyVibe = (monthlyTrends[currentMonth] && monthlyTrends[currentMonth][0]) || 'general';
+  const dayVibe = (daySpecificVibes[dayOfWeek] && daySpecificVibes[dayOfWeek][0]) || 'general';
   
   // Day-specific input states
   const [dayInputs, setDayInputs] = useState({
@@ -230,6 +261,7 @@ function PreBuffer() {
 
   // Memoized content collections to avoid recreating objects on every render
   const availableContent = useMemo(() => ({
+  /* eslint-disable no-unused-vars */ // intentional: some memoized lists are kept for future use/display */
     recipe: recipes,
     workout: workouts,
     realEstate: realEstateTips,
@@ -268,7 +300,9 @@ function PreBuffer() {
   }, []);
 
   // Memoized content types list for generation (includes custom categories)
-  const allContentTypes = useMemo(() => [
+    /* eslint-disable no-unused-vars */ // some arrays are kept for future UI/analytics usage
+    const allContentTypes = useMemo(() => [
+  /* eslint-enable no-unused-vars */
     'recipe', 'workout', 'realEstate', 'mindfulness', 'travel', 
     'tech', 'finance', 'beauty', 'parenting', 'business', 
     'lifestyle', 'motivational', 'educational', 'events',
@@ -1069,7 +1103,7 @@ ${config.hashtags}`;
         "Anyone have similar recipe wins to share? Always looking for new ideas! 🥘",
         "What's your go-to when you want to impress with minimal effort? 👨‍🍳",
         "Does anyone else get way too excited about discovering new flavors? 😄"
-      ],
+  ],
       travel: [
         "Who's planning their next adventure? This got me inspired! ✈️",
         "Anyone else adding new places to their bucket list constantly? 🗺️",
@@ -1123,8 +1157,8 @@ ${config.hashtags}`;
         "What lifestyle change surprised you with how much it improved things? 🌺",
         "Who else believes that small improvements create big transformations? ✨",
         "Anyone have life hacks that actually work? Always collecting tips! 📝"
-      ],
-      motivational: [
+  ],
+  motivational: [
         "Who needs some motivation today? Sending good vibes your way! 🌟",
         "Anyone else believe that we're all capable of amazing things? 💪",
         "What keeps you going when things get challenging? Share your secrets! 🔥",
@@ -1240,142 +1274,22 @@ Would love to hear your thoughts in the comments - this community always has the
         issues.push('Contains potentially nonsensical sentence construction');
       }
     });
-    
-    // Platform-specific validation
-    if (platform === 'linkedin') {
-      if (!post.includes('#')) {
-        warnings.push('LinkedIn posts typically perform better with hashtags');
-      }
-      if (!/\?/.test(post)) {
-        warnings.push('LinkedIn posts often benefit from engagement questions');
-      }
-    }
-    
-    if (platform === 'instagram') {
-      const hashtagCount = (post.match(/#\w+/g) || []).length;
-      if (hashtagCount < 3) {
-        warnings.push('Instagram posts typically benefit from more hashtags (3-10)');
-      }
-    }
-    
-    // Check for complete sentences
-    const sentences = post.split(/[.!?]+/).filter(s => s.trim().length > 5);
-    const incompleteSentences = sentences.filter(sentence => {
-      const words = sentence.trim().split(/\s+/).filter(word => word.length > 0);
-      return words.length < 3; // Very short "sentences" might be incomplete
-    });
-    
-    if (incompleteSentences.length > 0) {
-      warnings.push('Contains potentially incomplete sentences');
-    }
-    
-    return {
-      isValid: issues.length === 0,
-      issues,
-      warnings,
-      wordCount: post.split(/\s+/).length,
-      characterCount: post.length,
-      hashtagCount: (post.match(/#\w+/g) || []).length,
-      score: Math.max(0, 100 - (issues.length * 25) - (warnings.length * 5))
-    };
+    const isValid = issues.length === 0;
+    return { isValid, issues, warnings };
   };
 
-  // Generate detailed, influencer-style content for each type
+  // contentLibrary extracted to src/data/contentLibrary.js and imported at the top of the file
+
+  // Generate detailed content for a given type/day/date/week
   const generateDetailedContentByType = (contentType, dayName, date, weekNumber, dayIndex) => {
-    const contentLibrary = {
-      recipes: [
-        {
-          title: "15-Minute Mediterranean Power Bowl",
-          content: "This game-changing bowl has become my go-to when I need something nutritious but don't have time to cook. Quinoa, roasted chickpeas, cucumber, cherry tomatoes, feta, and my signature tahini dressing. The secret? Meal prepping the components on Sunday so you can literally throw this together in minutes during busy weekdays.",
-          ingredients: "quinoa, chickpeas, cucumber, cherry tomatoes, feta cheese, tahini, lemon juice, olive oil",
-          tips: "Toast the quinoa before cooking for extra nutty flavor. Make the dressing in bulk - it keeps for 2 weeks!",
-          nutrition: "High in plant protein, healthy fats, and fiber. Perfect post-workout fuel."
-        },
-        {
-          title: "Comfort Food Makeover: Creamy Mushroom Risotto",
-          content: "Y'all asked for healthier comfort food, so here's my lightened-up risotto that doesn't sacrifice any of that creamy, soul-warming goodness. Using cauliflower rice mixed with arborio rice cuts calories while adding nutrients, and nutritional yeast brings that umami depth.",
-          ingredients: "arborio rice, cauliflower rice, mushrooms, onion, garlic, vegetable broth, nutritional yeast, white wine",
-          tips: "The key is patience - stir constantly and add broth slowly. Trust the process!",
-          nutrition: "50% fewer calories than traditional risotto, packed with B-vitamins from nutritional yeast."
-        },
-        {
-          title: "Viral TikTok Protein Pancakes (But Make Them Actually Good)",
-          content: "Okay, I tried those viral protein pancakes and they were... not it. So I spent weeks perfecting this recipe that actually tastes like pancakes while sneaking in 25g of protein. The secret ingredients? Greek yogurt and a touch of vanilla protein powder.",
-          ingredients: "oats, Greek yogurt, eggs, vanilla protein powder, banana, cinnamon, baking powder",
-          tips: "Let the batter rest for 5 minutes before cooking - it makes them fluffier!",
-          nutrition: "25g protein, naturally gluten-free, and satisfying enough to keep you full until lunch."
-        }
-      ],
-      workouts: [
-        {
-          title: "Morning Movement: 20-Minute Energy Boost Routine",
-          content: "This is the exact routine that transformed my mornings from sluggish to superhuman. No equipment needed, just your body and 20 minutes. I've been doing this for 6 months and the energy it gives me lasts ALL DAY. The secret is the specific sequence - it activates your nervous system and gets blood flowing to all the right places.",
-          exercises: "dynamic warm-up, bodyweight squats, push-ups, mountain climbers, plank variations, stretching flow",
-          benefits: "Boosts metabolism, improves mood, increases energy, enhances focus",
-          tips: "Do this before coffee for maximum effect. Your body will thank you!"
-        },
-        {
-          title: "Desk Warrior Workout: Combat the 9-5 Slump",
-          content: "Calling all my desk job friends! This workout is designed specifically for those of us who sit all day. It targets the muscles that get tight and weak from prolonged sitting, and you can literally do it in your office clothes. I do this during my lunch break 3x a week.",
-          exercises: "hip flexor stretches, shoulder blade squeezes, wall push-ups, calf raises, spinal twists",
-          benefits: "Reduces back pain, improves posture, combats afternoon fatigue, increases productivity",
-          tips: "Set a reminder to do this every 2 hours during your workday. Small consistent actions = big results!"
-        },
-        {
-          title: "HIIT Different: Low-Impact High Intensity",
-          content: "Who said HIIT has to destroy your joints? This low-impact version gives you all the cardiovascular and metabolic benefits without the jumping and pounding. Perfect for apartment dwellers, people with joint issues, or anyone who wants effective workouts without the high impact.",
-          exercises: "marching in place, arm circles, modified burpees, wall sits, resistance band exercises",
-          benefits: "Burns calories, improves cardiovascular health, builds strength, joint-friendly",
-          tips: "Focus on intensity through speed and resistance, not impact. Quality over quantity!"
-        }
-      ],
-      motivational: [
-        {
-          title: "The 5AM Club Changed My Life (And It Might Change Yours)",
-          content: "I used to be a night owl who hit snooze 6 times every morning. Then I read about the 5AM club and thought 'absolutely not.' But after trying it for 30 days, I'm never going back. The quiet hours before the world wakes up have become my sacred time for growth, planning, and peace.",
-          insights: "Early mornings aren't about productivity - they're about reclaiming your power before life gets chaotic.",
-          tips: "Start with 6AM, then gradually move earlier. The transition is everything.",
-          impact: "Increased focus, better mood, more accomplished goals, deeper sense of control over my day."
-        },
-        {
-          title: "Stop Waiting for Monday: The Power of Starting Now",
-          content: "How many times have you said 'I'll start Monday'? I used to be the queen of Monday starts until I realized Monday never feels different than Tuesday. The magic happens when you start right now, in this imperfect moment, with whatever you have available.",
-          insights: "Perfect timing is a myth. Imperfect action beats perfect inaction every single time.",
-          tips: "Choose one small action you can take in the next 5 minutes. Do that instead of planning for Monday.",
-          impact: "Builds momentum, creates confidence, proves to yourself that you can follow through."
-        },
-        {
-          title: "Your Comfort Zone is Keeping You Comfortable (And Small)",
-          content: "Comfort zones aren't evil - they're necessary for rest and recovery. But living there permanently? That's where dreams go to die. I spent years playing it safe until I realized that the discomfort of growth is temporary, but the regret of not trying lasts forever.",
-          insights: "Growth lives in the space between 'I can't do this' and 'I did it.' That space is uncomfortable for a reason.",
-          tips: "Start with micro-challenges. Say yes to one thing that scares you this week.",
-          impact: "Expanded confidence, new opportunities, proof that you're capable of more than you think."
-        }
-      ],
-      educational: [
-        {
-          title: "The Science of Sleep: Why Your Brain Needs 7-9 Hours",
-          content: "Your brain literally cleans itself while you sleep. During deep sleep, your glymphatic system flushes out toxins and waste products that build up during the day. This includes amyloid-beta, the protein linked to Alzheimer's disease. Poor sleep isn't just about feeling tired - it's about long-term brain health.",
-          science: "During sleep, brain cells shrink by 60%, creating space for cerebrospinal fluid to wash away metabolic waste.",
-          tips: "Cool room (65-68°F), dark environment, no screens 1 hour before bed, consistent sleep schedule.",
-          sources: "Research from University of Rochester, published in Science journal."
-        },
-        {
-          title: "Neuroplasticity: Your Brain Can Change at Any Age",
-          content: "The old belief that adult brains are fixed? Completely false. Neuroplasticity research shows that our brains continue forming new neural pathways throughout life. Every time you learn something new, practice a skill, or challenge your thinking, you're literally reshaping your brain structure.",
-          science: "London taxi drivers have enlarged hippocampi from memorizing city streets. Musicians have enhanced motor cortexes.",
-          tips: "Learn a new language, play an instrument, practice meditation, challenge yourself with puzzles.",
-          sources: "Studies from Harvard Medical School, University College London."
-        },
-        {
-          title: "The Gut-Brain Connection: How Your Microbiome Affects Mood",
-          content: "95% of your serotonin is produced in your gut, not your brain. Your gut bacteria communicate directly with your brain via the vagus nerve, influencing mood, anxiety, and decision-making. This is why you get 'gut feelings' and why stress affects digestion.",
-          science: "The gut contains 500 million neurons - more than the spinal cord. It's called the 'second brain' for good reason.",
-          tips: "Eat fermented foods, reduce sugar, manage stress, include prebiotic fiber, consider probiotic supplements.",
-          sources: "Research from Harvard T.H. Chan School of Public Health, Johns Hopkins Medicine."
-        }
-      ]
-    };
+    // Local contextual variables used by generation algorithms
+    const currentSeason = getCurrentSeason();
+    const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+    const dayOfWeek = dayName ? (dayName.charAt(0).toUpperCase() + dayName.slice(1)) : new Date().toLocaleString('default', { weekday: 'long' });
+    const timeOfDay = 'day'; // placeholder - used for tone adjustments
+    const currentPlatform = 'instagram'; // default platform context for template tuning
+    const webData = {}; // placeholder for any fetched web metadata
+    const topicalSite = null;
 
     // Get content from library or generate new content
     const typeLibrary = contentLibrary[contentType] || contentLibrary.motivational;
@@ -1918,11 +1832,13 @@ Would love to hear your thoughts in the comments - this community always has the
   // Generate AI content for specific day
   const generateDayAIContent = async (day) => {
     const selectedTopic = dayTopicSelections[day];
-    // Use existing generateAIContent function with the selected topic
+    const selectedPrompt = dayInputs[day]?.prompt;
+    // Use existing generateAIContent function with the selected topic and prompt
     try {
       const generatedContent = await generateAIContent(selectedTopic, {
-        title: `AI Generated ${selectedTopic} for ${day}`,
-        content: `Dynamic ${selectedTopic} content`
+        title: selectedPrompt ? `AI Generated ${selectedTopic} for ${day}` : `AI Generated ${selectedTopic} for ${day}`,
+        content: selectedPrompt || `Dynamic ${selectedTopic} content`,
+        customPrompt: selectedPrompt
       });
       
       const newContent = {
@@ -4013,127 +3929,90 @@ Join us for this special event!
         }
       }
       
-      // Step 1: Generate topical website and fetch web data
-      const topicalSite = generateTopicalWebsite(contentType, data);
-      const webData = await fetchWebData(topicalSite.url);
+      // Use template-based generation for better content quality instead of mock web data
+      debug(`🎨 Generating content using templates for ${contentType}`);
       
-      debug(`📊 Integrating web insights from ${topicalSite.domain}:`, webData.title);
+      // Map content types to template names
+      const contentTypeToTemplate = {
+        motivational: 'quote',
+        educational: 'insight',
+        recipes: 'recipePost',
+        workouts: 'fitness',
+        realestate: 'insight',
+        travel: 'event',
+        mindfulness: 'sweet',
+        tech: 'insight',
+        finance: 'insight',
+        beauty: 'insight',
+        parenting: 'insight',
+        business: 'insight',
+        lifestyle: 'sweet'
+      };
       
-      // Platform-specific SEO and formatting requirements
-      const platformSpecs = {
-        instagram: {
-          characterLimit: 2200,
-          idealLength: 125, // First 125 characters most visible, optimal under 180
-          optimalRange: '125-180',
-          hashtagLimit: 30,
-          seoElements: ['trending hashtags', 'location tags', 'alt text optimization'],
-          engagement: ['questions', 'polls', 'story prompts', 'UGC encouragement'],
-          influencerStyle: 'visual storytelling, behind-the-scenes, aspirational lifestyle'
-        },
-        tiktok: {
-          characterLimit: 4000,
-          idealLength: 100, // First 100 visible
-          optimalRange: '80-100',
-          hashtagLimit: 100,
-          seoElements: ['trending sounds', 'viral hashtags', 'algorithm optimization'],
-          engagement: ['hooks in first 3 seconds', 'calls to action', 'trend participation'],
-          influencerStyle: 'authentic, relatable, trend-aware, high energy'
-        },
-        linkedin: {
-          characterLimit: 3000, // Posts limit, 125000 for articles
-          idealLength: 1500, // 1200-1800 characters optimal
-          optimalRange: '1200-1800',
-          titleLength: 37, // 25-49 for short post titles
-          hashtagLimit: 5,
-          seoElements: ['industry keywords', 'professional hashtags', 'thought leadership'],
-          engagement: ['professional insights', 'industry questions', 'networking'],
-          influencerStyle: 'thought leadership, expertise sharing, professional storytelling'
-        },
-        twitter: {
-          characterLimit: 280,
-          idealLength: 250, // 240-259 characters optimal
-          optimalRange: '240-259',
-          hashtagLimit: 2,
-          seoElements: ['trending topics', 'timely hashtags', 'thread optimization'],
-          engagement: ['retweets', 'replies', 'quote tweets', 'trending participation'],
-          influencerStyle: 'witty, timely, conversational, thought-provoking'
-        },
-        youtube: {
-          characterLimit: 5000, // Description limit
-          titleLimit: 100,
-          idealLength: 125, // First 100-150 in description most visible
-          optimalRange: '100-150',
-          hashtagLimit: 15,
-          seoElements: ['keyword optimization', 'searchable titles', 'description SEO'],
-          engagement: ['subscribe CTAs', 'comment prompts', 'notification bells'],
-          influencerStyle: 'educational, entertaining, personality-driven, community building'
-        },
-        facebook: {
-          characterLimit: 63206,
-          idealLength: 60, // 40-80 characters optimal
-          optimalRange: '40-80',
-          hashtagLimit: 3,
-          seoElements: ['local SEO', 'community hashtags', 'share optimization'],
-          engagement: ['shares', 'comments', 'community building', 'event promotion'],
-          influencerStyle: 'community-focused, personal stories, family-friendly, local connection'
-        },
-        pinterest: {
-          characterLimit: 500, // Pin descriptions
-          idealLength: 125, // 100-150 characters optimal
-          optimalRange: '100-150',
-          hashtagLimit: 20,
-          seoElements: ['keyword optimization', 'seasonal hashtags', 'board SEO'],
-          engagement: ['save prompts', 'board organization', 'seasonal content'],
-          influencerStyle: 'inspirational, aspirational, visually-driven, seasonal'
+      const templateName = contentTypeToTemplate[contentType] || 'quote';
+      
+      // Generate appropriate data based on content type
+      const generateTemplateData = (type) => {
+        const currentDate = new Date();
+        const dayOfWeek = currentDate.toLocaleString('default', { weekday: 'long' });
+        
+        switch (type) {
+          case 'motivational':
+            return {
+              quote: 'Success is not final, failure is not fatal: It is the courage to continue that counts.',
+              context: `A timely reminder for ${dayOfWeek} - keep pushing forward with determination.`
+            };
+          case 'educational':
+            return {
+              tip: 'The Power of Small Habits',
+              context: 'Research shows that small, consistent actions compound over time to create remarkable results.',
+              details: 'Start with one small habit today and watch how it transforms your life.'
+            };
+          case 'recipes':
+            return {
+              title: 'Quick & Healthy Meal Prep',
+              description: 'Fuel your body with nutrient-dense meals that are easy to prepare.',
+              ingredients: 'Fresh vegetables, lean proteins, whole grains, healthy fats'
+            };
+          case 'workouts':
+            return {
+              title: `${dayOfWeek} Strength Training`,
+              details: 'Build functional strength with compound movements and progressive overload.',
+              exercises: 'Focus on proper form and controlled movements for maximum benefit.'
+            };
+          case 'realestate':
+            return {
+              tip: 'Market Timing vs Long-term Strategy',
+              context: 'While market timing can be tempting, most experts agree that long-term holding with consistent investing outperforms short-term trading.',
+              details: 'Focus on buying properties in good locations that will appreciate over time.'
+            };
+          case 'travel':
+            return {
+              title: 'Hidden Gems to Explore',
+              date: 'This weekend',
+              location: 'Local scenic spots',
+              details: 'Discover the beauty in your own backyard before planning faraway adventures.'
+            };
+          case 'mindfulness':
+            return {
+              title: 'Present Moment Awareness',
+              reflection: 'Take a deep breath and notice the world around you right now.',
+              gratitude: 'the simple moments that bring joy'
+            };
+          default:
+            return {
+              quote: 'Every day is a new opportunity to grow and learn.',
+              context: `Make the most of this ${dayOfWeek} with positive action.`
+            };
         }
       };
-
-      const currentPlatform = platformSpecs[selectedPlatform] || platformSpecs.instagram;
       
-      // Current contextual data for relevance
-      const currentDate = new Date();
-      const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
-      const currentSeason = ['Winter', 'Winter', 'Spring', 'Spring', 'Spring', 'Summer', 'Summer', 'Summer', 'Fall', 'Fall', 'Fall', 'Winter'][currentDate.getMonth()];
-      const dayOfWeek = currentDate.toLocaleString('default', { weekday: 'long' });
-      const timeOfDay = currentDate.getHours() < 12 ? 'morning' : currentDate.getHours() < 17 ? 'afternoon' : 'evening';
+      const templateData = generateTemplateData(contentType);
+      const template = getTemplate(templateName);
+      const generatedContent = template(templateData);
       
-      // DYNAMIC TRENDING TOPICS & SEASONAL RELEVANCE
-      const seasonalThemes = {
-        'Winter': ['cozy vibes', 'self-care', 'goal setting', 'comfort', 'reflection', 'planning ahead', 'indoor activities', 'warm feelings'],
-        'Spring': ['fresh starts', 'renewal', 'energy boost', 'decluttering', 'growth mindset', 'outdoor adventures', 'motivation', 'new habits'],
-        'Summer': ['vacation mode', 'fun adventures', 'outdoor living', 'freedom', 'relaxation', 'social gatherings', 'active lifestyle', 'sunshine'],
-        'Fall': ['back to routine', 'productivity', 'organization', 'preparation', 'gratitude', 'transformation', 'learning season', 'cozy comfort']
-      };
-      
-      const monthlyTrends = {
-        'January': ['New Year goals', 'fresh starts', 'detox', 'organization', 'mindful beginnings'],
-        'February': ['self-love', 'relationships', 'heart health', 'winter comfort', 'love yourself'],
-        'March': ['spring cleaning', 'renewal', 'women\'s history', 'growth', 'fresh energy'],
-        'April': ['spring vibes', 'Easter renewal', 'outdoor activities', 'fresh starts', 'blooming'],
-        'May': ['mental health awareness', 'mothers', 'graduation', 'outdoor season', 'growth'],
-        'June': ['summer prep', 'fathers', 'pride', 'vacation planning', 'sunshine'],
-        'July': ['summer fun', 'independence', 'freedom', 'vacation mode', 'outdoor adventures'],
-        'August': ['back to school prep', 'late summer', 'productivity', 'preparation', 'transition'],
-        'September': ['back to routine', 'fall prep', 'productivity', 'organization', 'learning'],
-        'October': ['transformation', 'change', 'gratitude', 'cozy vibes', 'reflection'],
-        'November': ['gratitude', 'thanksgiving', 'reflection', 'preparation', 'appreciation'],
-        'December': ['holiday season', 'year-end reflection', 'celebration', 'gratitude', 'planning ahead']
-      };
-      
-      const daySpecificVibes = {
-        'Monday': ['motivation', 'fresh start', 'goal crushing', 'momentum building', 'week planning'],
-        'Tuesday': ['productivity', 'focus mode', 'getting things done', 'consistency', 'progress'],
-        'Wednesday': ['midweek check-in', 'hump day motivation', 'persistence', 'staying strong', 'halfway there'],
-        'Thursday': ['almost there', 'pushing through', 'determination', 'finishing strong', 'preparation'],
-        'Friday': ['celebration', 'accomplishment', 'weekend prep', 'reflection', 'fun anticipation'],
-        'Saturday': ['self-care', 'adventures', 'relaxation', 'fun activities', 'personal time'],
-        'Sunday': ['reflection', 'preparation', 'planning', 'reset', 'mindfulness']
-      };
-      
-      // Current contextual elements
-      const seasonalVibe = seasonalThemes[currentSeason][Math.floor(Math.random() * seasonalThemes[currentSeason].length)];
-      const monthlyVibe = monthlyTrends[currentMonth][Math.floor(Math.random() * monthlyTrends[currentMonth].length)];
-      const dayVibe = daySpecificVibes[dayOfWeek][Math.floor(Math.random() * daySpecificVibes[dayOfWeek].length)];
+      debug(`✅ Generated template-based content:`, generatedContent);
+  return generatedContent;
       
       // EXPANDED random personal elements for authenticity
       const personalTouches = [
