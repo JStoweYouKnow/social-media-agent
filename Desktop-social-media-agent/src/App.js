@@ -1,8 +1,100 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Calendar, Copy, Target, FileText, ChefHat, Dumbbell, Lightbulb, X, Plane, Smartphone, DollarSign, Sparkles, Heart, Building, Coffee, ChevronDown, Download, Home, GraduationCap, Zap, Trash2 } from 'lucide-react';
+// ...existing imports...
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { Calendar, Copy, Target, FileText, ChefHat, Dumbbell, Lightbulb, X, Plane, Smartphone, DollarSign, Sparkles, Heart, Building, Coffee, ChevronDown, Download, Home, GraduationCap, Zap, Trash2, Menu } from 'lucide-react';
 import { generatePost } from './utils/postGenerator';
 import { getTemplate } from './templates/index.js';
 import contentLibrary from './data/contentLibrary';
+import WeeklyPresetsManager from './WeeklyPresetsManager';
+import WeeklyPresetImportExport from './WeeklyPresetImportExport';
+
+// ResponsivePostPlanner component (mobile/tablet UI)
+function ResponsivePostPlanner({
+  activeTab,
+  setActiveTab,
+  stats,
+  contentCalendar,
+  setContentCalendar,
+  categories = [],
+  schedule = [],
+  generateAIContent,
+  markContentAsUsed,
+  isGeneratingWeek,
+  setIsGeneratingWeek,
+  numberOfWeeks,
+  setNumberOfWeeks,
+  generationMode,
+  setGenerationMode,
+  weeklyPrompt,
+  setWeeklyPrompt,
+  dayTopicSelections,
+}) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // handleGenerateWeekWithAI is defined in PreBuffer
+
+  // Example categories and schedule for demo purposes
+  const demoCategories = categories.length ? categories : [
+    { name: 'Fitness', icon: <Dumbbell className="w-5 h-5" /> },
+    { name: 'Ideas', icon: <Lightbulb className="w-5 h-5" /> },
+    { name: 'Travel', icon: <Plane className="w-5 h-5" /> },
+    { name: 'Finance', icon: <DollarSign className="w-5 h-5" /> },
+    { name: 'AI', icon: <Sparkles className="w-5 h-5" /> },
+    { name: 'Health', icon: <Heart className="w-5 h-5" /> },
+    { name: 'Business', icon: <Building className="w-5 h-5" /> },
+    { name: 'Coffee', icon: <Coffee className="w-5 h-5" /> },
+  ];
+  const demoSchedule = schedule.length ? schedule : [
+    { day: 'Monday', posts: 2 },
+    { day: 'Tuesday', posts: 1 },
+    { day: 'Wednesday', posts: 3 },
+    { day: 'Thursday', posts: 2 },
+    { day: 'Friday', posts: 1 },
+    { day: 'Saturday', posts: 2 },
+    { day: 'Sunday', posts: 1 },
+  ];
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50">
+      {/* Mobile Header with Hamburger Menu */}
+      {/* ...existing header code... */}
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
+        {activeTab === 'dashboard' && (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Stats Grid - Responsive */}
+            {/* ...existing stats grid code... */}
+            {/* Calendar Preview - Responsive */}
+            {/* ...existing calendar preview code... */}
+            {/* Day Planner (mobile-friendly) */}
+            <div className="mt-6">
+              <h4 className="text-base sm:text-lg font-semibold text-amber-900 mb-2">Weekly Day Planner</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {demoSchedule.map((item) => (
+                  <div key={item.day} className="bg-white rounded-lg shadow p-3 flex flex-col items-center border-l-4 border-amber-400">
+                    <span className="font-bold text-amber-700 text-sm mb-1">{item.day}</span>
+                    <span className="text-xs text-gray-600">Posts: {item.posts}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Category Boxes (mobile-friendly) */}
+            <div className="mt-6">
+              <h4 className="text-base sm:text-lg font-semibold text-amber-900 mb-2">Categories</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {demoCategories.map((cat) => (
+                  <div key={cat.name} className="bg-amber-100 rounded-lg shadow p-3 flex flex-col items-center border-l-4 border-amber-400">
+                    <div className="mb-1">{cat.icon}</div>
+                    <span className="font-medium text-amber-900 text-xs">{cat.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ...other mobile/tablet content views can be added here... */}
+      </div>
+    </div>
+  );
+}
+// ...existing code...
 
 // Debug utility - only logs in development mode
 const DEBUG = process.env.NODE_ENV === 'development';
@@ -17,6 +109,9 @@ function PreBuffer() {
   const [educationalContent, setEducationalContent] = useState([]);
   const [motivationalContent, setMotivationalContent] = useState([]);
   const [contentCalendar, setContentCalendar] = useState([]);
+  
+  // Weekly presets state (single source of truth)
+  const [presets, setPresets] = useState([]);
   
   // New specialized categories
   const [travelContent, setTravelContent] = useState([]);
@@ -36,7 +131,11 @@ function PreBuffer() {
   
   const [activeTab, setActiveTab] = useState('dashboard');
   
-  // Day-specific topic selections and content
+  // AI generation state
+  const [isGeneratingWeek, setIsGeneratingWeek] = useState(false);
+  const [numberOfWeeks, setNumberOfWeeks] = useState(1);
+  const [generationMode, setGenerationMode] = useState('calendar');
+  const [weeklyPrompt, setWeeklyPrompt] = useState('');
   const [dayTopicSelections, setDayTopicSelections] = useState({
     monday: 'recipes',
     tuesday: 'workouts', 
@@ -186,8 +285,6 @@ function PreBuffer() {
   const [weeklyPosts, setWeeklyPosts] = useState([]);
   const [isChangingTone, setIsChangingTone] = useState(false);
   const [isCreatingDesign, setIsCreatingDesign] = useState(false);
-  const [isGeneratingWeek, setIsGeneratingWeek] = useState(false);
-  const [weeklyPrompt, setWeeklyPrompt] = useState('');
   const [weeklyGenMode, setWeeklyGenMode] = useState('ai'); // 'ai' or 'template'
   
   // Content tracking for novelty - stores hashes of generated content
@@ -214,7 +311,6 @@ function PreBuffer() {
     lifestyle: true,
     events: true
   });
-  const [numberOfWeeks, setNumberOfWeeks] = useState(1);
   // Weekly schedule now syncs with day topic selections
   const weeklySchedule = {
     monday: dayTopicSelections.monday,
@@ -227,7 +323,6 @@ function PreBuffer() {
   };
   
   // Generation mode: 'calendar' for Sunday-Saturday, 'nextDay' for starting tomorrow
-  const [generationMode, setGenerationMode] = useState('calendar');
 
   const platforms = {
     instagram: { name: 'Instagram', color: 'bg-pink-500', icon: '📸' },
@@ -5392,14 +5487,101 @@ ${contentStructure.hashtags}`;
     setIsGeneratingWeek(true);
     
     try {
-      // Call AI to generate content for the entire week based on prompt
+      // Build enhanced prompt with comprehensive context and detailed instructions
+      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const dayTopics = dayNames.map(day => {
+        const dayKey = day.toLowerCase();
+        const topic = dayTopicSelections[dayKey] || 'motivational';
+        return `${day}: ${topic}`;
+      });
+      
+      const toneGuidelines = {
+        casual: "Friendly, conversational, like chatting with a friend. Use contractions, emojis, and relatable language.",
+        professional: "Polished, authoritative, business-appropriate. Use complete sentences and industry terminology.",
+        inspirational: "Motivational, uplifting, encouraging. Focus on growth, positivity, and actionable inspiration.",
+        friendly: "Warm, approachable, community-focused. Build connection and trust with your audience.",
+        enthusiastic: "Energetic, excited, passionate. Use exclamation points and convey genuine excitement."
+      };
+      
+      const platformGuidelines = {
+        instagram: "Visual-first, engaging captions (125-150 words). Use emojis, questions, and storytelling. Focus on aesthetics and community building.",
+        linkedin: "Professional networking, value-driven content (200-300 words). Share insights, ask questions, and position as thought leader.",
+        facebook: "Community-focused, conversational tone (150-200 words). Encourage discussion, share stories, and build relationships."
+      };
+      
+      const enhancedPrompt = `🎯 SOCIAL MEDIA CONTENT CREATION BRIEF
+
+THEME: "${weeklyPrompt}"
+
+TONE GUIDELINES: ${toneGuidelines[selectedTone] || toneGuidelines.casual}
+
+📅 WEEKLY CONTENT STRUCTURE:
+${dayTopics.map(topic => `• ${topic}`).join('\n')}
+
+🎨 CONTENT REQUIREMENTS:
+
+1. AUDIENCE ENGAGEMENT:
+   - Start with a hook (question, surprising fact, or relatable statement)
+   - Include 2-3 engagement questions or prompts
+   - End with clear call-to-action (Save, Share, Comment, DM me)
+
+2. CONTENT STRUCTURE:
+   - Hook (first 2-3 sentences)
+   - Value delivery (main content with insights/tips)
+   - Personal connection (relatable story or example)
+   - Call-to-action (specific next step)
+
+3. PLATFORM OPTIMIZATION:
+
+   INSTAGRAM:
+   - ${platformGuidelines.instagram}
+   - 3-5 relevant hashtags
+   - Emojis for visual appeal
+   - Question to drive comments
+
+   LINKEDIN:
+   - ${platformGuidelines.linkedin}
+   - Industry insights and professional value
+   - Question to spark discussion
+   - 2-3 professional hashtags
+
+   FACEBOOK:
+   - ${platformGuidelines.facebook}
+   - Community building focus
+   - Encourage sharing and discussion
+   - Local/community relevant hashtags
+
+4. CONTENT QUALITY:
+   - Provide actionable value
+   - Include specific examples or tips
+   - Maintain consistent voice and tone
+   - Ensure content is shareable and valuable
+   - Avoid generic statements
+
+5. HASHTAG STRATEGY:
+   - 3-5 relevant hashtags per platform
+   - Mix of popular and niche tags
+   - Include branded or campaign hashtags
+
+📝 DELIVERABLES:
+Generate 7 complete posts (one per day) with:
+- Day name and topic
+- Platform-specific content variations
+- Hashtags for each platform
+- Content title/summary
+- Estimated engagement potential
+
+Each post should feel authentic, valuable, and optimized for its platform while maintaining the overall weekly theme.`;
+
+      // Call AI to generate content for the entire week based on enhanced prompt
       const res = await fetch("/api/ai/generate-week", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          prompt: weeklyPrompt,
+          prompt: enhancedPrompt,
           tone: selectedTone,
-          platforms: ['instagram', 'linkedin', 'facebook']
+          platforms: ['instagram', 'linkedin', 'facebook'],
+          dayTopics: dayTopicSelections
         }),
       });
       
@@ -5415,8 +5597,8 @@ ${contentStructure.hashtags}`;
           const postData = {
             id: Date.now() + index,
             date: post.date || new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            dayName: post.day || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][index],
-            contentType: post.type || 'general',
+            dayName: post.day || dayNames[index],
+            contentType: post.type || dayTopicSelections[dayNames[index].toLowerCase()] || 'general',
             content: {
               title: post.title || `${post.day} Post`,
               description: post.description || post.content || '',
@@ -6171,6 +6353,10 @@ ${contentStructure.hashtags}`;
 
       {activeTab === 'dashboard' && (
         <div className="relative min-h-screen">
+          {/* Preset Import/Export UI - always visible at top of dashboard */}
+          <div className="mb-8">
+            <WeeklyPresetImportExport presets={presets} setPresets={setPresets} />
+          </div>
           {/* Planner Cover Design */}
           <div 
             className="relative bg-gradient-to-br from-amber-900 via-amber-800 to-amber-950 rounded-2xl shadow-2xl p-6 md:p-8 lg:p-12 border-8 border-amber-950/30"
@@ -6227,8 +6413,7 @@ ${contentStructure.hashtags}`;
                   <Calendar className="w-5 h-5" />
                   Weekly Content Generation
                 </h4>
-                
-                {/* Mode Toggle */}
+                {/* ...existing code... */}
                 <div className="flex gap-2 mb-4">
                   <button
                     onClick={() => setWeeklyGenMode('ai')}
@@ -6330,7 +6515,10 @@ ${contentStructure.hashtags}`;
                     <p className="text-amber-300/80 text-sm">
                       Generate content using your Topic Bank (quotes, events, recipes, workouts, etc.) with advanced scheduling options.
                     </p>
-                    
+
+                    {/* Preset Import/Export UI - visible at top of template mode */}
+                    <WeeklyPresetImportExport presets={presets} setPresets={setPresets} />
+
                     {/* Week Generation Controls - Clean Grid Layout */}
                     <div className="bg-amber-950/30 border-2 border-amber-700/30 rounded-lg p-5">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -7426,38 +7614,50 @@ ${contentStructure.hashtags}`;
           {/* Planner Page Content */}
           <div className="pl-24 pr-8 py-8">
             {/* Date Header - Planner Style */}
-            <div className="mb-6 pb-4 border-b-2 border-amber-900/20">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-bold text-gray-800 tracking-tight mb-1" style={{fontFamily: 'Georgia, serif'}}>
-                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                  </h2>
-                  <p className="text-sm text-gray-500" style={{fontFamily: 'Georgia, serif'}}>
-                    {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                  </p>
+            {(() => {
+              const currentSelectedTopic = dayTopicSelections[activeTab];
+              const currentTopicOption = topicOptions.find(t => t.value === currentSelectedTopic);
+              const IconComponent = currentTopicOption?.icon || FileText;
+              return (
+                <div className="mb-6 pb-4 border-b-2 border-amber-900/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-3xl font-bold text-gray-800 tracking-tight mb-1" style={{fontFamily: 'Georgia, serif'}}>
+                        {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                      </h2>
+                      <p className="text-sm text-gray-500" style={{fontFamily: 'Georgia, serif'}}>
+                        {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                    {/* Topic Selector for this day - Planner Style */}
+                    <div className="flex items-center gap-2 bg-amber-50/50 px-4 py-2 rounded border border-amber-200/50">
+                      <label className="text-sm font-medium text-gray-700" style={{fontFamily: 'Georgia, serif'}}>Today's Focus:</label>
+                      <select
+                        value={dayTopicSelections[activeTab]}
+                        onChange={(e) => setDayTopicSelections({
+                          ...dayTopicSelections,
+                          [activeTab]: e.target.value
+                        })}
+                        className="px-3 py-1.5 border border-gray-300 rounded bg-white focus:border-amber-500 focus:outline-none text-sm"
+                        style={{fontFamily: 'Georgia, serif'}}>
+                        {topicOptions.map((topic) => (
+                          <option key={topic.value} value={topic.value}>
+                            {topic.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {/* Topic Header - moved here */}
+                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded border-l-3 border-amber-600/50 shadow-sm mt-4">
+                    <IconComponent className="w-5 h-5 text-amber-600" />
+                    <span className="font-medium text-gray-800" style={{fontFamily: 'Georgia, serif'}}>
+                      Creating {currentTopicOption?.label} content for {activeTab}
+                    </span>
+                  </div>
                 </div>
-                
-                {/* Topic Selector for this day - Planner Style */}
-                <div className="flex items-center gap-2 bg-amber-50/50 px-4 py-2 rounded border border-amber-200/50">
-                  <label className="text-sm font-medium text-gray-700" style={{fontFamily: 'Georgia, serif'}}>Today's Focus:</label>
-                  <select
-                    value={dayTopicSelections[activeTab]}
-                    onChange={(e) => setDayTopicSelections({
-                      ...dayTopicSelections,
-                      [activeTab]: e.target.value
-                    })}
-                    className="px-3 py-1.5 border border-gray-300 rounded bg-white focus:border-amber-500 focus:outline-none text-sm"
-                    style={{fontFamily: 'Georgia, serif'}}
-                  >
-                    {topicOptions.map((topic) => (
-                      <option key={topic.value} value={topic.value}>
-                        {topic.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* AI Content Settings - Planner Style */}
             <div className="bg-amber-50/30 p-5 rounded-lg mb-6 border-l-4 border-amber-600/40 shadow-sm">
@@ -7510,160 +7710,165 @@ ${contentStructure.hashtags}`;
               
               return (
                 <div className="space-y-5">
-                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded border-l-3 border-amber-600/50 shadow-sm">
-                    <IconComponent className="w-5 h-5 text-amber-600" />
-                    <span className="font-medium text-gray-800" style={{fontFamily: 'Georgia, serif'}}>
-                      Creating {currentTopicOption?.label} content for {activeTab}
-                    </span>
-                  </div>
                   
-                  {/* AI Prompt Generation - Planner Style */}
-                  <div className="mb-4 p-4 bg-gradient-to-r from-purple-50/50 to-blue-50/50 rounded-lg border border-purple-200/50 shadow-sm">
-                    <p className="text-sm text-gray-700 mb-3 flex items-center gap-2" style={{fontFamily: 'Georgia, serif'}}>
-                      <span className="text-lg">✨</span>
-                      <strong>AI Generation:</strong> Describe what you want to create
+                  {/* Content Creation & Enhancement - Combined Section */}
+                  <div className="mb-4 p-4 bg-gradient-to-r from-purple-50/50 via-blue-50/50 to-purple-50/50 rounded-lg border border-purple-200/50 shadow-sm space-y-4">
+                    <p className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2" style={{fontFamily: 'Georgia, serif'}}>
+                      <span className="text-lg">🎨</span>
+                      <strong>Content Creation & Enhancement</strong>
                     </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder={`e.g., "Write about healthy breakfast smoothies with tropical fruits" or "Share tips for beginner yoga poses"`}
-                        value={dayInputs[activeTab]?.prompt || ''}
-                        onChange={(e) => setDayInputs({
-                          ...dayInputs,
-                          [activeTab]: { ...(dayInputs[activeTab] || {}), prompt: e.target.value }
-                        })}
-                        className="flex-1 p-3 border border-purple-300 rounded bg-white text-gray-800 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                        style={{fontFamily: 'Georgia, serif'}}
-                      />
-                      <button
-                        onClick={async () => {
-                          const prompt = dayInputs[activeTab]?.prompt;
-                          if (!prompt) return;
-                          
-                          setIsGenerating(true);
-                          try {
-                            // Generate AI content based on the prompt
-                            const generatedContent = await generateAIContent(currentSelectedTopic, {
-                              type: currentSelectedTopic,
-                              title: prompt.substring(0, 100),
-                              content: prompt,
-                              customPrompt: prompt
-                            });
-                            
-                            // Auto-fill the manual input fields with generated content
-                            setDayInputs({
-                              ...dayInputs,
-                              [activeTab]: {
-                                ...(dayInputs[activeTab] || {}),
-                                title: `AI: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
-                                content: generatedContent || 'Generated content will appear here',
-                                prompt: ''
-                              }
-                            });
-                          } catch (error) {
-                            console.error('Error generating from prompt:', error);
-                            alert('Error generating content. Please try again.');
-                          } finally {
-                            setIsGenerating(false);
-                          }
-                        }}
-                        disabled={!dayInputs[activeTab]?.prompt || isGenerating}
-                        className="px-5 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded hover:from-purple-700 hover:to-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        style={{fontFamily: 'Georgia, serif'}}
-                      >
-                        <span>✨</span>
-                        {isGenerating ? 'Generating...' : 'Generate'}
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2 italic" style={{fontFamily: 'Georgia, serif'}}>
-                      AI will create platform-optimized content based on your description
-                    </p>
-                  </div>
-
-                  {/* API Integration Controls */}
-                  {(dayInputs[activeTab]?.content) && (
-                    <div className="mb-4 p-4 bg-blue-50/50 rounded-lg border border-blue-200/50 shadow-sm space-y-4">
-                      <p className="text-sm font-semibold text-gray-800 mb-3" style={{fontFamily: 'Georgia, serif'}}>
-                        🎨 Post Enhancements
+                    
+                    {/* AI Prompt Generation */}
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-700 flex items-center gap-2" style={{fontFamily: 'Georgia, serif'}}>
+                        <span className="text-lg">✨</span>
+                        <strong>AI Generation:</strong> Describe what you want to create
                       </p>
-                      
-                      {/* Tone Selector */}
-                      <div>
-                        <label className="text-xs text-gray-600 mb-2 block" style={{fontFamily: 'Georgia, serif'}}>
-                          Change Tone:
-                        </label>
-                        <select 
-                          value={selectedTone}
-                          onChange={(e) => {
-                            setBaseCaption(dayInputs[activeTab]?.content);
-                            setCurrentCaption(dayInputs[activeTab]?.content);
-                            handleToneChange(e.target.value);
-                          }}
-                          disabled={isChangingTone}
-                          className="w-full p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:opacity-50"
-                          style={{fontFamily: 'Georgia, serif'}}
-                        >
-                          <option value="Casual">Casual</option>
-                          <option value="Inspirational">Inspirational</option>
-                          <option value="Educational">Educational</option>
-                          <option value="Vulnerable">Vulnerable</option>
-                          <option value="Direct">Direct</option>
-                          <option value="Professional">Professional</option>
-                          <option value="Urgent">Urgent</option>
-                        </select>
-                        {isChangingTone && (
-                          <p className="text-xs text-blue-600 mt-1">Changing tone...</p>
-                        )}
-                      </div>
-
-                      {/* Canva Integration */}
-                      <div className="space-y-2">
-                        <label className="text-xs text-gray-600 block" style={{fontFamily: 'Georgia, serif'}}>
-                          Canva Template ID:
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="DAF_Monday_Quote"
-                            value={canvaTemplateId}
-                            onChange={(e) => setCanvaTemplateId(e.target.value)}
-                            className="flex-1 p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
-                            style={{fontFamily: 'Georgia, serif'}}
-                          />
-                          <button 
-                            onClick={() => {
-                              setBaseCaption(dayInputs[activeTab]?.content);
-                              setCurrentCaption(currentCaption || dayInputs[activeTab]?.content);
-                              handleCanvaDesign();
-                            }}
-                            disabled={!canvaTemplateId || isCreatingDesign}
-                            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                          >
-                            {isCreatingDesign ? '🎨...' : '🎨 Open in Canva'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Optional Image URL */}
-                      <div className="space-y-2">
-                        <label className="text-xs text-gray-600 block" style={{fontFamily: 'Georgia, serif'}}>
-                          Image URL (optional):
-                        </label>
+                      <div className="flex gap-2">
                         <input
                           type="text"
-                          placeholder="https://example.com/image.jpg"
-                          value={imageUrl}
-                          onChange={(e) => setImageUrl(e.target.value)}
-                          className="w-full p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
+                          placeholder={`e.g., "Write about healthy breakfast smoothies with tropical fruits" or "Share tips for beginner yoga poses"`}
+                          value={dayInputs[activeTab]?.prompt || ''}
+                          onChange={(e) => setDayInputs({
+                            ...dayInputs,
+                            [activeTab]: { ...(dayInputs[activeTab] || {}), prompt: e.target.value }
+                          })}
+                          className="flex-1 p-3 border border-purple-300 rounded bg-white text-gray-800 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
                           style={{fontFamily: 'Georgia, serif'}}
                         />
+                        <button
+                          onClick={async () => {
+                            const prompt = dayInputs[activeTab]?.prompt;
+                            if (!prompt) return;
+                            
+                            setIsGenerating(true);
+                            try {
+                              // Generate AI content based on the prompt
+                              const generatedContent = await generateAIContent(currentSelectedTopic, {
+                                type: currentSelectedTopic,
+                                title: prompt.substring(0, 100),
+                                content: prompt,
+                                customPrompt: prompt
+                              });
+                              
+                              // Auto-fill the manual input fields with generated content
+                              setDayInputs({
+                                ...dayInputs,
+                                [activeTab]: {
+                                  ...(dayInputs[activeTab] || {}),
+                                  title: `AI: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
+                                  content: generatedContent || 'Generated content will appear here',
+                                  prompt: ''
+                                }
+                              });
+                            } catch (error) {
+                              console.error('Error generating from prompt:', error);
+                              alert('Error generating content. Please try again.');
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={!dayInputs[activeTab]?.prompt || isGenerating}
+                          className="px-5 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded hover:from-purple-700 hover:to-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          style={{fontFamily: 'Georgia, serif'}}
+                        >
+                          <span>✨</span>
+                          {isGenerating ? 'Generating...' : 'Generate'}
+                        </button>
                       </div>
-
-                      <p className="text-xs text-gray-500 italic mt-2" style={{fontFamily: 'Georgia, serif'}}>
-                        💡 Generate content first, then enhance with tone changes and Canva designs
+                      <p className="text-xs text-gray-500 italic" style={{fontFamily: 'Georgia, serif'}}>
+                        AI will create platform-optimized content based on your description
                       </p>
                     </div>
-                  )}
+
+                    {/* Enhancement Controls - Only show when content exists */}
+                    {(dayInputs[activeTab]?.content) && (
+                      <>
+                        <div className="border-t border-purple-200/50 pt-4">
+                          <p className="text-sm text-gray-700 mb-3 flex items-center gap-2" style={{fontFamily: 'Georgia, serif'}}>
+                            <span className="text-lg">�</span>
+                            <strong>Enhance Your Content:</strong>
+                          </p>
+                          
+                          {/* Tone Selector */}
+                          <div className="mb-4">
+                            <label className="text-xs text-gray-600 mb-2 block" style={{fontFamily: 'Georgia, serif'}}>
+                              Change Tone:
+                            </label>
+                            <select 
+                              value={selectedTone}
+                              onChange={(e) => {
+                                setBaseCaption(dayInputs[activeTab]?.content);
+                                setCurrentCaption(dayInputs[activeTab]?.content);
+                                handleToneChange(e.target.value);
+                              }}
+                              disabled={isChangingTone}
+                              className="w-full p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:opacity-50"
+                              style={{fontFamily: 'Georgia, serif'}}
+                            >
+                              <option value="Casual">Casual</option>
+                              <option value="Inspirational">Inspirational</option>
+                              <option value="Educational">Educational</option>
+                              <option value="Vulnerable">Vulnerable</option>
+                              <option value="Direct">Direct</option>
+                              <option value="Professional">Professional</option>
+                              <option value="Urgent">Urgent</option>
+                            </select>
+                            {isChangingTone && (
+                              <p className="text-xs text-blue-600 mt-1">Changing tone...</p>
+                            )}
+                          </div>
+
+                          {/* Canva Integration */}
+                          <div className="mb-4 space-y-2">
+                            <label className="text-xs text-gray-600 block" style={{fontFamily: 'Georgia, serif'}}>
+                              Canva Template ID:
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="DAF_Monday_Quote"
+                                value={canvaTemplateId}
+                                onChange={(e) => setCanvaTemplateId(e.target.value)}
+                                className="flex-1 p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
+                                style={{fontFamily: 'Georgia, serif'}}
+                              />
+                              <button 
+                                onClick={() => {
+                                  setBaseCaption(dayInputs[activeTab]?.content);
+                                  setCurrentCaption(currentCaption || dayInputs[activeTab]?.content);
+                                  handleCanvaDesign();
+                                }}
+                                disabled={!canvaTemplateId || isCreatingDesign}
+                                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                              >
+                                {isCreatingDesign ? '🎨...' : '🎨 Open in Canva'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Optional Image URL */}
+                          <div className="space-y-2">
+                            <label className="text-xs text-gray-600 block" style={{fontFamily: 'Georgia, serif'}}>
+                              Image URL (optional):
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="https://example.com/image.jpg"
+                              value={imageUrl}
+                              onChange={(e) => setImageUrl(e.target.value)}
+                              className="w-full p-2 border border-blue-300 rounded bg-white text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
+                              style={{fontFamily: 'Georgia, serif'}}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <p className="text-xs text-gray-500 italic mt-2" style={{fontFamily: 'Georgia, serif'}}>
+                      💡 Generate content with AI, then enhance with tone changes and Canva designs
+                    </p>
+                  </div>
 
                   {/* URL Input Section - Planner Style */}
                   <div className="mb-4 p-4 bg-amber-50/40 rounded-lg border border-amber-200/50 shadow-sm">
@@ -10244,3 +10449,5 @@ ${contentStructure.hashtags}`;
 }
 
 export default PreBuffer;
+
+export { WeeklyPresetsManager };
