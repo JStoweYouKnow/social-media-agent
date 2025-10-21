@@ -5486,29 +5486,192 @@ ${contentStructure.hashtags}`;
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
     days.forEach(day => {
-      if (preset.schedule && preset.schedule[day]) {
+      if (preset.schedule && preset.schedule[day] && preset.schedule[day].enabled) {
         newDayTopics[day] = preset.schedule[day].topic || 'motivational';
       } else {
         newDayTopics[day] = dayTopicSelections[day] || 'motivational';
       }
     });
 
-    setDayTopicSelections(newDayTopics);
-
     // Build prompt from preset data
     let promptText = preset.description || `Generate content for ${preset.name}`;
 
     if (preset.brand_voice) {
-      promptText = `${preset.brand_voice.description || promptText}\n\nBrand Voice: ${preset.brand_voice.tone || 'professional'}`;
+      const brandVoiceTone = Array.isArray(preset.brand_voice.tone)
+        ? preset.brand_voice.tone.join(', ')
+        : preset.brand_voice.tone;
+      promptText = `${preset.brand_voice.description || promptText}\n\nBrand Voice: ${brandVoiceTone || 'professional'}`;
     }
 
-    setWeeklyPrompt(promptText);
+    // Add content focus details for each day if available
+    if (preset.schedule) {
+      const contentFocusDetails = Object.entries(preset.schedule)
+        .filter(([_, config]) => config.enabled && config.content_focus)
+        .map(([day, config]) => `${day.charAt(0).toUpperCase() + day.slice(1)}: ${config.content_focus}`)
+        .join('\n');
 
-    // Small delay to let state update
-    setTimeout(() => {
-      // Trigger the AI generation
-      handleGenerateWeekWithAI();
-    }, 100);
+      if (contentFocusDetails) {
+        promptText += `\n\nDaily Content Focus:\n${contentFocusDetails}`;
+      }
+    }
+
+    console.log('Generated prompt:', promptText);
+    console.log('Day topics:', newDayTopics);
+
+    // Update state
+    setDayTopicSelections(newDayTopics);
+    setWeeklyPrompt(promptText);
+    setIsGeneratingWeek(true);
+
+    // Generate content directly with preset data
+    try {
+      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const dayTopics = dayNames.map(day => {
+        const dayKey = day.toLowerCase();
+        const topic = newDayTopics[dayKey] || 'motivational';
+        return `${day}: ${topic}`;
+      });
+
+      const toneGuidelines = {
+        casual: "Friendly, conversational, like chatting with a friend. Use contractions, emojis, and relatable language.",
+        professional: "Polished, authoritative, business-appropriate. Use complete sentences and industry terminology.",
+        inspirational: "Motivational, uplifting, encouraging. Focus on growth, positivity, and actionable inspiration.",
+        friendly: "Warm, approachable, community-focused. Build connection and trust with your audience.",
+        enthusiastic: "Energetic, excited, passionate. Use exclamation points and convey genuine excitement."
+      };
+
+      const platformGuidelines = {
+        instagram: "Visual-first, engaging captions (125-150 words). Use emojis, questions, and storytelling. Focus on aesthetics and community building.",
+        linkedin: "Professional networking, value-driven content (200-300 words). Share insights, ask questions, and position as thought leader.",
+        facebook: "Community-focused, conversational tone (150-200 words). Encourage discussion, share stories, and build relationships."
+      };
+
+      const enhancedPrompt = `🎯 SOCIAL MEDIA CONTENT CREATION BRIEF
+
+THEME: "${promptText}"
+
+TONE GUIDELINES: ${toneGuidelines[selectedTone] || toneGuidelines.casual}
+
+📅 WEEKLY CONTENT STRUCTURE:
+${dayTopics.map(topic => `• ${topic}`).join('\n')}
+
+🎨 CONTENT REQUIREMENTS:
+
+1. AUDIENCE ENGAGEMENT:
+   - Start with a hook (question, surprising fact, or relatable statement)
+   - Include 2-3 engagement questions or prompts
+   - End with clear call-to-action (Save, Share, Comment, DM me)
+
+2. CONTENT STRUCTURE:
+   - Hook (first 2-3 sentences)
+   - Value delivery (main content with insights/tips)
+   - Personal connection (relatable story or example)
+   - Call-to-action (specific next step)
+
+3. PLATFORM OPTIMIZATION:
+
+   INSTAGRAM:
+   - ${platformGuidelines.instagram}
+   - 3-5 relevant hashtags
+   - Emojis for visual appeal
+   - Question to drive comments
+
+   LINKEDIN:
+   - ${platformGuidelines.linkedin}
+   - Industry insights and professional value
+   - Question to spark discussion
+   - 2-3 professional hashtags
+
+   FACEBOOK:
+   - ${platformGuidelines.facebook}
+   - Community building focus
+   - Encourage sharing and discussion
+   - Local/community relevant hashtags
+
+4. CONTENT QUALITY:
+   - Provide actionable value
+   - Include specific examples or tips
+   - Maintain consistent voice and tone
+   - Ensure content is shareable and valuable
+   - Avoid generic statements
+
+5. HASHTAG STRATEGY:
+   - 3-5 relevant hashtags per platform
+   - Mix of popular and niche tags
+   - Include branded or campaign hashtags
+
+📝 DELIVERABLES:
+Generate 7 complete posts (one per day) with:
+- Day name and topic
+- Platform-specific content variations
+- Hashtags for each platform
+- Content title/summary
+- Estimated engagement potential
+
+Each post should feel authentic, valuable, and optimized for its platform while maintaining the overall weekly theme.`;
+
+      // Get enabled platforms from preset or use defaults
+      const enabledPlatforms = preset.platforms
+        ? Object.entries(preset.platforms).filter(([_, enabled]) => enabled).map(([platform]) => platform)
+        : ['instagram', 'linkedin', 'facebook'];
+
+      // Call AI to generate content for the entire week based on enhanced prompt
+      const res = await fetch("/api/ai/generate-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          tone: selectedTone,
+          platforms: enabledPlatforms,
+          dayTopics: newDayTopics
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (data.success && data.posts) {
+        // Add the generated posts to the calendar
+        const newPosts = data.posts.map((post, index) => {
+          const postData = {
+            id: Date.now() + index,
+            date: post.date || new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            dayName: post.day || dayNames[index],
+            contentType: post.type || newDayTopics[dayNames[index].toLowerCase()] || 'general',
+            content: {
+              title: post.title || `${post.day} Post`,
+              description: post.description || post.content || '',
+              tags: post.tags || post.hashtags || '',
+            },
+            variations: post.variations || {
+              instagram: post.instagram || post.content || '',
+              linkedin: post.linkedin || post.content || '',
+              facebook: post.facebook || post.content || ''
+            },
+            createdAt: new Date().toISOString()
+          };
+
+          // Mark AI-generated content as used to prevent duplicates
+          markContentAsUsed(postData.content);
+
+          return postData;
+        });
+
+        setContentCalendar(prev => [...prev, ...newPosts]);
+        debug('✅ Generated AI weekly posts from preset:', newPosts);
+        alert(`Successfully generated ${newPosts.length} posts using preset: ${preset.name}!`);
+      } else {
+        alert(`Failed to generate week: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error generating AI weekly posts from preset:', error);
+      alert('Error generating weekly posts. Make sure the API server is running and OpenAI API key is configured.');
+    } finally {
+      setIsGeneratingWeek(false);
+    }
   };
 
   // Generate weekly posts with AI (prompt-based)

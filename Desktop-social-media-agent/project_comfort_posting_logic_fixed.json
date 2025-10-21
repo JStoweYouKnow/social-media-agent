@@ -1,0 +1,85 @@
+{
+  "name": "Project Comfort Weekly Schedule",
+  "description": "James Stowe's Project Comfort posting logic with motivational, real estate, lifestyle, and fitness content",
+  "schedule": {
+    "monday": {
+      "enabled": true,
+      "topic": "motivational",
+      "time": "09:00",
+      "theme": "Motivational",
+      "content_focus": "Personal growth, purpose, internal freedom"
+    },
+    "tuesday": {
+      "enabled": true,
+      "topic": "realestate",
+      "time": "09:00",
+      "theme": "Agent Perspective",
+      "content_focus": "Buying, selling, multifamily, rentals; CTA for agent services"
+    },
+    "wednesday": {
+      "enabled": true,
+      "topic": "finance",
+      "time": "09:00",
+      "theme": "Baselane / Financial Tools",
+      "content_focus": "Baselane features, property finance organization"
+    },
+    "thursday": {
+      "enabled": true,
+      "topic": "realestate",
+      "time": "09:00",
+      "theme": "Operator Perspective",
+      "content_focus": "Investment insights, Airbnb, cohosting; CTA for STR services"
+    },
+    "friday": {
+      "enabled": true,
+      "topic": "recipes",
+      "time": "09:00",
+      "theme": "Recipes / Meal Prep",
+      "content_focus": "Three-course or themed meal prep; cozy, seasonal foods"
+    },
+    "saturday": {
+      "enabled": true,
+      "topic": "workouts",
+      "time": "09:00",
+      "theme": "Workout / Motivation",
+      "content_focus": "Weekly workout split, motivational or video content"
+    },
+    "sunday": {
+      "enabled": true,
+      "topic": "lifestyle",
+      "time": "09:00",
+      "theme": "Sweets + Reflection",
+      "content_focus": "Dessert recipe + gratitude or reflection theme"
+    }
+  },
+  "platforms": {
+    "instagram": true,
+    "linkedin": true,
+    "facebook": false
+  },
+  "brand_voice": {
+    "tone": "Grounded, confident, empathetic, and encouraging",
+    "description": "Freedom-focused mindset content for real estate investors and wellness enthusiasts",
+    "visual_style": ["Beige", "Charcoal", "Muted Sage", "Clean Typography", "Warm Lighting"],
+    "hashtags": [
+      "#ProjectComfort",
+      "#FreedomMindset",
+      "#RealEstateInvesting",
+      "#Wellness",
+      "#MealPrepFriday",
+      "#SundayReflection",
+      "#FindYourFreedom"
+    ]
+  },
+  "automation": {
+    "ai_caption_variation": true,
+    "canva_design_integration": true,
+    "buffer_scheduling": true,
+    "weekly_content_generator": true
+  },
+  "content_sources": {
+    "recipes": "NYTimes Cooking, Epicurious, Bon Appétit",
+    "workouts": "Muscle & Strength, Custom Gym Splits",
+    "tools": ["Baselane", "Airtable", "Buffer", "Canva"]
+  }
+}
