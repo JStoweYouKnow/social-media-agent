@@ -13,6 +13,7 @@ RUN npm ci --only=production
 # Copy application files
 COPY server.js ./
 COPY routes ./routes
+COPY api ./api
 
 # Expose port (Cloud Run will set PORT env variable)
 EXPOSE 8080
