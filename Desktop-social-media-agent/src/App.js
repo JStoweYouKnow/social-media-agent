@@ -5477,6 +5477,40 @@ ${contentStructure.hashtags}`;
     }
   };
 
+  // Apply a preset and generate content
+  const handleApplyPreset = async (preset) => {
+    console.log('Applying preset:', preset);
+
+    // Update day topic selections from preset schedule
+    const newDayTopics = {};
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+    days.forEach(day => {
+      if (preset.schedule && preset.schedule[day]) {
+        newDayTopics[day] = preset.schedule[day].topic || 'motivational';
+      } else {
+        newDayTopics[day] = dayTopicSelections[day] || 'motivational';
+      }
+    });
+
+    setDayTopicSelections(newDayTopics);
+
+    // Build prompt from preset data
+    let promptText = preset.description || `Generate content for ${preset.name}`;
+
+    if (preset.brand_voice) {
+      promptText = `${preset.brand_voice.description || promptText}\n\nBrand Voice: ${preset.brand_voice.tone || 'professional'}`;
+    }
+
+    setWeeklyPrompt(promptText);
+
+    // Small delay to let state update
+    setTimeout(() => {
+      // Trigger the AI generation
+      handleGenerateWeekWithAI();
+    }, 100);
+  };
+
   // Generate weekly posts with AI (prompt-based)
   const handleGenerateWeekWithAI = async () => {
     if (!weeklyPrompt.trim()) {
@@ -6355,7 +6389,7 @@ Each post should feel authentic, valuable, and optimized for its platform while 
         <div className="relative min-h-screen">
           {/* Preset Import/Export UI - always visible at top of dashboard */}
           <div className="mb-8">
-            <WeeklyPresetImportExport presets={presets} setPresets={setPresets} />
+            <WeeklyPresetImportExport presets={presets} setPresets={setPresets} onApplyPreset={handleApplyPreset} />
           </div>
           {/* Planner Cover Design */}
           <div 
@@ -6517,7 +6551,7 @@ Each post should feel authentic, valuable, and optimized for its platform while 
                     </p>
 
                     {/* Preset Import/Export UI - visible at top of template mode */}
-                    <WeeklyPresetImportExport presets={presets} setPresets={setPresets} />
+                    <WeeklyPresetImportExport presets={presets} setPresets={setPresets} onApplyPreset={handleApplyPreset} />
 
                     {/* Week Generation Controls - Clean Grid Layout */}
                     <div className="bg-amber-950/30 border-2 border-amber-700/30 rounded-lg p-5">
