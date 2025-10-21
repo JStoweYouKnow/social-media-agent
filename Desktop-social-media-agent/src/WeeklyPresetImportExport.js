@@ -221,7 +221,12 @@ export default function WeeklyPresetImportExport({ presets, setPresets, onApplyP
             <select
               value={selectedPreset?.id || ''}
               onChange={(e) => {
-                const preset = presets.find(p => p.id === parseInt(e.target.value));
+                console.log('Selected value:', e.target.value);
+                console.log('Available presets:', presets);
+                const selectedId = e.target.value;
+                // Try to match by converting both to strings for comparison
+                const preset = presets.find(p => String(p.id) === String(selectedId));
+                console.log('Found preset:', preset);
                 setSelectedPreset(preset || null);
               }}
               className="flex-1 p-2 border border-amber-300 rounded-lg bg-white text-gray-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none"
