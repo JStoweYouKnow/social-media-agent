@@ -17,6 +17,8 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors({
   origin: [
+    'https://social-media-agent-93136-3c801.web.app',
+    'https://social-media-agent-93136-3c801.firebaseapp.com',
     'https://social-media-agent-673r9z80m-james-stowes-projects.vercel.app',
     'http://localhost:3000'
   ]
