@@ -20,10 +20,21 @@ export default function WeeklyPresetImportExport({ presets, setPresets }) {
   const uploadPresets = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Clear previous messages
+    setUploadError(null);
+    setUploadSuccess(null);
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const imported = JSON.parse(event.target.result);
+        const rawData = event.target.result;
+        console.log('Raw file content:', rawData);
+
+        const imported = JSON.parse(rawData);
+        console.log('Parsed JSON:', imported);
+        console.log('Type of imported:', typeof imported);
+        console.log('Is array?', Array.isArray(imported));
 
         // Handle both array and single preset object
         let presetsToImport = [];
@@ -33,44 +44,68 @@ export default function WeeklyPresetImportExport({ presets, setPresets }) {
           // If it's a single preset object, wrap it in an array
           presetsToImport = [imported];
         } else {
-          throw new Error('Invalid format: expected array or object');
+          throw new Error(`Invalid format: expected array or object, got ${typeof imported}`);
         }
 
+        console.log('Presets to import:', presetsToImport);
+
         // Validate preset structure
-        const validPresets = presetsToImport.filter(preset => {
-          return preset &&
+        const validPresets = presetsToImport.filter((preset, index) => {
+          const isValid = preset &&
+                 typeof preset === 'object' &&
                  preset.name &&
                  preset.schedule &&
                  typeof preset.schedule === 'object';
+
+          if (!isValid) {
+            console.log(`Invalid preset at index ${index}:`, preset);
+          }
+          return isValid;
         });
 
+        console.log('Valid presets:', validPresets);
+
         if (validPresets.length === 0) {
-          throw new Error('No valid presets found in file');
+          throw new Error('No valid presets found. Each preset must have a "name" and "schedule" object.');
         }
 
-        // Merge with existing presets (avoid duplicates by ID)
-        const existingIds = new Set(presets.map(p => p.id));
-        const newPresets = validPresets.filter(p => !existingIds.has(p.id));
+        // Assign new IDs if they don't exist
+        const presetsWithIds = validPresets.map(preset => ({
+          ...preset,
+          id: preset.id || Date.now() + Math.random(),
+          createdAt: preset.createdAt || new Date().toISOString()
+        }));
+
+        // Merge with existing presets (avoid duplicates by name)
+        const existingNames = new Set(presets.map(p => p.name.toLowerCase()));
+        const newPresets = presetsWithIds.filter(p => !existingNames.has(p.name.toLowerCase()));
 
         if (newPresets.length === 0) {
-          setUploadError('All presets already exist');
+          setUploadError('All presets with these names already exist. Please rename them or delete existing presets first.');
           setUploadSuccess(null);
           return;
         }
 
         setPresets([...presets, ...newPresets]);
-        setUploadSuccess(`${newPresets.length} preset(s) imported successfully!`);
+        setUploadSuccess(`Successfully imported ${newPresets.length} preset(s)!`);
         setUploadError(null);
 
         // Clear success message after 3 seconds
         setTimeout(() => setUploadSuccess(null), 3000);
       } catch (err) {
+        console.error('Import error:', err);
         setUploadError('Failed to import: ' + err.message);
         setUploadSuccess(null);
-        // Clear error message after 5 seconds
-        setTimeout(() => setUploadError(null), 5000);
+        // Clear error message after 10 seconds to give user time to read
+        setTimeout(() => setUploadError(null), 10000);
       }
     };
+
+    reader.onerror = () => {
+      setUploadError('Failed to read file. Please try again.');
+      setUploadSuccess(null);
+    };
+
     reader.readAsText(file);
     // Reset file input
     e.target.value = '';

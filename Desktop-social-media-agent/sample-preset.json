@@ -1,0 +1,48 @@
+[
+  {
+    "name": "Fitness & Wellness Week",
+    "description": "Weekly schedule focused on fitness and wellness content",
+    "schedule": {
+      "monday": {
+        "enabled": true,
+        "topic": "workouts",
+        "time": "09:00"
+      },
+      "tuesday": {
+        "enabled": true,
+        "topic": "recipes",
+        "time": "10:00"
+      },
+      "wednesday": {
+        "enabled": true,
+        "topic": "mindfulness",
+        "time": "09:00"
+      },
+      "thursday": {
+        "enabled": false,
+        "topic": "workouts",
+        "time": "09:00"
+      },
+      "friday": {
+        "enabled": true,
+        "topic": "recipes",
+        "time": "11:00"
+      },
+      "saturday": {
+        "enabled": true,
+        "topic": "workouts",
+        "time": "08:00"
+      },
+      "sunday": {
+        "enabled": false,
+        "topic": "mindfulness",
+        "time": "09:00"
+      }
+    },
+    "platforms": {
+      "instagram": true,
+      "linkedin": false,
+      "facebook": true
+    }
+  }
+]
