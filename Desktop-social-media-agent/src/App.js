@@ -7,6 +7,9 @@ import contentLibrary from './data/contentLibrary';
 import WeeklyPresetsManager from './WeeklyPresetsManager';
 import WeeklyPresetImportExport from './WeeklyPresetImportExport';
 
+// API Base URL - uses environment variable in production, empty for dev (uses proxy)
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+
 // ResponsivePostPlanner component (mobile/tablet UI)
 function ResponsivePostPlanner({
   activeTab,
@@ -5406,7 +5409,7 @@ ${contentStructure.hashtags}`;
     setSelectedTone(tone);
     
     try {
-      const res = await fetch("/api/ai/variation", {
+      const res = await fetch(`${API_BASE_URL}/api/ai/variation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -5616,7 +5619,7 @@ Each post should feel authentic, valuable, and optimized for its platform while 
         : ['instagram', 'linkedin', 'facebook'];
 
       // Call AI to generate content for the entire week based on enhanced prompt
-      const res = await fetch("/api/ai/generate-week", {
+      const res = await fetch(`${API_BASE_URL}/api/ai/generate-week`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -5771,7 +5774,7 @@ Generate 7 complete posts (one per day) with:
 Each post should feel authentic, valuable, and optimized for its platform while maintaining the overall weekly theme.`;
 
       // Call AI to generate content for the entire week based on enhanced prompt
-      const res = await fetch("/api/ai/generate-week", {
+      const res = await fetch(`${API_BASE_URL}/api/ai/generate-week`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
