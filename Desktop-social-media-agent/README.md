@@ -1,191 +1,209 @@
-# 🚀 Social Media Agent - AI-Powered Content Planning Platform
+# Post Planner - AI-powered Social Media Content Planning
 
-A comprehensive React-based social media content management system with AI-powered generation, custom categories, and intelligent scheduling.
+A modern Next.js application for managing and scheduling social media content with AI-powered generation capabilities.
+
+## 🚀 Live Demo
+
+**Production URL**: https://next-na7kpgnic-james-stowes-projects.vercel.app
 
 ## ✨ Features
 
-### 🎯 Core Functionality
-- **AI-Powered Content Generation**: Generate weekly content using OpenAI GPT-4o-mini
-- **Custom Topic Categories**: Create unlimited custom categories with icons
-- **Smart Novelty System**: Prevents duplicate content across all generation modes
-- **Multi-Platform Support**: Instagram, LinkedIn, Facebook optimizations
-- **Advanced Scheduling**: Calendar and next-day generation modes
+### 📊 Dashboard
+- Comprehensive content statistics
+- Weekly planning overview
+- Category management
+- Content usage tracking
 
-### 🏷️ Content Management
-- **14 Built-in Categories**: Recipes, Workouts, Real Estate, Tech, Finance, etc.
-- **Custom Categories**: User-defined categories with automatic integration
-- **Topic Bank System**: Pre-written posts organized by category
-- **Day-Specific Planning**: Monday-Sunday content organization
+### 📝 Content Management
+- **13 Content Categories**: Recipes, Workouts, Real Estate, Mindfulness, Travel, Tech, Finance, Beauty, Parenting, Business, Lifestyle, Educational, Motivational
+- **Full CRUD Operations**: Create, read, update, delete content
+- **Content Preview**: Modal previews for all content items
+- **Usage Tracking**: Mark content as used/unused
+- **Copy to Clipboard**: Easy content copying functionality
 
-### 📊 Analytics & Export
-- **Dashboard Statistics**: Real-time content counts and insights
-- **Export Options**: CSV and JSON export functionality
-- **Content Calendar**: Visual scheduling and management
-- **Platform Variations**: Automatic content adaptation per platform
+### 📅 Calendar Scheduling
+- **Interactive Calendar**: Visual calendar with content scheduling
+- **Multi-Platform Support**: Instagram, Facebook, LinkedIn, Twitter
+- **Status Tracking**: Draft, Scheduled, Published statuses
+- **Date/Time Management**: Flexible scheduling options
 
-### 🎨 User Experience
-- **Clean UI Design**: Professional amber/gold theme
-- **Notebook-Style Day Tabs**: Intuitive day-based planning interface
-- **Performance Optimized**: React useMemo and useCallback optimizations
-- **Responsive Design**: Works on desktop and mobile devices
+### 🤖 AI Tools
+- **Content Generation**: AI-powered content creation
+- **Tone Modification**: Change content tone (Casual, Inspirational, Educational, etc.)
+- **Weekly Planning**: Generate content for entire weeks
+- **Hashtag Generation**: AI-powered hashtag suggestions
 
-## 🛠 Technical Stack
+### ⚙️ Weekly Presets
+- **Schedule Templates**: Pre-configured weekly posting schedules
+- **Platform Management**: Multi-platform posting strategies
+- **Topic Assignment**: Assign specific topics to days
+- **Import/Export**: Save and share preset configurations
 
-- **Frontend**: React 18.2.0 with Lucide React icons
-- **Backend**: Express.js with OpenAI API integration
-- **Styling**: Tailwind CSS with custom amber theme
-- **API**: RESTful endpoints for content generation and management
-- **Performance**: Memoized calculations and optimized state management
+## 🛠️ Technology Stack
 
-## 🚀 Quick Start
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Deployment**: Vercel
+- **AI Integration**: OpenAI API
+- **Design Integration**: Canva API
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v14 or higher)
-- OpenAI API key
+- Node.js 18+ 
+- npm or yarn
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/JStoweYouKnow/social-media-agent.git
-   cd social-media-agent
+   git clone <repository-url>
+   cd Desktop-social-media-agent
    ```
 
-2. **Install dependencies**
+2. **Navigate to the Next.js app**
+   ```bash
+   cd next-app
+   ```
+
+3. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. **Environment Setup**
-   ```bash
-   cp .env.example .env
-   # Add your OpenAI API key to .env
+4. **Set up environment variables**
+   Create a `.env.local` file in the `next-app` directory:
+   ```env
    OPENAI_API_KEY=your_openai_api_key_here
+   CANVA_API_KEY=your_canva_api_key_here
+   NEXT_PUBLIC_API_BASE_URL=
    ```
 
-4. **Start the application**
+5. **Run the development server**
    ```bash
-   # Terminal 1: Start the API server
-   node server.js
-   
-   # Terminal 2: Start the React development server
-   npm start
+   npm run dev
    ```
 
-5. **Access the application**
-   - Frontend: http://localhost:3000
-   - API Server: http://localhost:3001
-
-## 📖 Usage Guide
-
-### Creating Custom Categories
-1. Navigate to the "Categories" tab
-2. Click "Add Category"
-3. Enter category name and optional emoji icon
-4. Use in weekly generation or day-specific planning
-
-### AI Content Generation
-1. Select "AI-Powered" mode in weekly generation
-2. Enter a theme or topic prompt
-3. Choose tone (Casual, Professional, Inspirational, etc.)
-4. Generate 1-4 weeks of content
-
-### Template-Based Generation
-1. Select "Template-Based" mode
-2. Configure number of weeks (1-4)
-3. Choose generation mode (Next 7 Days vs Calendar Week)
-4. Set day-specific topics or leave as random
-5. Generate content using your topic bank
-
-### Day-Specific Planning
-1. Click on any day tab (Monday-Sunday)
-2. Add content manually or generate with AI
-3. Save to topic bank for future use
-4. Schedule posts to content calendar
-
-## 🎯 Key Features Deep Dive
-
-### Smart Novelty System
-- Tracks all generated content using content hashing
-- Prevents duplicate posts across multiple generations
-- Automatic fallback when content pools are exhausted
-- User-controlled history reset functionality
-
-### Performance Optimizations
-- **Memoized Statistics**: Dashboard calculations cached until content changes
-- **Optimized Delete Functions**: Stable references prevent unnecessary re-renders
-- **Dynamic Content Types**: System adapts to custom categories automatically
-- **Efficient State Management**: Reduced re-render cycles with useCallback
-
-### Platform-Specific Adaptations
-- **Instagram**: Visual-focused with optimal hashtag usage
-- **LinkedIn**: Professional tone with industry insights
-- **Facebook**: Community-building with engagement prompts
+6. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## 📁 Project Structure
 
 ```
-src/
-├── App.js              # Main application component
-├── index.js           # React entry point
-├── index.css          # Global styles
-├── utils/             # Utility functions
-├── data/              # Static data and templates
-└── templates/         # Content generation templates
-
-api/
-├── contentSchedule.js  # Content scheduling logic
-├── postGenerator.js   # AI content generation
-└── templates.js       # Template management
-
-routes/
-├── ai.js              # AI generation endpoints
-├── canva.js           # Canva integration
-└── schedule.js        # Scheduling endpoints
-
-server.js              # Express server setup
-package.json           # Dependencies and scripts
+next-app/
+├── src/
+│   ├── app/
+│   │   ├── api/                 # API routes
+│   │   │   ├── ai/             # AI endpoints
+│   │   │   ├── canva/          # Canva integration
+│   │   │   └── schedule/       # Scheduling endpoints
+│   │   ├── globals.css         # Global styles
+│   │   ├── layout.tsx          # Root layout
+│   │   └── page.tsx            # Main page
+│   ├── components/
+│   │   ├── CalendarComponent.tsx
+│   │   ├── ContentManager.tsx
+│   │   └── WeeklyPresetsManager.tsx
+│   └── lib/
+│       ├── contentLibrary.ts
+│       ├── contentSchedule.ts
+│       ├── firebase.ts
+│       ├── postGenerator.ts
+│       └── templates.ts
+├── public/                     # Static assets
+├── package.json
+├── tailwind.config.ts
+├── tsconfig.json
+└── vercel.json
 ```
 
-## 🔧 Configuration
+## 🔧 API Endpoints
 
-### Environment Variables
-```env
-OPENAI_API_KEY=your_openai_api_key
-PORT=3001
-NODE_ENV=development
+### AI Endpoints
+- `POST /api/ai/generate` - Generate content
+- `POST /api/ai/variation` - Change content tone
+- `POST /api/ai/generate-week` - Generate weekly content
+- `POST /api/ai/hashtags` - Generate hashtags
+- `POST /api/ai/improve` - Improve existing content
+
+### Canva Integration
+- `POST /api/canva/create` - Create Canva design
+- `POST /api/canva/autofill` - Auto-fill template
+- `POST /api/canva/batch` - Batch operations
+- `GET /api/canva/templates` - Get available templates
+
+### Scheduling
+- `POST /api/schedule/generate-week` - Generate weekly schedule
+- `POST /api/schedule/generate-day` - Generate daily content
+- `GET /api/schedule/weekly` - Get weekly schedule
+- `GET /api/schedule/day/[dayName]` - Get day-specific content
+
+## 🎨 Customization
+
+### Content Categories
+The app supports 13 different content categories, each with specialized fields:
+
+- **Recipes**: Ingredients, Cooking Time
+- **Workouts**: Duration, Difficulty
+- **Real Estate**: Property Type, Market Area
+- **Mindfulness**: Practice Type, Duration
+- **Travel**: Destination, Trip Type
+- **Tech**: Category, Skill Level
+- **Finance**: Type, Amount Range
+- **Beauty**: Category, Skin Type
+- **Business**: Industry, Business Stage
+- **Lifestyle**: Category, Season
+- **Educational**: Subject, Level
+- **Motivational**: Theme, Audience
+
+### Styling
+The app uses Tailwind CSS with a custom color palette:
+- **Primary**: Amber (#F59E0B)
+- **Secondary**: Orange (#EA580C)
+- **Accent**: Warm orange (#F4A261)
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Set environment variables in Vercel dashboard
+4. Deploy automatically
+
+### Manual Deployment
+```bash
+npm run build
+npm start
 ```
 
-### Tone Options
-- **Casual**: Relaxed, conversational style
-- **Professional**: Business-appropriate, polished
-- **Inspirational**: Motivational and uplifting
-- **Friendly**: Warm, approachable tone
-- **Enthusiastic**: Energetic and exciting
+## 📱 Mobile Responsive
+
+The application is fully responsive and works seamlessly on:
+- Desktop computers
+- Tablets
+- Mobile phones
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
-## 🙏 Acknowledgments
+## 🆘 Support
 
-- OpenAI for GPT-4o-mini API
-- Lucide React for beautiful icons
-- Tailwind CSS for styling system
-- React community for excellent documentation
-
-## 📞 Support
-
-For support, email [your-email] or open an issue on GitHub.
+For support and questions:
+- Create an issue in the repository
+- Check the documentation
+- Review the API endpoints
 
 ---
 
-**Built with ❤️ by [JStoweYouKnow](https://github.com/JStoweYouKnow)**
+**Built with ❤️ using Next.js, TypeScript, and Tailwind CSS**
