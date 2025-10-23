@@ -368,7 +368,11 @@ export default function SocialMediaAgent() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
         {activeTab === 'dashboard' && (
-          <div className="space-y-4 sm:space-y-6">
+          <div className="relative space-y-4 sm:space-y-6 bg-white rounded-2xl shadow-xl border-l-8 border-amber-400 p-6 sm:p-8 mt-4">
+            {/* Tab Notch */}
+            <div className="absolute -left-8 top-4 w-8 h-8 bg-amber-400 rounded-l-2xl shadow-md flex items-center justify-center">
+              <span className="text-white font-bold text-lg">D</span>
+            </div>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="bg-white rounded-lg shadow p-6 border-l-4 border-amber-400">
@@ -451,18 +455,31 @@ export default function SocialMediaAgent() {
         )}
 
         {activeTab === 'presets' && (
-          <WeeklyPresetsManager presets={presets} setPresets={setPresets} />
+          <div className="relative bg-white rounded-2xl shadow-xl border-l-8 border-blue-400 p-6 sm:p-8 mt-4">
+            <div className="absolute -left-8 top-4 w-8 h-8 bg-blue-400 rounded-l-2xl shadow-md flex items-center justify-center">
+              <span className="text-white font-bold text-lg">P</span>
+            </div>
+            <WeeklyPresetsManager presets={presets} setPresets={setPresets} />
+          </div>
         )}
 
         {activeTab === 'planner' && (
-          <DayPlannerView
-            contentCalendar={weeklyPosts}
-            setContentCalendar={setWeeklyPosts}
-          />
+          <div className="relative bg-white rounded-2xl shadow-xl border-l-8 border-green-400 p-6 sm:p-8 mt-4">
+            <div className="absolute -left-8 top-4 w-8 h-8 bg-green-400 rounded-l-2xl shadow-md flex items-center justify-center">
+              <span className="text-white font-bold text-lg">PL</span>
+            </div>
+            <DayPlannerView
+              contentCalendar={weeklyPosts}
+              setContentCalendar={setWeeklyPosts}
+            />
+          </div>
         )}
 
         {activeTab === 'content' && (
-          <div className="space-y-6">
+          <div className="relative space-y-6 bg-white rounded-2xl shadow-xl border-l-8 border-purple-400 p-6 sm:p-8 mt-4">
+            <div className="absolute -left-8 top-4 w-8 h-8 bg-purple-400 rounded-l-2xl shadow-md flex items-center justify-center">
+              <span className="text-white font-bold text-lg">C</span>
+            </div>
             {/* Content Type Selector */}
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-4">
@@ -627,14 +644,22 @@ export default function SocialMediaAgent() {
         )}
 
         {activeTab === 'calendar' && (
-          <CalendarComponent
-            scheduledContent={scheduledContent}
-            setScheduledContent={setScheduledContent}
-          />
+          <div className="relative bg-white rounded-2xl shadow-xl border-l-8 border-indigo-400 p-6 sm:p-8 mt-4">
+            <div className="absolute -left-8 top-4 w-8 h-8 bg-indigo-400 rounded-l-2xl shadow-md flex items-center justify-center">
+              <span className="text-white font-bold text-lg">CA</span>
+            </div>
+            <CalendarComponent
+              scheduledContent={scheduledContent}
+              setScheduledContent={setScheduledContent}
+            />
+          </div>
         )}
 
         {activeTab === 'ai' && (
-          <div className="space-y-6">
+          <div className="relative space-y-6 bg-white rounded-2xl shadow-xl border-l-8 border-pink-400 p-6 sm:p-8 mt-4">
+            <div className="absolute -left-8 top-4 w-8 h-8 bg-pink-400 rounded-l-2xl shadow-md flex items-center justify-center">
+              <span className="text-white font-bold text-lg">AI</span>
+            </div>
             {/* Content Mix Selection */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Content Types to Generate</h2>
