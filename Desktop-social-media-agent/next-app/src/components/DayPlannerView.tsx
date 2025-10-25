@@ -195,11 +195,11 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
                 </div>
 
                 <div className="space-y-2 min-h-[16rem]">
-                  {content.map((post) => {
+                  {content.map((post, postIndex) => {
                     const colorClass = contentTypeColors[post.contentType] || contentTypeColors.motivational;
                     return (
                       <div
-                        key={post.id}
+                        key={`${date.toISOString()}-${post.id}-${postIndex}`}
                         className={`group relative p-3 rounded text-sm border-l-4 cursor-pointer hover:shadow-md transition-all ${colorClass.replace('hover:bg', 'bg').replace('100', '50')}`}
                         onClick={() => {
                           setSelectedDate(date);
@@ -248,10 +248,10 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
               <p className="text-planner-text/50">No content scheduled for this day</p>
             </div>
           ) : (
-            getContentForDate(currentDate).map((post) => {
+            getContentForDate(currentDate).map((post, postIndex) => {
               const colorClass = contentTypeColors[post.contentType] || contentTypeColors.motivational;
               return (
-                <div key={post.id} className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
+                <div key={`day-${currentDate.toISOString()}-${post.id}-${postIndex}`} className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <div className="font-semibold text-xl text-gray-900">{post.content.title}</div>
@@ -306,10 +306,10 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
         <div className="space-y-3">
           {contentCalendar
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            .map((post) => {
+            .map((post, postIndex) => {
               const colorClass = contentTypeColors[post.contentType] || contentTypeColors.motivational;
               return (
-                <div key={post.id} className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+                <div key={`list-${post.date}-${post.id}-${postIndex}`} className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="font-medium text-gray-900">{post.content.title}</div>
