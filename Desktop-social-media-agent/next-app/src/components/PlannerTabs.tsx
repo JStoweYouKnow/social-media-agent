@@ -50,16 +50,25 @@ export default function PlannerTabs() {
           <>
             <h3 className="planner-header text-2xl">Monday Focus</h3>
             <p className="text-planner-text-medium mb-4 text-sm leading-relaxed">
-              Begin your week grounded. Set intentions that support balance,
-              productivity, and clarity.
+              Start your week with intention. Set weekly content priorities, plan your posting schedule,
+              and establish goals that align with your brand vision.
             </p>
+            <div className="mb-4 p-4 bg-planner-page/50 border-l-4 border-planner-accent rounded-sm">
+              <p className="text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">Weekly Planning Tips:</p>
+              <ul className="text-sm text-planner-text-medium space-y-1 list-disc list-inside">
+                <li>List your top 3 content priorities for this week</li>
+                <li>Review last week's performance and engagement</li>
+                <li>Schedule time blocks for content creation</li>
+                <li>Set engagement goals for each platform</li>
+              </ul>
+            </div>
             <div className="planner-divider"></div>
             <textarea
               value={notes[day] || ""}
               onChange={(e) => handleChange(day, e.target.value)}
-              placeholder="Write your top 3 priorities for the week..."
+              placeholder="My Weekly Content Priorities:&#10;&#10;1. ____________________________________&#10;   Goal: ________________________________&#10;&#10;2. ____________________________________&#10;   Goal: ________________________________&#10;&#10;3. ____________________________________&#10;   Goal: ________________________________&#10;&#10;Content Ideas for This Week:&#10;• &#10;• &#10;• &#10;&#10;Engagement Goals:&#10;Instagram: _____ Daily: _____&#10;LinkedIn: _____ Daily: _____"
               className="textarea-planner planner-ruled-bg"
-              rows={8}
+              rows={12}
             />
           </>
         );
@@ -69,16 +78,25 @@ export default function PlannerTabs() {
           <>
             <h3 className="planner-header text-2xl">Tuesday Momentum</h3>
             <p className="text-planner-text-medium mb-4 text-sm leading-relaxed">
-              Build momentum. Focus on systems and habits that move your goals
-              forward.
+              Build momentum with content creation. Focus on producing high-quality posts and
+              optimizing your workflow for the week ahead.
             </p>
+            <div className="mb-4 p-4 bg-planner-page/50 border-l-4 border-planner-accent rounded-sm">
+              <p className="text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">Content Creation Focus:</p>
+              <ul className="text-sm text-planner-text-medium space-y-1 list-disc list-inside">
+                <li>Create 2-3 posts for this week's schedule</li>
+                <li>Batch similar content types together</li>
+                <li>Draft captions and select hashtags</li>
+                <li>Prepare images or graphics</li>
+              </ul>
+            </div>
             <div className="planner-divider"></div>
             <textarea
               value={notes[day] || ""}
               onChange={(e) => handleChange(day, e.target.value)}
-              placeholder="List the tasks or habits you'll optimize today..."
+              placeholder="Today's Content Tasks:&#10;&#10;Posts to Create:&#10;1. ____________________________________&#10;2. ____________________________________&#10;3. ____________________________________&#10;&#10;Caption Ideas:&#10;• &#10;• &#10;&#10;Hashtags to Use:&#10;#___________ #___________ #___________&#10;&#10;Graphics/Images Needed:&#10;• &#10;• "
               className="textarea-planner planner-ruled-bg"
-              rows={8}
+              rows={12}
             />
           </>
         );
@@ -88,15 +106,25 @@ export default function PlannerTabs() {
           <>
             <h3 className="planner-header text-2xl">Wednesday Check-In</h3>
             <p className="text-planner-text-medium mb-4 text-sm leading-relaxed">
-              Midweek reflection: realign your energy and intentions.
+              Midweek review and adjustment. Check your progress, engage with your community,
+              and refine your content strategy based on early-week performance.
             </p>
+            <div className="mb-4 p-4 bg-planner-page/50 border-l-4 border-planner-accent rounded-sm">
+              <p className="text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">Midweek Review:</p>
+              <ul className="text-sm text-planner-text-medium space-y-1 list-disc list-inside">
+                <li>Review Monday/Tuesday post performance</li>
+                <li>Respond to comments and messages</li>
+                <li>Adjust content plan if needed</li>
+                <li>Engage with your target audience</li>
+              </ul>
+            </div>
             <div className="planner-divider"></div>
             <textarea
               value={notes[day] || ""}
               onChange={(e) => handleChange(day, e.target.value)}
-              placeholder="Reflect on your energy levels and progress so far..."
+              placeholder="Midweek Progress Check:&#10;&#10;Posts Published So Far:&#10;✓ ____________________________________&#10;✓ ____________________________________&#10;&#10;What's Working Well:&#10;• &#10;• &#10;&#10;What Needs Adjustment:&#10;• &#10;• &#10;&#10;Engagement Summary:&#10;New followers: _____&#10;Comments replied to: _____&#10;Best performing post: ________________&#10;&#10;Adjustments for Rest of Week:&#10;"
               className="textarea-planner planner-ruled-bg"
-              rows={8}
+              rows={12}
             />
           </>
         );
@@ -106,15 +134,25 @@ export default function PlannerTabs() {
           <>
             <h3 className="planner-header text-2xl">Thursday Growth</h3>
             <p className="text-planner-text-medium mb-4 text-sm leading-relaxed">
-              Expansion day: learn, create, and explore something new.
+              Experiment and innovate. Try new content formats, test different posting times,
+              or explore trending topics in your niche.
             </p>
+            <div className="mb-4 p-4 bg-planner-page/50 border-l-4 border-planner-accent rounded-sm">
+              <p className="text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">Growth & Innovation:</p>
+              <ul className="text-sm text-planner-text-medium space-y-1 list-disc list-inside">
+                <li>Try a new content format (Reels, Stories, Carousels)</li>
+                <li>Experiment with different hashtag sets</li>
+                <li>Test posting at a new time</li>
+                <li>Research trending topics in your industry</li>
+              </ul>
+            </div>
             <div className="planner-divider"></div>
             <textarea
               value={notes[day] || ""}
               onChange={(e) => handleChange(day, e.target.value)}
-              placeholder="What are you learning or exploring today?"
+              placeholder="Growth Experiments:&#10;&#10;New Format to Try:&#10;____________________________________&#10;&#10;Trending Topics to Explore:&#10;• &#10;• &#10;&#10;A/B Testing Ideas:&#10;Test A: ____________________________&#10;Test B: ____________________________&#10;&#10;Learning Goals:&#10;• Study: __________________________&#10;• Apply: ___________________________&#10;&#10;Inspiration & Ideas:&#10;"
               className="textarea-planner planner-ruled-bg"
-              rows={8}
+              rows={12}
             />
           </>
         );
@@ -124,15 +162,25 @@ export default function PlannerTabs() {
           <>
             <h3 className="planner-header text-2xl">Friday Reflection</h3>
             <p className="text-planner-text-medium mb-4 text-sm leading-relaxed">
-              Wrap up your week intentionally. Celebrate wins and release stress.
+              Wrap up your content week. Review analytics, celebrate wins, and prepare
+              weekend content to keep your audience engaged.
             </p>
+            <div className="mb-4 p-4 bg-planner-page/50 border-l-4 border-planner-accent rounded-sm">
+              <p className="text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">Week-End Review:</p>
+              <ul className="text-sm text-planner-text-medium space-y-1 list-disc list-inside">
+                <li>Analyze this week's content performance</li>
+                <li>Celebrate your wins (big and small!)</li>
+                <li>Schedule weekend posts if needed</li>
+                <li>Note lessons learned for next week</li>
+              </ul>
+            </div>
             <div className="planner-divider"></div>
             <textarea
               value={notes[day] || ""}
               onChange={(e) => handleChange(day, e.target.value)}
-              placeholder="What did you accomplish and what can you release?"
+              placeholder="Weekly Wins & Reflection:&#10;&#10;This Week's Accomplishments:&#10;✓ ____________________________________&#10;✓ ____________________________________&#10;✓ ____________________________________&#10;&#10;Best Performing Content:&#10;Post: ________________________________&#10;Engagement: _____ Reach: _____&#10;&#10;Key Lessons Learned:&#10;• &#10;• &#10;&#10;To Improve Next Week:&#10;• &#10;• &#10;&#10;Weekend Content Plan:&#10;"
               className="textarea-planner planner-ruled-bg"
-              rows={8}
+              rows={12}
             />
           </>
         );
@@ -142,15 +190,25 @@ export default function PlannerTabs() {
           <>
             <h3 className="planner-header text-2xl">Saturday Recharge</h3>
             <p className="text-planner-text-medium mb-4 text-sm leading-relaxed">
-              Take time for rest, recreation, and reconnection. Refill your energy.
+              Focus on lighter content and community engagement. Share behind-the-scenes moments,
+              user-generated content, or casual updates that connect with your audience.
             </p>
+            <div className="mb-4 p-4 bg-planner-page/50 border-l-4 border-planner-accent rounded-sm">
+              <p className="text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">Weekend Content Ideas:</p>
+              <ul className="text-sm text-planner-text-medium space-y-1 list-disc list-inside">
+                <li>Share behind-the-scenes content</li>
+                <li>Post user-generated content or testimonials</li>
+                <li>Engage authentically with your community</li>
+                <li>Keep it light and relatable</li>
+              </ul>
+            </div>
             <div className="planner-divider"></div>
             <textarea
               value={notes[day] || ""}
               onChange={(e) => handleChange(day, e.target.value)}
-              placeholder="What are you doing today that brings you joy?"
+              placeholder="Saturday Content Plan:&#10;&#10;Casual Content Ideas:&#10;• Behind-the-scenes: __________________&#10;• Fun fact or tip: ____________________&#10;• Community spotlight: ________________&#10;&#10;Engagement Activities:&#10;• Reply to DMs: ___ Done? ☐&#10;• Comment on 10 posts: Done? ☐&#10;• Share user content: Done? ☐&#10;&#10;Personal Notes:&#10;What brings me joy today:&#10;&#10;&#10;Energy check: ___/10"
               className="textarea-planner planner-ruled-bg"
-              rows={8}
+              rows={12}
             />
           </>
         );
@@ -160,15 +218,25 @@ export default function PlannerTabs() {
           <>
             <h3 className="planner-header text-2xl">Sunday Reset</h3>
             <p className="text-planner-text-medium mb-4 text-sm leading-relaxed">
-              Reflect, realign, and prepare for the week ahead. This is your pause.
+              Prepare for success. Review the upcoming week, brainstorm content ideas,
+              and set yourself up for a productive Monday start.
             </p>
+            <div className="mb-4 p-4 bg-planner-page/50 border-l-4 border-planner-accent rounded-sm">
+              <p className="text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">Sunday Prep:</p>
+              <ul className="text-sm text-planner-text-medium space-y-1 list-disc list-inside">
+                <li>Preview next week's calendar and deadlines</li>
+                <li>Brainstorm content ideas for the week</li>
+                <li>Gather resources you'll need (images, links, etc.)</li>
+                <li>Set 1-2 big goals for the week ahead</li>
+              </ul>
+            </div>
             <div className="planner-divider"></div>
             <textarea
               value={notes[day] || ""}
               onChange={(e) => handleChange(day, e.target.value)}
-              placeholder="How will you reset and prepare for next week?"
+              placeholder="Next Week Preparation:&#10;&#10;Big Goals for Next Week:&#10;1. ____________________________________&#10;2. ____________________________________&#10;&#10;Content Ideas to Explore:&#10;• &#10;• &#10;• &#10;&#10;Resources to Gather:&#10;☐ Images: ____________________________&#10;☐ Articles: ___________________________&#10;☐ Graphics: ___________________________&#10;&#10;Upcoming Deadlines:&#10;• &#10;• &#10;&#10;Intention for the Week:&#10;"
               className="textarea-planner planner-ruled-bg"
-              rows={8}
+              rows={12}
             />
           </>
         );

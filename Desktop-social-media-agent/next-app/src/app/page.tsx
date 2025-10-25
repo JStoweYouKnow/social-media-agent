@@ -347,16 +347,17 @@ export default function SocialMediaAgent() {
           {/* Side Tabs Navigation */}
           <div className="flex md:flex-col bg-planner-sidebar border-b md:border-b-0 md:border-r border-planner-border-dark" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
             {[
-              { id: 'dashboard', label: 'Dashboard', icon: Home },
-              { id: 'planner', label: 'Day Planner', icon: CalendarDays },
-              { id: 'presets', label: 'Presets', icon: Calendar },
-              { id: 'content', label: 'Content', icon: FileText },
-              { id: 'calendar', label: 'Calendar', icon: Calendar },
-              { id: 'ai', label: 'AI Tools', icon: Sparkles }
+              { id: 'dashboard', label: 'Dashboard', icon: Home, tooltip: 'Dashboard - View stats and overview' },
+              { id: 'planner', label: 'Day Planner', icon: CalendarDays, tooltip: 'Day Planner - Weekly planning and notes' },
+              { id: 'presets', label: 'Presets', icon: Calendar, tooltip: 'Presets - Manage posting schedules' },
+              { id: 'content', label: 'Content', icon: FileText, tooltip: 'Content - Manage your content library' },
+              { id: 'calendar', label: 'Calendar', icon: Calendar, tooltip: 'Calendar - Schedule and view posts' },
+              { id: 'ai', label: 'AI Tools', icon: Sparkles, tooltip: 'AI Tools - Generate content with AI' }
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                title={tab.tooltip}
                 className={`flex items-center gap-3 px-6 py-4 font-medium transition-all duration-200 ease-smooth relative whitespace-nowrap group ${
                   activeTab === tab.id
                     ? 'bg-planner-page border-l-4 border-planner-accent-dark text-planner-text shadow-inner-planner'
