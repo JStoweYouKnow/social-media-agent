@@ -15,13 +15,13 @@ import {
 } from "lucide-react";
 
 const tabs = [
-  { id: "monday", label: "Mon", icon: <Sun className="w-4 h-4" /> },
-  { id: "tuesday", label: "Tue", icon: <CalendarDays className="w-4 h-4" /> },
-  { id: "wednesday", label: "Wed", icon: <ClipboardList className="w-4 h-4" /> },
-  { id: "thursday", label: "Thu", icon: <Coffee className="w-4 h-4" /> },
-  { id: "friday", label: "Fri", icon: <BookOpen className="w-4 h-4" /> },
-  { id: "saturday", label: "Sat", icon: <Heart className="w-4 h-4" /> },
-  { id: "sunday", label: "Sun", icon: <Moon className="w-4 h-4" /> },
+  { id: "monday", label: "Mon", icon: <Sun className="w-4 h-4" />, tooltip: "Monday - Weekly planning and priorities" },
+  { id: "tuesday", label: "Tue", icon: <CalendarDays className="w-4 h-4" />, tooltip: "Tuesday - Content creation focus" },
+  { id: "wednesday", label: "Wed", icon: <ClipboardList className="w-4 h-4" />, tooltip: "Wednesday - Midweek review and engagement" },
+  { id: "thursday", label: "Thu", icon: <Coffee className="w-4 h-4" />, tooltip: "Thursday - Growth and experimentation" },
+  { id: "friday", label: "Fri", icon: <BookOpen className="w-4 h-4" />, tooltip: "Friday - Weekly reflection and analytics" },
+  { id: "saturday", label: "Sat", icon: <Heart className="w-4 h-4" />, tooltip: "Saturday - Weekend content and community" },
+  { id: "sunday", label: "Sun", icon: <Moon className="w-4 h-4" />, tooltip: "Sunday - Next week preparation" },
 ];
 
 export default function PlannerTabs() {
@@ -258,6 +258,7 @@ export default function PlannerTabs() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              title={tab.tooltip}
               className={clsx(
                 "flex items-center gap-2 px-5 py-4 font-medium transition-all duration-200 relative uppercase tracking-wider text-xs",
                 "hover:bg-planner-page/50",
