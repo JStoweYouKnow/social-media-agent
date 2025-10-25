@@ -26,19 +26,22 @@ interface DayPlannerViewProps {
 }
 
 const contentTypeColors: Record<string, string> = {
-  recipes: 'bg-orange-100 text-orange-800 border-orange-400 hover:bg-orange-200',
-  workouts: 'bg-green-100 text-green-800 border-green-400 hover:bg-green-200',
-  realestate: 'bg-blue-100 text-blue-800 border-blue-400 hover:bg-blue-200',
-  mindfulness: 'bg-purple-100 text-purple-800 border-purple-400 hover:bg-purple-200',
-  motivational: 'bg-pink-100 text-pink-800 border-pink-400 hover:bg-pink-200',
-  educational: 'bg-indigo-100 text-indigo-800 border-indigo-400 hover:bg-indigo-200',
-  travel: 'bg-cyan-100 text-cyan-800 border-cyan-400 hover:bg-cyan-200',
-  tech: 'bg-slate-100 text-slate-800 border-slate-400 hover:bg-slate-200',
-  finance: 'bg-emerald-100 text-emerald-800 border-emerald-400 hover:bg-emerald-200',
-  beauty: 'bg-rose-100 text-rose-800 border-rose-400 hover:bg-rose-200',
-  parenting: 'bg-yellow-100 text-yellow-800 border-yellow-400 hover:bg-yellow-200',
-  business: 'bg-gray-100 text-gray-800 border-gray-400 hover:bg-gray-200',
-  lifestyle: 'bg-teal-100 text-teal-800 border-teal-400 hover:bg-teal-200',
+  recipes: 'bg-orange-50 text-orange-800 border-orange-400 hover:bg-orange-100',
+  recipe: 'bg-orange-50 text-orange-800 border-orange-400 hover:bg-orange-100',
+  workouts: 'bg-green-50 text-green-800 border-green-400 hover:bg-green-100',
+  workout: 'bg-green-50 text-green-800 border-green-400 hover:bg-green-100',
+  realestate: 'bg-blue-50 text-blue-800 border-blue-400 hover:bg-blue-100',
+  realEstate: 'bg-blue-50 text-blue-800 border-blue-400 hover:bg-blue-100',
+  mindfulness: 'bg-purple-50 text-purple-800 border-purple-400 hover:bg-purple-100',
+  motivational: 'bg-pink-50 text-pink-800 border-pink-400 hover:bg-pink-100',
+  educational: 'bg-indigo-50 text-indigo-800 border-indigo-400 hover:bg-indigo-100',
+  travel: 'bg-indigo-50 text-indigo-800 border-indigo-400 hover:bg-indigo-100',
+  tech: 'bg-gray-50 text-gray-800 border-gray-400 hover:bg-gray-100',
+  finance: 'bg-emerald-50 text-emerald-800 border-emerald-400 hover:bg-emerald-100',
+  beauty: 'bg-rose-50 text-rose-800 border-rose-400 hover:bg-rose-100',
+  parenting: 'bg-yellow-50 text-yellow-800 border-yellow-400 hover:bg-yellow-100',
+  business: 'bg-gray-50 text-gray-800 border-gray-400 hover:bg-gray-100',
+  lifestyle: 'bg-teal-50 text-teal-800 border-teal-400 hover:bg-teal-100',
 };
 
 const platforms = {
@@ -105,22 +108,22 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <CalendarIcon className="w-6 h-6 text-amber-600" />
-          <h2 className="text-2xl font-bold text-gray-900">Day Planner</h2>
-          <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-sm font-medium">
+          <CalendarIcon className="w-6 h-6 text-planner-accent" />
+          <h2 className="text-2xl font-bold text-planner-text">Day Planner</h2>
+          <span className="bg-planner-accent/20 text-planner-accent px-2 py-1 rounded-full text-sm font-medium">
             {contentCalendar.length} posts
           </span>
         </div>
 
         <div className="flex items-center space-x-4">
           {/* View Toggle */}
-          <div className="flex items-center space-x-1 border border-gray-300 rounded-lg p-1">
+          <div className="flex items-center space-x-1 border border-planner-border rounded-lg p-1">
             <button
               onClick={() => setCalendarView('week')}
               className={`px-3 py-1 rounded text-sm transition-colors ${
                 calendarView === 'week'
-                  ? 'bg-amber-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-planner-accent text-white'
+                  : 'text-planner-text/70 hover:bg-planner-border/20'
               }`}
             >
               Week
@@ -129,8 +132,8 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
               onClick={() => setCalendarView('day')}
               className={`px-3 py-1 rounded text-sm transition-colors ${
                 calendarView === 'day'
-                  ? 'bg-amber-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-planner-accent text-white'
+                  : 'text-planner-text/70 hover:bg-planner-border/20'
               }`}
             >
               Day
@@ -139,8 +142,8 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
               onClick={() => setCalendarView('list')}
               className={`px-3 py-1 rounded text-sm transition-colors ${
                 calendarView === 'list'
-                  ? 'bg-amber-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-planner-accent text-white'
+                  : 'text-planner-text/70 hover:bg-planner-border/20'
               }`}
             >
               List
@@ -181,7 +184,7 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
             return (
               <div key={date.toISOString()} className="space-y-2">
                 <div className={`text-center p-2 rounded ${
-                  isToday ? 'bg-amber-600 text-white' : 'bg-amber-50 text-gray-900'
+                  isToday ? 'bg-planner-accent-dark text-white' : 'bg-planner-border/10 text-planner-text'
                 }`}>
                   <div className="text-xs font-medium">
                     {date.toLocaleDateString('en-US', { weekday: 'short' })}
@@ -241,8 +244,8 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
       {contentCalendar.length > 0 && calendarView === 'day' && (
         <div className="space-y-4">
           {getContentForDate(currentDate).length === 0 ? (
-            <div className="text-center py-12 bg-amber-50 rounded-lg">
-              <p className="text-gray-500">No content scheduled for this day</p>
+            <div className="text-center py-12 bg-planner-border/10 rounded-lg">
+              <p className="text-planner-text/50">No content scheduled for this day</p>
             </div>
           ) : (
             getContentForDate(currentDate).map((post) => {
@@ -333,10 +336,10 @@ export default function DayPlannerView({ contentCalendar, setContentCalendar }: 
       )}
 
       {contentCalendar.length === 0 && (
-        <div className="text-center py-16 bg-amber-50 rounded-lg">
-          <CalendarIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">No content generated yet</p>
-          <p className="text-gray-400 text-sm mt-2">Go to the AI Tools tab to generate your weekly content</p>
+        <div className="text-center py-16 bg-planner-border/10 rounded-lg">
+          <CalendarIcon className="w-16 h-16 text-planner-border mx-auto mb-4" />
+          <p className="text-planner-text/60 text-lg">No content generated yet</p>
+          <p className="text-planner-text/40 text-sm mt-2">Go to the AI Tools tab to generate your weekly content</p>
         </div>
       )}
     </div>

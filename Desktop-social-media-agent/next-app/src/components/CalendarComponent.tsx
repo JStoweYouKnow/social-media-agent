@@ -277,9 +277,11 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <Calendar className="w-6 h-6 text-amber-600" />
-          <h2 className="text-2xl font-bold text-gray-900">Content Calendar</h2>
-          <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-sm font-medium">
+          <div className="p-2 bg-planner-accent/10 rounded-xl">
+            <Calendar className="w-6 h-6 text-planner-accent" />
+          </div>
+          <h2 className="text-2xl font-serif font-bold text-planner-text">Content Calendar</h2>
+          <span className="bg-planner-accent/20 text-planner-accent px-3 py-1 rounded-full text-sm font-medium">
             {scheduledContent.length} scheduled
           </span>
         </div>
@@ -289,7 +291,7 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
           <button
             onClick={exportToCSV}
             disabled={scheduledContent.length === 0}
-            className="flex items-center space-x-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="btn-primary flex items-center gap-2 text-sm"
             title="Export to CSV"
           >
             <Download className="w-4 h-4" />
@@ -298,7 +300,7 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
           <button
             onClick={exportToJSON}
             disabled={scheduledContent.length === 0}
-            className="flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="btn-secondary flex items-center gap-2 text-sm"
             title="Export to JSON"
           >
             <FileText className="w-4 h-4" />
@@ -307,7 +309,7 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
           <button
             onClick={printCalendar}
             disabled={scheduledContent.length === 0}
-            className="flex items-center space-x-2 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="btn-secondary flex items-center gap-2 text-sm"
             title="Print Calendar"
           >
             <Printer className="w-4 h-4" />
@@ -315,33 +317,33 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
           </button>
 
           {/* View Toggle */}
-          <div className="flex items-center space-x-1 border border-gray-300 rounded-lg p-1">
+          <div className="flex items-center gap-1 border border-planner-border rounded-lg p-1 bg-planner-page shadow-planner">
             <button
               onClick={() => setCalendarView('month')}
-              className={`px-3 py-1 rounded text-sm transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
                 calendarView === 'month'
-                  ? 'bg-amber-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-planner-accent text-white shadow-planner'
+                  : 'text-planner-text-medium hover:bg-planner-hover'
               }`}
             >
               Month
             </button>
             <button
               onClick={() => setCalendarView('week')}
-              className={`px-3 py-1 rounded text-sm transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
                 calendarView === 'week'
-                  ? 'bg-amber-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-planner-accent text-white shadow-planner'
+                  : 'text-planner-text-medium hover:bg-planner-hover'
               }`}
             >
               Week
             </button>
             <button
               onClick={() => setCalendarView('day')}
-              className={`px-3 py-1 rounded text-sm transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
                 calendarView === 'day'
-                  ? 'bg-amber-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-planner-accent text-white shadow-planner'
+                  : 'text-planner-text-medium hover:bg-planner-hover'
               }`}
             >
               Day
@@ -349,35 +351,35 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
           </div>
 
           {/* Calendar Navigation */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2 border border-planner-border rounded-lg p-1 bg-planner-page shadow-planner">
             <button
               onClick={() => navigateCalendar('prev')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-planner-hover rounded-lg transition-all"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-5 h-5 text-planner-text" />
             </button>
-            <h3 className="text-lg font-semibold text-gray-900 min-w-[140px] text-center">
+            <h3 className="text-base font-semibold text-planner-text min-w-[140px] text-center">
               {calendarView === 'month' && currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               {calendarView === 'week' && `Week of ${currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
               {calendarView === 'day' && currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
             </h3>
             <button
               onClick={() => navigateCalendar('next')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-planner-hover rounded-lg transition-all"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-5 h-5 text-planner-text" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="card overflow-hidden shadow-planner-xl">
         {/* Days of week header */}
         {calendarView !== 'day' && (
-          <div className={`grid ${calendarView === 'week' ? 'grid-cols-7' : 'grid-cols-7'} bg-gray-50 border-b`}>
+          <div className={`grid ${calendarView === 'week' ? 'grid-cols-7' : 'grid-cols-7'} bg-planner-sidebar border-b border-planner-border`}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="p-3 text-center text-sm font-medium text-gray-600">
+              <div key={day} className="p-3 text-center text-sm font-semibold text-planner-text-medium">
                 {day}
               </div>
             ))}
@@ -395,35 +397,35 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
             return (
               <div
                 key={index}
-                className={`min-h-[120px] border-r border-b border-gray-200 p-2 cursor-pointer hover:bg-gray-50 ${
-                  !isCurrentMonthDay ? 'bg-gray-50 text-gray-400' : ''
-                } ${isTodayDate ? 'bg-amber-50' : ''} ${isSelected ? 'bg-amber-100' : ''}`}
+                className={`min-h-[120px] border-r border-b border-planner-border p-3 cursor-pointer transition-all duration-200 ${
+                  !isCurrentMonthDay ? 'bg-planner-sidebar/50 text-planner-text-muted' : 'bg-white hover:bg-planner-page/30'
+                } ${isTodayDate ? 'bg-planner-accent/10 border-l-4 border-l-planner-accent' : ''} ${isSelected ? 'bg-planner-accent/20 ring-2 ring-planner-accent ring-inset' : ''}`}
                 onClick={() => {
                   setSelectedDate(date);
                   setIsAddingContent(true);
                 }}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-sm font-medium ${
-                    isTodayDate ? 'text-amber-600' : isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-sm font-semibold ${
+                    isTodayDate ? 'text-planner-accent' : isCurrentMonthDay ? 'text-planner-text' : 'text-planner-text-muted'
                   }`}>
                     {date.getDate()}
                   </span>
                   {dayContent.length > 0 && (
-                    <span className="bg-amber-500 text-white text-xs px-1 rounded-full">
+                    <span className="bg-planner-accent text-white text-xs px-2 py-0.5 rounded-full font-medium shadow-planner">
                       {dayContent.length}
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {dayContent.slice(0, 2).map(content => (
                     <div
                       key={content.id}
-                      className={`text-xs p-1 rounded truncate ${
-                        content.status === 'published' ? 'bg-green-100 text-green-800' :
-                        content.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
+                      className={`text-xs p-1.5 rounded-md truncate font-medium transition-all hover:scale-105 cursor-pointer ${
+                        content.status === 'published' ? 'bg-green-100 text-green-800 border border-green-200' :
+                        content.status === 'scheduled' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                        'bg-planner-page text-planner-text-medium border border-planner-border'
                       }`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -434,7 +436,7 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
                     </div>
                   ))}
                   {dayContent.length > 2 && (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-planner-text-muted font-medium">
                       +{dayContent.length - 2} more
                     </div>
                   )}
@@ -447,10 +449,10 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
 
       {/* Add/Edit Content Modal */}
       {isAddingContent && selectedDate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full shadow-planner-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-serif font-semibold text-planner-text">
                 {editingId ? 'Edit' : 'Schedule'} Content
               </h3>
               <button
@@ -460,7 +462,7 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
                   setEditingId(null);
                   setNewContent({ title: '', content: '', time: '09:00', platform: 'instagram', status: 'draft' });
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-planner-text-muted hover:text-planner-text text-2xl leading-none"
               >
                 ×
               </button>
@@ -468,52 +470,52 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <label className="block text-sm font-medium text-planner-text-medium mb-2">Date</label>
                 <input
                   type="date"
                   value={selectedDate.toISOString().split('T')[0]}
                   onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="input-planner"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <label className="block text-sm font-medium text-planner-text-medium mb-2">Title</label>
                 <input
                   type="text"
                   value={newContent.title}
                   onChange={(e) => setNewContent({ ...newContent, title: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="input-planner"
                   placeholder="Enter content title"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                <label className="block text-sm font-medium text-planner-text-medium mb-2">Content</label>
                 <textarea
                   value={newContent.content}
                   onChange={(e) => setNewContent({ ...newContent, content: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 h-20"
+                  className="textarea-planner h-20"
                   placeholder="Enter content description"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                  <label className="block text-sm font-medium text-planner-text-medium mb-2">Time</label>
                   <input
                     type="time"
                     value={newContent.time}
                     onChange={(e) => setNewContent({ ...newContent, time: e.target.value })}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="input-planner"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Platform</label>
+                  <label className="block text-sm font-medium text-planner-text-medium mb-2">Platform</label>
                   <select
                     value={newContent.platform}
                     onChange={(e) => setNewContent({ ...newContent, platform: e.target.value })}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="input-planner"
                   >
                     <option value="instagram">Instagram</option>
                     <option value="facebook">Facebook</option>
@@ -524,11 +526,11 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-sm font-medium text-planner-text-medium mb-2">Status</label>
                 <select
                   value={newContent.status}
                   onChange={(e) => setNewContent({ ...newContent, status: e.target.value as any })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="input-planner"
                 >
                   <option value="draft">Draft</option>
                   <option value="scheduled">Scheduled</option>
@@ -537,11 +539,11 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
               </div>
             </div>
 
-            <div className="flex space-x-3 mt-6">
+            <div className="flex gap-3 mt-8">
               <button
                 onClick={handleSaveContent}
                 disabled={!newContent.title.trim()}
-                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg transition-colors disabled:opacity-50"
+                className="btn-primary flex-1"
               >
                 {editingId ? 'Update' : 'Schedule'}
               </button>
@@ -552,7 +554,7 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
                   setEditingId(null);
                   setNewContent({ title: '', content: '', time: '09:00', platform: 'instagram', status: 'draft' });
                 }}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="btn-secondary flex-1"
               >
                 Cancel
               </button>
@@ -563,38 +565,38 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
 
       {/* Content List for Selected Date */}
       {selectedDate && !isAddingContent && (
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="card shadow-planner-xl">
+          <h3 className="text-xl font-serif font-semibold text-planner-text mb-6">
             Content for {selectedDate.toLocaleDateString()}
           </h3>
           <div className="space-y-3">
             {getContentForDate(selectedDate).map(content => (
-              <div key={content.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={content.id} className="flex items-center justify-between p-4 bg-planner-page rounded-xl border border-planner-border hover:shadow-planner-lg transition-all">
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{content.title}</h4>
-                  <p className="text-sm text-gray-600">{content.content}</p>
-                  <div className="flex items-center space-x-4 mt-1">
-                    <span className="text-xs text-gray-500">{content.time}</span>
-                    <span className="text-xs text-gray-500">{content.platform}</span>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      content.status === 'published' ? 'bg-green-100 text-green-800' :
-                      content.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
+                  <h4 className="font-semibold text-planner-text text-base mb-1">{content.title}</h4>
+                  <p className="text-sm text-planner-text-muted mb-2">{content.content}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-planner-text-medium font-medium">{content.time}</span>
+                    <span className="text-xs text-planner-text-medium font-medium capitalize">{content.platform}</span>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                      content.status === 'published' ? 'bg-green-100 text-green-800 border border-green-200' :
+                      content.status === 'scheduled' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                      'bg-planner-page text-planner-text-medium border border-planner-border'
                     }`}>
                       {content.status}
                     </span>
                   </div>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex gap-2">
                   <button
                     onClick={() => handleEditContent(content)}
-                    className="p-1 text-gray-500 hover:text-gray-700"
+                    className="p-2 text-planner-text-muted hover:text-planner-accent rounded-lg hover:bg-planner-hover transition-all"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteContent(content.id)}
-                    className="p-1 text-gray-500 hover:text-red-600"
+                    className="p-2 text-planner-text-muted hover:text-red-600 rounded-lg hover:bg-planner-hover transition-all"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -602,7 +604,7 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
               </div>
             ))}
             {getContentForDate(selectedDate).length === 0 && (
-              <p className="text-gray-500 text-center py-4">No content scheduled for this date.</p>
+              <p className="text-planner-text-muted text-center py-12 text-sm">No content scheduled for this date.</p>
             )}
           </div>
         </div>

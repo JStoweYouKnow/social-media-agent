@@ -7,6 +7,7 @@ import WeeklyPresetsManager from '@/components/WeeklyPresetsManager';
 import ContentManager from '@/components/ContentManager';
 import CalendarComponent from '@/components/CalendarComponent';
 import DayPlannerView from '@/components/DayPlannerView';
+import PlannerTabs from '@/components/PlannerTabs';
 import { contentLibrary } from '@/lib/contentLibrary';
 
 // API Base URL - uses environment variable in production, empty for dev (uses proxy)
@@ -314,179 +315,291 @@ export default function SocialMediaAgent() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-amber-200">
+    <div className="min-h-screen bg-planner-page" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
+      {/* Top Header with Logo and User */}
+      <div className="bg-planner-paper shadow-planner border-b border-planner-border backdrop-blur-sm" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-8 h-8 text-amber-600" />
-                <h1 className="text-2xl font-bold text-gray-900">Post Planner</h1>
+          <div className="flex justify-between items-center py-5">
+            <div className="flex items-center space-x-3">
+              <div className="p-1.5 bg-planner-accent/10 rounded-lg">
+                <CalendarDays className="w-6 h-6 text-planner-accent" />
               </div>
+              <h1 className="text-2xl font-serif font-bold text-planner-text">Post Planner</h1>
             </div>
 
-            {/* Navigation Tabs and User Button */}
-            <div className="flex items-center space-x-4">
-              <div className="flex space-x-1">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: Home },
-                { id: 'planner', label: 'Day Planner', icon: CalendarDays },
-                { id: 'presets', label: 'Presets', icon: Calendar },
-                { id: 'content', label: 'Content', icon: FileText },
-                { id: 'calendar', label: 'Calendar', icon: Calendar },
-                { id: 'ai', label: 'AI Tools', icon: Sparkles }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-amber-100 text-amber-900'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              ))}
-              </div>
-
-              {/* User Profile Button */}
-              <UserButton
-                appearance={{
-                  elements: {
-                    avatarBox: 'w-10 h-10',
-                  },
-                }}
-              />
-            </div>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: 'w-10 h-10',
+                },
+              }}
+            />
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
+      {/* Main Planner Layout - Side Tabs + Content */}
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col md:flex-row bg-planner-page shadow-planner-xl rounded-2xl overflow-hidden border border-planner-border relative min-h-[calc(100vh-12rem)] transition-all duration-300" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
+          {/* Bookmark Ribbon */}
+          <div className="absolute right-6 top-0 w-3 h-16 bg-planner-accent rounded-b-md shadow-planner-lg z-10"></div>
+
+          {/* Side Tabs Navigation */}
+          <div className="flex md:flex-col bg-planner-sidebar border-b md:border-b-0 md:border-r border-planner-border-dark" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
+            {[
+              { id: 'dashboard', label: 'Dashboard', icon: Home },
+              { id: 'planner', label: 'Day Planner', icon: CalendarDays },
+              { id: 'presets', label: 'Presets', icon: Calendar },
+              { id: 'content', label: 'Content', icon: FileText },
+              { id: 'calendar', label: 'Calendar', icon: Calendar },
+              { id: 'ai', label: 'AI Tools', icon: Sparkles }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-3 px-6 py-4 font-medium transition-all duration-200 ease-smooth relative whitespace-nowrap group ${
+                  activeTab === tab.id
+                    ? 'bg-planner-page border-l-4 border-planner-accent-dark text-planner-text shadow-inner-planner'
+                    : 'text-planner-text-muted hover:bg-planner-hover hover:text-planner-text'
+                }`}
+              >
+                <tab.icon className={`w-4 h-4 transition-transform duration-200 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-105'}`} />
+                <span className="hidden sm:inline text-sm">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Page Content Area */}
+          <div className="flex-1 bg-planner-paper p-6 md:p-10 relative overflow-auto" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
+            {/* Subtle paper texture overlay */}
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-planner-shadow/20 rounded-xl"></div>
+
+            <div className="relative z-10">
         {activeTab === 'dashboard' && (
-          <div className="relative space-y-4 sm:space-y-6 bg-white rounded-2xl shadow-xl border-l-8 border-amber-400 p-6 sm:p-8 mt-4">
-            {/* Tab Notch */}
-            <div className="absolute -left-8 top-4 w-8 h-8 bg-amber-400 rounded-l-2xl shadow-md flex items-center justify-center">
-              <span className="text-white font-bold text-lg">D</span>
+          <div className="space-y-8">
+            {/* Welcome Header */}
+            <div>
+              <h2 className="text-3xl font-serif font-bold text-planner-text mb-2">Welcome Back!</h2>
+              <p className="text-planner-text-medium">Here's what's happening with your content today</p>
             </div>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="bg-white rounded-lg shadow p-6 border-l-4 border-amber-400">
-                <div className="flex items-center">
-                  <FileText className="w-8 h-8 text-amber-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Posts</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.totalPosts}</p>
+
+            {/* Enhanced Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Total Posts */}
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-planner-accent/10 via-planner-page to-planner-page border border-planner-border shadow-planner-lg hover:shadow-planner-xl transition-all duration-300 group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-planner-accent/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+                <div className="relative p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-planner-accent/20 rounded-xl">
+                      <FileText className="w-6 h-6 text-planner-accent" />
+                    </div>
+                    <span className="text-xs font-medium text-planner-text-medium bg-planner-page px-2 py-1 rounded-full">+12%</span>
                   </div>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-400">
-                <div className="flex items-center">
-                  <Target className="w-8 h-8 text-green-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Used Posts</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.usedPosts}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-400">
-                <div className="flex items-center">
-                  <Copy className="w-8 h-8 text-blue-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Available</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.availablePosts}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-400">
-                <div className="flex items-center">
-                  <Lightbulb className="w-8 h-8 text-purple-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Categories</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.categories}</p>
+                  <h3 className="text-sm font-medium text-planner-text-medium mb-1">Total Posts</h3>
+                  <p className="text-3xl font-bold text-planner-text mb-2">{stats.totalPosts}</p>
+                  <div className="w-full bg-planner-border rounded-full h-1.5">
+                    <div className="bg-planner-accent h-1.5 rounded-full transition-all duration-500" style={{ width: '75%' }}></div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-400">
-                <div className="flex items-center">
-                  <Calendar className="w-8 h-8 text-indigo-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Scheduled</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.scheduledPosts}</p>
+              {/* Used Posts */}
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 via-planner-page to-planner-page border border-planner-border shadow-planner-lg hover:shadow-planner-xl transition-all duration-300 group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+                <div className="relative p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-green-100 rounded-xl">
+                      <Target className="w-6 h-6 text-green-600" />
+                    </div>
+                    <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full">Active</span>
+                  </div>
+                  <h3 className="text-sm font-medium text-planner-text-medium mb-1">Used Posts</h3>
+                  <p className="text-3xl font-bold text-planner-text mb-2">{stats.usedPosts}</p>
+                  <div className="w-full bg-planner-border rounded-full h-1.5">
+                    <div className="bg-green-500 h-1.5 rounded-full transition-all duration-500" style={{ width: stats.totalPosts > 0 ? `${(stats.usedPosts / stats.totalPosts) * 100}%` : '0%' }}></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Available Posts */}
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-planner-page to-planner-page border border-planner-border shadow-planner-lg hover:shadow-planner-xl transition-all duration-300 group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+                <div className="relative p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-blue-100 rounded-xl">
+                      <Copy className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded-full">Ready</span>
+                  </div>
+                  <h3 className="text-sm font-medium text-planner-text-medium mb-1">Available</h3>
+                  <p className="text-3xl font-bold text-planner-text mb-2">{stats.availablePosts}</p>
+                  <div className="w-full bg-planner-border rounded-full h-1.5">
+                    <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: stats.totalPosts > 0 ? `${(stats.availablePosts / stats.totalPosts) * 100}%` : '0%' }}></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scheduled Posts */}
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-50 via-planner-page to-planner-page border border-planner-border shadow-planner-lg hover:shadow-planner-xl transition-all duration-300 group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+                <div className="relative p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-purple-100 rounded-xl">
+                      <Calendar className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <span className="text-xs font-medium text-purple-700 bg-purple-50 px-2 py-1 rounded-full">This Week</span>
+                  </div>
+                  <h3 className="text-sm font-medium text-planner-text-medium mb-1">Scheduled</h3>
+                  <p className="text-3xl font-bold text-planner-text mb-2">{stats.scheduledPosts}</p>
+                  <div className="w-full bg-planner-border rounded-full h-1.5">
+                    <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: '45%' }}></div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Day Planner */}
-            <div className="mt-6">
-              <h4 className="text-base sm:text-lg font-semibold text-amber-900 mb-2">Weekly Day Planner</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {demoSchedule.map((item) => (
-                  <div key={item.day} className="bg-white rounded-lg shadow p-3 flex flex-col items-center border-l-4 border-amber-400">
-                    <span className="font-bold text-amber-700 text-sm mb-1">{item.day}</span>
-                    <span className="text-xs text-gray-600">Posts: {item.posts}</span>
-                  </div>
-                ))}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Weekly Overview */}
+              <div className="lg:col-span-2 card">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-serif font-semibold text-planner-text">Weekly Overview</h3>
+                  <button className="text-xs text-planner-accent hover:text-planner-accent-dark font-medium">View All →</button>
+                </div>
+                <div className="grid grid-cols-7 gap-2">
+                  {demoSchedule.map((item, idx) => {
+                    const heights = ['h-12', 'h-8', 'h-16', 'h-12', 'h-6', 'h-14', 'h-10'];
+                    const colors = ['bg-planner-accent', 'bg-blue-400', 'bg-green-400', 'bg-purple-400', 'bg-pink-400', 'bg-indigo-400', 'bg-yellow-400'];
+                    return (
+                      <div key={item.day} className="flex flex-col items-center gap-2">
+                        <div className="text-xs font-medium text-planner-text-medium">{item.day.slice(0, 3)}</div>
+                        <div className="w-full bg-planner-sidebar/30 rounded-lg h-24 flex items-end p-1 relative group cursor-pointer">
+                          <div className={`w-full ${heights[idx]} ${colors[idx]} rounded transition-all duration-300 group-hover:opacity-80`}></div>
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-xs font-bold text-white">{item.posts}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="card">
+                <h3 className="text-xl font-serif font-semibold text-planner-text mb-6">Quick Actions</h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setActiveTab('content')}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-planner-page hover:bg-planner-hover border border-planner-border transition-all group"
+                  >
+                    <div className="p-2 bg-planner-accent/10 rounded-lg group-hover:bg-planner-accent/20 transition-colors">
+                      <Plus className="w-4 h-4 text-planner-accent" />
+                    </div>
+                    <span className="text-sm font-medium text-planner-text">Add New Content</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('calendar')}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-planner-page hover:bg-planner-hover border border-planner-border transition-all group"
+                  >
+                    <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <span className="text-sm font-medium text-planner-text">Schedule Post</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('ai')}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-planner-page hover:bg-planner-hover border border-planner-border transition-all group"
+                  >
+                    <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <span className="text-sm font-medium text-planner-text">Generate with AI</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('presets')}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-planner-page hover:bg-planner-hover border border-planner-border transition-all group"
+                  >
+                    <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                      <Target className="w-4 h-4 text-green-600" />
+                    </div>
+                    <span className="text-sm font-medium text-planner-text">Manage Presets</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Category Boxes */}
-            <div className="mt-6">
-              <h4 className="text-base sm:text-lg font-semibold text-amber-900 mb-2">Categories</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {demoCategories.map((cat) => (
-                  <div key={cat.value} className="bg-amber-100 rounded-lg shadow p-3 flex flex-col items-center border-l-4 border-amber-400">
-                    <div className="mb-1">{React.createElement(cat.icon, { className: "w-5 h-5" })}</div>
-                    <span className="font-medium text-amber-900 text-xs">{cat.label}</span>
-                  </div>
-                ))}
+            {/* Content Categories Overview */}
+            <div className="card">
+              <h3 className="text-xl font-serif font-semibold text-planner-text mb-6">Content Categories</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {demoCategories.map((cat) => {
+                  const count = contentCollections[cat.value]?.data?.length || 0;
+                  return (
+                    <button
+                      key={cat.value}
+                      onClick={() => {
+                        setSelectedContentType(cat.value);
+                        setActiveTab('content');
+                      }}
+                      className="group relative overflow-hidden rounded-xl bg-planner-page hover:bg-planner-hover border border-planner-border p-4 transition-all hover:shadow-planner-lg"
+                    >
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className="p-3 bg-planner-accent/10 rounded-xl group-hover:bg-planner-accent/20 transition-colors">
+                          {React.createElement(cat.icon, { className: "w-6 h-6 text-planner-accent" })}
+                        </div>
+                        <span className="font-medium text-planner-text text-sm text-center">{cat.label}</span>
+                        <span className="text-xs text-planner-text-muted">{count} items</span>
+                      </div>
+                      {count > 0 && (
+                        <div className="absolute top-2 right-2">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-planner-accent text-white text-xs font-bold">
+                            {count}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
         {activeTab === 'presets' && (
-          <div className="relative bg-white rounded-2xl shadow-xl border-l-8 border-blue-400 p-6 sm:p-8 mt-4">
-            <div className="absolute -left-8 top-4 w-8 h-8 bg-blue-400 rounded-l-2xl shadow-md flex items-center justify-center">
-              <span className="text-white font-bold text-lg">P</span>
-            </div>
+          <div>
             <WeeklyPresetsManager presets={presets} setPresets={setPresets} />
           </div>
         )}
 
         {activeTab === 'planner' && (
-          <div className="relative bg-white rounded-2xl shadow-xl border-l-8 border-green-400 p-6 sm:p-8 mt-4">
-            <div className="absolute -left-8 top-4 w-8 h-8 bg-green-400 rounded-l-2xl shadow-md flex items-center justify-center">
-              <span className="text-white font-bold text-lg">PL</span>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Weekly Planner</h2>
+
+            {/* Daily Planner with Page-Turning Effect */}
+            <PlannerTabs />
+
+            {/* Content Calendar View */}
+            <div className="mt-8">
+              <h3 className="text-xl font-semibold mb-4 text-planner-text tracking-wide">Generated Content Schedule</h3>
+              <DayPlannerView
+                contentCalendar={weeklyPosts}
+                setContentCalendar={setWeeklyPosts}
+              />
             </div>
-            <DayPlannerView
-              contentCalendar={weeklyPosts}
-              setContentCalendar={setWeeklyPosts}
-            />
           </div>
         )}
 
         {activeTab === 'content' && (
-          <div className="relative space-y-6 bg-white rounded-2xl shadow-xl border-l-8 border-purple-400 p-6 sm:p-8 mt-4">
-            <div className="absolute -left-8 top-4 w-8 h-8 bg-purple-400 rounded-l-2xl shadow-md flex items-center justify-center">
-              <span className="text-white font-bold text-lg">C</span>
-            </div>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Content Library</h2>
+
             {/* Content Type Selector */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow-sm p-6 border border-planner-border">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Select Content Type</h2>
+                <h3 className="text-lg font-semibold text-planner-text">Select Content Type</h3>
                 <button
                   onClick={() => setIsAddingCategory(true)}
-                  className="flex items-center space-x-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm"
+                  className="flex items-center space-x-2 px-4 py-2 bg-planner-accent hover:bg-planner-accent-dark text-white rounded-lg transition-colors text-sm shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Custom Category</span>
@@ -501,13 +614,13 @@ export default function SocialMediaAgent() {
                     onClick={() => setSelectedContentType(topic.value)}
                     className={`p-3 rounded-lg border-2 transition-colors ${
                       selectedContentType === topic.value
-                        ? 'border-amber-500 bg-amber-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-planner-accent bg-planner-sidebar/50'
+                        : 'border-planner-border hover:border-planner-accent/50'
                     }`}
                   >
                     <div className="flex flex-col items-center space-y-2">
-                      {React.createElement(topic.icon, { className: "w-6 h-6" })}
-                      <span className="text-sm font-medium">{topic.label}</span>
+                      {React.createElement(topic.icon, { className: `w-6 h-6 ${selectedContentType === topic.value ? 'text-planner-accent' : 'text-planner-text-muted'}` })}
+                      <span className="text-sm font-medium text-planner-text">{topic.label}</span>
                     </div>
                   </button>
                 ))}
@@ -519,14 +632,14 @@ export default function SocialMediaAgent() {
                       onClick={() => setSelectedContentType(key)}
                       className={`p-3 rounded-lg border-2 transition-colors w-full ${
                         selectedContentType === key
-                          ? 'border-amber-500 bg-amber-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-comfort-accent bg-comfort-accent/10'
+                          : 'border-comfort-tan/30 hover:border-comfort-tan'
                       }`}
                     >
                       <div className="flex flex-col items-center space-y-2">
                         <span className="text-2xl">{newCategoryIcon}</span>
-                        <span className="text-sm font-medium capitalize">{key}</span>
-                        <span className="text-xs text-gray-500">{posts.length} items</span>
+                        <span className="text-sm font-medium capitalize text-comfort-navy">{key}</span>
+                        <span className="text-xs text-comfort-navy/60">{posts.length} items</span>
                       </div>
                     </button>
                     <button
@@ -613,7 +726,7 @@ export default function SocialMediaAgent() {
                         }
                       }}
                       disabled={!newCategoryName.trim()}
-                      className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg transition-colors disabled:opacity-50"
+                      className="flex-1 bg-comfort-accent hover:bg-comfort-accent/90 text-white py-2 rounded-lg transition-colors disabled:opacity-50"
                     >
                       Add Category
                     </button>
@@ -644,10 +757,7 @@ export default function SocialMediaAgent() {
         )}
 
         {activeTab === 'calendar' && (
-          <div className="relative bg-white rounded-2xl shadow-xl border-l-8 border-indigo-400 p-6 sm:p-8 mt-4">
-            <div className="absolute -left-8 top-4 w-8 h-8 bg-indigo-400 rounded-l-2xl shadow-md flex items-center justify-center">
-              <span className="text-white font-bold text-lg">CA</span>
-            </div>
+          <div>
             <CalendarComponent
               scheduledContent={scheduledContent}
               setScheduledContent={setScheduledContent}
@@ -656,14 +766,13 @@ export default function SocialMediaAgent() {
         )}
 
         {activeTab === 'ai' && (
-          <div className="relative space-y-6 bg-white rounded-2xl shadow-xl border-l-8 border-pink-400 p-6 sm:p-8 mt-4">
-            <div className="absolute -left-8 top-4 w-8 h-8 bg-pink-400 rounded-l-2xl shadow-md flex items-center justify-center">
-              <span className="text-white font-bold text-lg">AI</span>
-            </div>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">AI Content Generation</h2>
+
             {/* Content Mix Selection */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Content Types to Generate</h2>
-              <p className="text-sm text-gray-600 mb-4">Select which types of content you want to include in your weekly generation</p>
+            <div className="bg-white rounded-lg shadow-sm p-6 border border-planner-border">
+              <h3 className="text-lg font-semibold text-planner-text mb-4">Content Types to Generate</h3>
+              <p className="text-sm text-planner-text-medium mb-4">Select which types of content you want to include in your weekly generation</p>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {topicOptions.map((topic) => (
@@ -671,8 +780,8 @@ export default function SocialMediaAgent() {
                     key={topic.value}
                     className={`flex items-center space-x-2 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
                       contentMix[topic.value as keyof typeof contentMix]
-                        ? 'border-amber-500 bg-amber-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-planner-accent bg-planner-sidebar/50'
+                        : 'border-planner-border hover:border-planner-accent/50'
                     }`}
                   >
                     <input
@@ -682,11 +791,11 @@ export default function SocialMediaAgent() {
                         ...contentMix,
                         [topic.value]: e.target.checked
                       })}
-                      className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                      className="w-4 h-4 text-planner-accent border-planner-border rounded focus:ring-planner-accent"
                     />
                     <div className="flex items-center space-x-1">
-                      {React.createElement(topic.icon, { className: "w-4 h-4" })}
-                      <span className="text-sm font-medium">{topic.label}</span>
+                      {React.createElement(topic.icon, { className: `w-4 h-4 ${contentMix[topic.value as keyof typeof contentMix] ? 'text-planner-accent' : 'text-planner-text-muted'}` })}
+                      <span className="text-sm font-medium text-planner-text">{topic.label}</span>
                     </div>
                   </label>
                 ))}
@@ -709,8 +818,8 @@ export default function SocialMediaAgent() {
                   />
                 </div>
 
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-sm text-amber-800">
+                <div className="bg-planner-sidebar/50 border border-planner-border rounded-lg p-4">
+                  <p className="text-sm text-planner-text">
                     <strong>Selected content types:</strong> {
                       Object.entries(contentMix)
                         .filter(([_, enabled]) => enabled)
@@ -723,9 +832,17 @@ export default function SocialMediaAgent() {
                 <button
                   onClick={generateWeeklyContent}
                   disabled={isGeneratingWeek || Object.values(contentMix).every(v => !v)}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isGeneratingWeek ? 'Generating...' : 'Generate Weekly Content'}
+                  {isGeneratingWeek ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                      </svg>
+                      Generating...
+                    </span>
+                  ) : 'Generate Weekly Content'}
                 </button>
                 {Object.values(contentMix).every(v => !v) && (
                   <p className="text-sm text-red-600">Please select at least one content type above</p>
@@ -749,6 +866,9 @@ export default function SocialMediaAgent() {
             )}
           </div>
         )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
