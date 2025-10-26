@@ -18,6 +18,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 const DEBUG = process.env.NODE_ENV === 'development';
 const debug = (...args: any[]) => DEBUG && console.log(...args);
 
+interface ContentItem {
+  id: string;
+  title: string;
+  content: string;
+  tags: string;
+  url?: string;
+  field1?: string;
+  field2?: string;
+}
+
 interface Post {
   id: string;
   title: string;
@@ -28,6 +38,7 @@ interface Post {
   field2?: string;
   createdAt: string;
   used?: boolean;
+  items?: ContentItem[]; // Multiple content items per post
 }
 
 interface Preset {
@@ -58,6 +69,7 @@ interface ScheduledContent {
   platform: string;
   status: 'draft' | 'scheduled' | 'published';
   createdAt: string;
+  items?: ContentItem[]; // Multiple content items per scheduled post
 }
 
 interface PlannerPost {
@@ -108,10 +120,16 @@ export default function SocialMediaAgent() {
   const [newCategoryIcon, setNewCategoryIcon] = useState('📝');
   
   // AI generation state
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingWeek, setIsGeneratingWeek] = useState(false);
   const [numberOfWeeks, setNumberOfWeeks] = useState(1);
   const [generationMode, setGenerationMode] = useState('calendar');
   const [weeklyPrompt, setWeeklyPrompt] = useState('');
+  
+  // Multi-content state
+  const [multiContentMode, setMultiContentMode] = useState(false);
+  const [contentItemCount, setContentItemCount] = useState(1);
+  const [generatedItems, setGeneratedItems] = useState<ContentItem[]>([]);
   const [dayTopicSelections, setDayTopicSelections] = useState({
     monday: 'recipes',
     tuesday: 'workouts',
@@ -263,6 +281,52 @@ export default function SocialMediaAgent() {
       return 'Error generating content. Please try again.';
     }
   }, []);
+
+  // Generate multiple content items at once
+  const generateMultipleContent = useCallback(async (prompt: string, count: number, tone: string = 'casual') => {
+    setIsGenerating(true);
+    try {
+      const items: ContentItem[] = [];
+      
+      for (let i = 0; i < count; i++) {
+        const itemPrompt = `${prompt} (Item ${i + 1} of ${count} - make each unique and different)`;
+        const content = await generateAIContent(itemPrompt, tone);
+        
+        items.push({
+          id: `item-${Date.now()}-${i}`,
+          title: `${selectedContentType} ${i + 1}`,
+          content,
+          tags: `#${selectedContentType} #content${i + 1}`,
+        });
+      }
+      
+      setGeneratedItems(items);
+      return items;
+    } catch (error) {
+      console.error('Error generating multiple content:', error);
+      return [];
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [generateAIContent, selectedContentType]);
+
+  // Add multiple items to a content collection
+  const addMultipleItemsToCollection = useCallback((items: ContentItem[], contentType: string) => {
+    const collection = contentCollections[contentType];
+    if (!collection) return;
+
+    const newPost: Post = {
+      id: `multi-${Date.now()}`,
+      title: `Multiple ${contentType}`,
+      content: `Collection of ${items.length} ${contentType}`,
+      tags: items.map(item => item.tags).join(' '),
+      createdAt: new Date().toISOString(),
+      used: false,
+      items: items
+    };
+
+    collection.setter([...collection.data, newPost]);
+  }, [contentCollections]);
 
   const changeTone = useCallback(async (caption: string, tone: string) => {
     setIsChangingTone(true);
@@ -759,13 +823,24 @@ export default function SocialMediaAgent() {
             <div className="bg-white rounded-lg shadow-sm p-6 border border-planner-border">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-planner-text">Select Content Type</h3>
-                <button
-                  onClick={() => setIsAddingCategory(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-planner-accent hover:bg-planner-accent-dark text-white rounded-lg transition-colors text-sm shadow-sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Custom Category</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={multiContentMode}
+                      onChange={(e) => setMultiContentMode(e.target.checked)}
+                      className="rounded border-planner-border text-planner-accent focus:ring-planner-accent"
+                    />
+                    <span className="text-planner-text">Multi-Content Mode</span>
+                  </label>
+                  <button
+                    onClick={() => setIsAddingCategory(true)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-planner-accent hover:bg-planner-accent-dark text-white rounded-lg transition-colors text-sm shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Custom Category</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -903,6 +978,62 @@ export default function SocialMediaAgent() {
                       Cancel
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Multi-Content Generation */}
+            {multiContentMode && (
+              <div className="planner-section p-6 mb-6">
+                <h3 className="planner-header text-xl mb-4">Generate Multiple Content Items</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <label className="text-sm font-medium text-planner-text">Number of items:</label>
+                    <select
+                      value={contentItemCount}
+                      onChange={(e) => setContentItemCount(Number(e.target.value))}
+                      className="input-planner w-20"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <button
+                    onClick={() => generateMultipleContent(`Generate ${contentItemCount} unique ${selectedContentType}`, contentItemCount)}
+                    disabled={isGenerating}
+                    className="btn-primary"
+                  >
+                    {isGenerating ? 'Generating...' : `Generate ${contentItemCount} ${selectedContentType}`}
+                  </button>
+
+                  {generatedItems.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-lg font-semibold text-planner-text">Generated Items ({generatedItems.length})</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {generatedItems.map((item, index) => (
+                          <div key={item.id} className="border border-planner-text/20 rounded-sm p-3 bg-planner-page/50">
+                            <h5 className="font-semibold text-sm text-planner-text mb-2">{item.title}</h5>
+                            <p className="text-xs text-planner-text-muted mb-2">{item.content}</p>
+                            <div className="flex flex-wrap gap-1">
+                              {item.tags.split(',').slice(0, 3).map((tag, tagIndex) => (
+                                <span key={tagIndex} className="bg-planner-accent/20 text-planner-accent px-1.5 py-0.5 rounded text-xs">
+                                  {tag.trim()}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => addMultipleItemsToCollection(generatedItems, selectedContentType)}
+                        className="btn-primary"
+                      >
+                        Add All to {selectedContentType} Collection
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

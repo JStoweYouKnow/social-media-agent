@@ -3,6 +3,16 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Plus, Edit, Trash2, Check, Download, FileText, Printer } from 'lucide-react';
 
+interface ContentItem {
+  id: string;
+  title: string;
+  content: string;
+  tags: string;
+  url?: string;
+  field1?: string;
+  field2?: string;
+}
+
 interface ScheduledContent {
   id: string;
   title: string;
@@ -12,6 +22,7 @@ interface ScheduledContent {
   platform: string;
   status: 'draft' | 'scheduled' | 'published';
   createdAt: string;
+  items?: ContentItem[]; // Multiple content items per scheduled post
 }
 
 interface CalendarComponentProps {

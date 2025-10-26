@@ -11,13 +11,26 @@ interface ContentItem {
   url?: string;
   field1?: string;
   field2?: string;
-  createdAt: string;
+  createdAt?: string;
   used?: boolean;
 }
 
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  tags: string;
+  url?: string;
+  field1?: string;
+  field2?: string;
+  createdAt: string;
+  used?: boolean;
+  items?: ContentItem[]; // Multiple content items per post
+}
+
 interface ContentManagerProps {
-  content: ContentItem[];
-  setContent: (content: ContentItem[]) => void;
+  content: Post[];
+  setContent: (content: Post[]) => void;
   contentType: string;
 }
 
@@ -46,6 +59,11 @@ export default function ContentManager({ content, setContent, contentType }: Con
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
+  
+  // Multi-content state
+  const [multiContentMode, setMultiContentMode] = useState(false);
+  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
+  const [currentItemIndex, setCurrentItemIndex] = useState(0);
 
   const [newItem, setNewItem] = useState({
     title: '',
@@ -61,42 +79,86 @@ export default function ContentManager({ content, setContent, contentType }: Con
   const handleSave = useCallback(() => {
     if (!newItem.title.trim()) return;
 
-    const item: ContentItem = {
-      id: editingId || Date.now().toString(),
-      title: newItem.title,
-      content: newItem.content,
-      tags: newItem.tags,
-      url: newItem.url,
-      field1: newItem.field1,
-      field2: newItem.field2,
-      createdAt: new Date().toISOString(),
-      used: false
-    };
+    if (multiContentMode) {
+      // Save as multiple items in a single post
+      const post: Post = {
+        id: editingId || `multi-${Date.now()}`,
+        title: `Multiple ${contentType}`,
+        content: `Collection of ${contentItems.length} ${contentType}`,
+        tags: contentItems.map(item => item.tags).join(' '),
+        createdAt: new Date().toISOString(),
+        used: false,
+        items: contentItems
+      };
 
-    if (editingId) {
-      setContent(content.map(c => c.id === editingId ? item : c));
-      setEditingId(null);
+      if (editingId) {
+        setContent(content.map(c => c.id === editingId ? post : c));
+        setEditingId(null);
+      } else {
+        setContent([...content, post]);
+      }
+
+      setContentItems([]);
+      setMultiContentMode(false);
     } else {
-      setContent([...content, item]);
+      // Save as single item
+      const post: Post = {
+        id: editingId || Date.now().toString(),
+        title: newItem.title,
+        content: newItem.content,
+        tags: newItem.tags,
+        url: newItem.url,
+        field1: newItem.field1,
+        field2: newItem.field2,
+        createdAt: new Date().toISOString(),
+        used: false
+      };
+
+      if (editingId) {
+        setContent(content.map(c => c.id === editingId ? post : c));
+        setEditingId(null);
+      } else {
+        setContent([...content, post]);
+      }
     }
 
     setNewItem({ title: '', content: '', tags: '', url: '', field1: '', field2: '' });
     setIsAdding(false);
-  }, [newItem, editingId, content, setContent]);
+  }, [newItem, editingId, content, setContent, multiContentMode, contentItems, contentType]);
 
-  const handleEdit = useCallback((item: ContentItem) => {
-    setNewItem({
-      title: item.title,
-      content: item.content,
-      tags: item.tags,
-      url: item.url || '',
-      field1: item.field1 || '',
-      field2: item.field2 || ''
-    });
-    // Parse tags from comma-separated string into array
-    const itemTags = item.tags ? item.tags.split(',').map(t => t.trim().toLowerCase()).filter(t => t) : [];
-    setTags(itemTags);
-    setEditingId(item.id);
+  const handleEdit = useCallback((post: Post) => {
+    if (post.items && post.items.length > 0) {
+      // Multi-content post
+      setMultiContentMode(true);
+      setContentItems(post.items);
+      setCurrentItemIndex(0);
+      // Set form to first item
+      const firstItem = post.items[0];
+      setNewItem({
+        title: firstItem.title,
+        content: firstItem.content,
+        tags: firstItem.tags,
+        url: firstItem.url || '',
+        field1: firstItem.field1 || '',
+        field2: firstItem.field2 || ''
+      });
+      const itemTags = firstItem.tags ? firstItem.tags.split(',').map(t => t.trim().toLowerCase()).filter(t => t) : [];
+      setTags(itemTags);
+    } else {
+      // Single content post
+      setMultiContentMode(false);
+      setNewItem({
+        title: post.title,
+        content: post.content,
+        tags: post.tags,
+        url: post.url || '',
+        field1: post.field1 || '',
+        field2: post.field2 || ''
+      });
+      const itemTags = post.tags ? post.tags.split(',').map(t => t.trim().toLowerCase()).filter(t => t) : [];
+      setTags(itemTags);
+    }
+    setEditingId(post.id);
     setIsAdding(true);
   }, []);
 
@@ -106,10 +168,18 @@ export default function ContentManager({ content, setContent, contentType }: Con
     }
   }, [content, setContent]);
 
-  const handleCopy = useCallback((item: ContentItem) => {
-    const text = `${item.title}\n\n${item.content}\n\n${item.tags}`;
+  const handleCopy = useCallback((post: Post) => {
+    let text = `${post.title}\n\n${post.content}\n\n${post.tags}`;
+    
+    if (post.items && post.items.length > 0) {
+      text += '\n\nItems:\n';
+      post.items.forEach((item, index) => {
+        text += `\n${index + 1}. ${item.title}\n${item.content}\n${item.tags}\n`;
+      });
+    }
+    
     navigator.clipboard.writeText(text);
-    setCopiedId(item.id);
+    setCopiedId(post.id);
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
 
@@ -141,6 +211,46 @@ export default function ContentManager({ content, setContent, contentType }: Con
       removeTag(tags[tags.length - 1]);
     }
   }, [tagInput, tags, addTag, removeTag]);
+
+  // Multi-content functions
+  const addContentItem = useCallback(() => {
+    if (!newItem.title.trim()) return;
+
+    const item: ContentItem = {
+      id: `item-${Date.now()}`,
+      title: newItem.title,
+      content: newItem.content,
+      tags: newItem.tags,
+      url: newItem.url,
+      field1: newItem.field1,
+      field2: newItem.field2,
+    };
+
+    setContentItems([...contentItems, item]);
+    setNewItem({ title: '', content: '', tags: '', url: '', field1: '', field2: '' });
+    setTags([]);
+  }, [newItem, contentItems]);
+
+  const removeContentItem = useCallback((index: number) => {
+    setContentItems(contentItems.filter((_, i) => i !== index));
+  }, [contentItems]);
+
+  const editContentItem = useCallback((index: number) => {
+    const item = contentItems[index];
+    setNewItem({
+      title: item.title,
+      content: item.content,
+      tags: item.tags,
+      url: item.url || '',
+      field1: item.field1 || '',
+      field2: item.field2 || ''
+    });
+    const itemTags = item.tags ? item.tags.split(',').map(t => t.trim().toLowerCase()).filter(t => t) : [];
+    setTags(itemTags);
+    setCurrentItemIndex(index);
+    // Remove the item so it can be re-added when saved
+    removeContentItem(index);
+  }, [contentItems, removeContentItem]);
 
   const generateAITags = useCallback(async () => {
     if (!newItem.title && !newItem.content) {
@@ -244,22 +354,47 @@ export default function ContentManager({ content, setContent, contentType }: Con
               {content.length} items
             </span>
           </div>
-          <button
-            onClick={() => setIsAdding(true)}
-            className="px-4 py-2 bg-planner-text text-white rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-text/90 transition-colors border-2 border-planner-text flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add {currentTopic?.label || 'Content'}</span>
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setMultiContentMode(false);
+                setIsAdding(true);
+              }}
+              className="px-4 py-2 bg-planner-text text-white rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-text/90 transition-colors border-2 border-planner-text flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Single</span>
+            </button>
+            <button
+              onClick={() => {
+                setMultiContentMode(true);
+                setContentItems([]);
+                setIsAdding(true);
+              }}
+              className="px-4 py-2 bg-planner-accent text-white rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-accent/90 transition-colors border-2 border-planner-accent flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Multiple</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Add/Edit Form */}
       {isAdding && (
         <div className="planner-section p-8">
-          <h3 className="planner-header text-2xl">
-            {editingId ? 'Edit' : 'Add New'} {currentTopic?.label || 'Content'}
-          </h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="planner-header text-2xl !mb-0">
+              {editingId ? 'Edit' : 'Add New'} {multiContentMode ? 'Multiple' : 'Single'} {currentTopic?.label || 'Content'}
+            </h3>
+            {multiContentMode && (
+              <div className="flex items-center gap-2 text-sm text-planner-text-medium">
+                <span className="bg-planner-accent/20 text-planner-accent px-3 py-1 rounded-full font-medium">
+                  {contentItems.length} items added
+                </span>
+              </div>
+            )}
+          </div>
 
           <div className="space-y-6">
             {/* URL Parser Section */}
@@ -453,15 +588,83 @@ export default function ContentManager({ content, setContent, contentType }: Con
 
           <div className="planner-divider"></div>
 
+          {/* Multi-content items display */}
+          {multiContentMode && contentItems.length > 0 && (
+            <div className="space-y-4">
+              <div className="planner-divider"></div>
+              <h4 className="planner-subheader">Added Items ({contentItems.length})</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {contentItems.map((item, index) => (
+                  <div key={item.id} className="border border-planner-text/20 rounded-sm p-3 bg-planner-page/50">
+                    <div className="flex items-start justify-between mb-2">
+                      <h5 className="font-semibold text-sm text-planner-text">{item.title}</h5>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => editContentItem(index)}
+                          className="p-1 text-planner-text-muted hover:text-planner-text rounded"
+                          title="Edit"
+                        >
+                          <Edit className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => removeContentItem(index)}
+                          className="p-1 text-planner-text-muted hover:text-red-600 rounded"
+                          title="Remove"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-planner-text-muted line-clamp-2 mb-2">{item.content}</p>
+                    {item.tags && (
+                      <div className="flex flex-wrap gap-1">
+                        {item.tags.split(',').slice(0, 3).map((tag, tagIndex) => (
+                          <span key={tagIndex} className="bg-planner-accent/20 text-planner-accent px-1.5 py-0.5 rounded text-xs">
+                            {tag.trim()}
+                          </span>
+                        ))}
+                        {item.tags.split(',').length > 3 && (
+                          <span className="text-xs text-planner-text-muted">+{item.tags.split(',').length - 3} more</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="planner-divider"></div>
+            </div>
+          )}
+
           <div className="flex gap-3">
-            <button
-              onClick={handleSave}
-              disabled={!newItem.title.trim()}
-              className="px-6 py-2 bg-planner-text text-white rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-text/90 transition-colors border-2 border-planner-text flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Save className="w-4 h-4" />
-              <span>{editingId ? 'Update' : 'Save'}</span>
-            </button>
+            {multiContentMode ? (
+              <>
+                <button
+                  onClick={addContentItem}
+                  disabled={!newItem.title.trim()}
+                  className="px-6 py-2 bg-planner-accent text-white rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-accent/90 transition-colors border-2 border-planner-accent flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Item</span>
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={contentItems.length === 0}
+                  className="px-6 py-2 bg-planner-text text-white rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-text/90 transition-colors border-2 border-planner-text flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Collection ({contentItems.length} items)</span>
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleSave}
+                disabled={!newItem.title.trim()}
+                className="px-6 py-2 bg-planner-text text-white rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-text/90 transition-colors border-2 border-planner-text flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4" />
+                <span>{editingId ? 'Update' : 'Save'}</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 setIsAdding(false);
@@ -470,6 +673,9 @@ export default function ContentManager({ content, setContent, contentType }: Con
                 setTags([]);
                 setTagInput('');
                 setParseUrl('');
+                setMultiContentMode(false);
+                setContentItems([]);
+                setCurrentItemIndex(0);
               }}
               className="px-6 py-2 bg-white text-planner-text rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-page transition-colors border-2 border-planner-text"
             >
@@ -481,38 +687,45 @@ export default function ContentManager({ content, setContent, contentType }: Con
 
       {/* Content List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {content.map((item) => (
-          <div key={item.id} className={`planner-section p-4 transition-all duration-200 ${
-            item.used
+        {content.map((post) => (
+          <div key={post.id} className={`planner-section p-4 transition-all duration-200 ${
+            post.used
               ? 'bg-green-50/50'
               : 'bg-white'
           }`}>
             <div className="flex items-start justify-between mb-3 pb-3 border-b-2 border-planner-text">
-              <h3 className="font-serif font-bold text-planner-text text-base">{item.title}</h3>
+              <div className="flex-1">
+                <h3 className="font-serif font-bold text-planner-text text-base">{post.title}</h3>
+                {post.items && post.items.length > 0 && (
+                  <span className="inline-block mt-1 bg-planner-accent/20 text-planner-accent px-2 py-0.5 rounded-full text-xs font-medium">
+                    {post.items.length} items
+                  </span>
+                )}
+              </div>
               <div className="flex gap-0.5">
                 <button
-                  onClick={() => setPreviewId(previewId === item.id ? null : item.id)}
+                  onClick={() => setPreviewId(previewId === post.id ? null : post.id)}
                   className="p-1.5 text-planner-text hover:bg-planner-page rounded-sm transition-all"
                   title="Preview"
                 >
                   <Eye className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleCopy(item)}
+                  onClick={() => handleCopy(post)}
                   className="p-1.5 text-planner-text hover:bg-planner-page rounded-sm transition-all"
                   title="Copy"
                 >
-                  {copiedId === item.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                  {copiedId === post.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                 </button>
                 <button
-                  onClick={() => handleEdit(item)}
+                  onClick={() => handleEdit(post)}
                   className="p-1.5 text-planner-text hover:bg-planner-page rounded-sm transition-all"
                   title="Edit"
                 >
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={() => handleDelete(post.id)}
                   className="p-1.5 text-planner-text hover:bg-red-50 rounded-sm transition-all"
                   title="Delete"
                 >
@@ -521,22 +734,39 @@ export default function ContentManager({ content, setContent, contentType }: Con
               </div>
             </div>
 
-            <p className="text-planner-text-muted text-sm mb-3 line-clamp-2">{item.content}</p>
+            <p className="text-planner-text-muted text-sm mb-3 line-clamp-2">{post.content}</p>
 
-            {item.field1 && (
-              <p className="text-xs text-planner-text-muted mb-1.5">
-                <strong className="text-planner-text-medium">{currentTopic?.fields?.[0]}:</strong> {item.field1}
-              </p>
-            )}
-            {item.field2 && (
-              <p className="text-xs text-planner-text-muted mb-1.5">
-                <strong className="text-planner-text-medium">{currentTopic?.fields?.[1]}:</strong> {item.field2}
-              </p>
+            {/* Show multiple items if they exist */}
+            {post.items && post.items.length > 0 ? (
+              <div className="space-y-2 mb-3">
+                {post.items.slice(0, 2).map((item, index) => (
+                  <div key={item.id} className="border-l-2 border-planner-accent/30 pl-3">
+                    <h4 className="text-xs font-semibold text-planner-text">{item.title}</h4>
+                    <p className="text-xs text-planner-text-muted line-clamp-1">{item.content}</p>
+                  </div>
+                ))}
+                {post.items.length > 2 && (
+                  <p className="text-xs text-planner-text-muted italic">+{post.items.length - 2} more items...</p>
+                )}
+              </div>
+            ) : (
+              <>
+                {post.field1 && (
+                  <p className="text-xs text-planner-text-muted mb-1.5">
+                    <strong className="text-planner-text-medium">{currentTopic?.fields?.[0]}:</strong> {post.field1}
+                  </p>
+                )}
+                {post.field2 && (
+                  <p className="text-xs text-planner-text-muted mb-1.5">
+                    <strong className="text-planner-text-medium">{currentTopic?.fields?.[1]}:</strong> {post.field2}
+                  </p>
+                )}
+              </>
             )}
 
-            {item.tags && (
+            {post.tags && (
               <div className="flex flex-wrap gap-1.5 mb-3">
-                {item.tags.split(',').map((tag, index) => (
+                {post.tags.split(',').map((tag, index) => (
                   <span key={index} className="bg-planner-accent/20 text-planner-accent px-2.5 py-1 rounded-full text-xs font-medium">
                     {tag.trim()}
                   </span>
@@ -546,26 +776,26 @@ export default function ContentManager({ content, setContent, contentType }: Con
 
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-planner-text/30">
               <button
-                onClick={() => handleMarkUsed(item.id)}
+                onClick={() => handleMarkUsed(post.id)}
                 className={`text-xs px-3 py-1.5 rounded-sm font-bold uppercase tracking-wider transition-all border-2 ${
-                  item.used
+                  post.used
                     ? 'bg-green-600 text-white border-green-600 hover:bg-green-700'
                     : 'bg-white text-planner-text border-planner-text hover:bg-planner-text hover:text-white'
                 }`}
               >
-                {item.used ? '✓ Used' : 'Mark Used'}
+                {post.used ? '✓ Used' : 'Mark Used'}
               </button>
               <span className="text-xs text-planner-text-muted font-mono">
-                {new Date(item.createdAt).toLocaleDateString()}
+                {new Date(post.createdAt).toLocaleDateString()}
               </span>
             </div>
 
             {/* Preview Modal */}
-            {previewId === item.id && (
+            {previewId === post.id && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="planner-section p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+                <div className="planner-section p-8 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
                   <div className="flex items-center justify-between pb-4 mb-6 border-b-2 border-planner-text">
-                    <h3 className="planner-header text-2xl !mb-0 !pb-0 !border-0">{item.title}</h3>
+                    <h3 className="planner-header text-2xl !mb-0 !pb-0 !border-0">{post.title}</h3>
                     <button
                       onClick={() => setPreviewId(null)}
                       className="p-2 text-planner-text hover:bg-planner-page rounded-sm transition-all"
@@ -573,23 +803,61 @@ export default function ContentManager({ content, setContent, contentType }: Con
                       <X className="w-5 h-5" />
                     </button>
                   </div>
-                  <div className="space-y-4">
-                    <p className="text-planner-text text-base leading-relaxed">{item.content}</p>
-                    {item.field1 && (
-                      <p className="text-planner-text-medium">
-                        <strong className="text-planner-text">{currentTopic?.fields?.[0]}:</strong> {item.field1}
-                      </p>
+                  <div className="space-y-6">
+                    <p className="text-planner-text text-base leading-relaxed">{post.content}</p>
+                    
+                    {/* Show multiple items if they exist */}
+                    {post.items && post.items.length > 0 ? (
+                      <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-planner-text">Items ({post.items.length})</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {post.items.map((item, index) => (
+                            <div key={item.id} className="border border-planner-text/20 rounded-sm p-4 bg-planner-page/30">
+                              <h5 className="font-semibold text-planner-text mb-2">{item.title}</h5>
+                              <p className="text-planner-text-medium text-sm mb-3">{item.content}</p>
+                              {item.field1 && (
+                                <p className="text-xs text-planner-text-muted mb-1">
+                                  <strong>{currentTopic?.fields?.[0]}:</strong> {item.field1}
+                                </p>
+                              )}
+                              {item.field2 && (
+                                <p className="text-xs text-planner-text-muted mb-1">
+                                  <strong>{currentTopic?.fields?.[1]}:</strong> {item.field2}
+                                </p>
+                              )}
+                              {item.tags && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {item.tags.split(',').map((tag, tagIndex) => (
+                                    <span key={tagIndex} className="bg-planner-accent/20 text-planner-accent px-2 py-0.5 rounded text-xs">
+                                      {tag.trim()}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {post.field1 && (
+                          <p className="text-planner-text-medium">
+                            <strong className="text-planner-text">{currentTopic?.fields?.[0]}:</strong> {post.field1}
+                          </p>
+                        )}
+                        {post.field2 && (
+                          <p className="text-planner-text-medium">
+                            <strong className="text-planner-text">{currentTopic?.fields?.[1]}:</strong> {post.field2}
+                          </p>
+                        )}
+                      </>
                     )}
-                    {item.field2 && (
-                      <p className="text-planner-text-medium">
-                        <strong className="text-planner-text">{currentTopic?.fields?.[1]}:</strong> {item.field2}
-                      </p>
-                    )}
-                    {item.tags && (
+                    
+                    {post.tags && (
                       <div>
                         <strong className="text-planner-text">Tags:</strong>
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {item.tags.split(',').map((tag, index) => (
+                          {post.tags.split(',').map((tag, index) => (
                             <span key={index} className="bg-planner-accent/20 text-planner-accent px-3 py-1.5 rounded-full text-sm font-medium">
                               {tag.trim()}
                             </span>
@@ -597,11 +865,11 @@ export default function ContentManager({ content, setContent, contentType }: Con
                         </div>
                       </div>
                     )}
-                    {item.url && (
+                    {post.url && (
                       <p className="text-planner-text-medium">
                         <strong className="text-planner-text">URL:</strong>{' '}
-                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-planner-accent hover:text-planner-accent-dark underline">
-                          {item.url}
+                        <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-planner-accent hover:text-planner-accent-dark underline">
+                          {post.url}
                         </a>
                       </p>
                     )}
