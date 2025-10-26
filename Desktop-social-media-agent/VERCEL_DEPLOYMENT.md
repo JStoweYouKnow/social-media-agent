@@ -1,34 +1,58 @@
 # Vercel Deployment Guide
 
 ## Current Status
-Your application is configured for Vercel deployment with:
-- ✅ `vercel.json` configured at repository root
-- ✅ Next.js app in `next-app` subdirectory
-- ✅ All dependencies and middleware properly set up
+Your application is ready for Vercel deployment. Key details:
+- ✅ Git repository root is `/Users/v` (your home directory).
+- ✅ Next.js project is located in the `Desktop-social-media-agent/next-app` subdirectory.
+- ✅ All dependencies and middleware are set up.
 - ✅ Latest changes pushed to GitHub
 
-## Required Setup Steps
+## 1. Verify GitHub
+
+Before deploying, ensure your latest local changes are on GitHub.
+Before deploying, you must verify that your local changes have been pushed to GitHub. Vercel deploys from GitHub, not your local machine.
+
+```bash
+# Check for uncommitted changes
+# 1. Check for any uncommitted work.
+git status
+
+# If needed, add, commit, and push
+# 2. Fetch the latest state from GitHub.
+git fetch origin
+
+# 3. See if your local branch is ahead of the remote.
+# If it says "Your branch is ahead...", you need to push.
+git status
+
+# 4. (Optional) To see the exact code differences, run:
+git diff origin/main
+
+# 5. If you have changes, add, commit, and push them.
+git add .
+git commit -m "Your descriptive commit message"
+git push origin main
+```
+
+## 2. Configure Vercel Project Settings
 
 ### 1. Configure Root Directory in Vercel Dashboard
 
 Since your git repository root is at `/Users/v` (your home directory), the project files are located at `Desktop-social-media-agent/next-app`.
+**This is the most critical step.** If this is wrong, your changes will not be deployed.
 
-**In Vercel Project Settings:**
-1. Go to your project: https://vercel.com/dashboard
-2. Click on your project (next-gcv3rdw5b-james-stowes-projects)
-3. Go to **Settings** → **General**
-4. Find **Root Directory** setting
-5. Set it to: `Desktop-social-media-agent/next-app`
-6. Click **Save**
+**For your `postplanner` project in Vercel:**
+1.  Go to your Vercel Project Dashboard.
+2.  Navigate to **Settings** → **General**.
+3.  Find the **Root Directory** setting.
+4.  **Ensure it is set to exactly:** `Desktop-social-media-agent/next-app`
+5.  Click **Save**.
 
 ### 2. Add Environment Variables
 
-Go to **Settings** → **Environment Variables** and add the following.
-
-**Note:** Copy the actual values from your local `next-app/.env.local` file. The examples below show the format with placeholders.
+Go to **Settings** → **Environment Variables** and add all required variables from your local `next-app/.env.local` file.
 
 #### Clerk Authentication
-Copy these from your `.env.local` file or Clerk dashboard:
 ```
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
 CLERK_SECRET_KEY=sk_test_...
@@ -70,6 +94,7 @@ After setting up the Root Directory and environment variables:
 3. Select **Redeploy**
 4. Check **"Use existing Build Cache"** should be **UNCHECKED** (to ensure fresh build)
 5. Click **Redeploy**
+5. Click **Redeploy**.
 
 ### 4. Verify Deployment
 
@@ -87,11 +112,14 @@ Once the deployment completes:
 ### Build fails with "Root Directory does not exist"
 - Double-check the Root Directory is exactly: `Desktop-social-media-agent/next-app`
 - Ensure there are no extra spaces
+- Double-check the **Root Directory** is exactly `Desktop-social-media-agent/next-app` with no typos or extra spaces.
 
 ### Build fails with environment variable errors
 - Verify all 11 environment variables are added
 - Check for typos in variable names
 - Ensure variables are added to all environments (Production, Preview, Development)
+- Verify all required environment variables are added for **Production**, **Preview**, and **Development**.
+- Check for typos in variable names.
 
 ### Deployment succeeds but UI doesn't match local
 - Clear Vercel build cache and redeploy
@@ -101,11 +129,17 @@ Once the deployment completes:
 ## Git Repository Note
 
 Your git repository is initialized at your home directory (`/Users/v`), which is why files appear with the `Desktop-social-media-agent/` prefix in git. This is why the Root Directory setting needs to include this path.
+Your git repository is initialized at your home directory (`/Users/v`). This is an unconventional setup and is the reason the **Root Directory** setting is so important.
 
 If you want to fix this in the future, you could:
 1. Create a new git repository at the project root
 2. Update Vercel to use the new repository
 3. Update Root Directory to just `next-app`
+For a more standard setup in the future, you could re-initialize your git repository inside the `Desktop-social-media-agent` folder. If you do that, you would:
+1. Create a new git repository in the correct folder.
+2. Push it to a new GitHub repository.
+3. Connect the new repository to Vercel.
+4. Update the Vercel **Root Directory** to just `next-app`.
 
 ## Need Help?
 

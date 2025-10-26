@@ -60,6 +60,23 @@ interface ScheduledContent {
   createdAt: string;
 }
 
+interface PlannerPost {
+  id: string | number;
+  date: string;
+  dayName: string;
+  contentType: string;
+  content: {
+    title: string;
+    description?: string;
+  };
+  variations: {
+    instagram: string;
+    linkedin: string;
+    facebook: string;
+  };
+  status: string;
+}
+
 export default function SocialMediaAgent() {
   // State initialization
   const [recipes, setRecipes] = useState<Post[]>([]);
@@ -127,7 +144,7 @@ export default function SocialMediaAgent() {
   const [currentCaption, setCurrentCaption] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [canvaTemplateId, setCanvaTemplateId] = useState('');
-  const [weeklyPosts, setWeeklyPosts] = useState<any[]>([]);
+  const [weeklyPosts, setWeeklyPosts] = useState<PlannerPost[]>([]);
   const [isChangingTone, setIsChangingTone] = useState(false);
   const [isCreatingDesign, setIsCreatingDesign] = useState(false);
   const [weeklyGenMode, setWeeklyGenMode] = useState('ai'); // 'ai' or 'template'
@@ -284,23 +301,40 @@ export default function SocialMediaAgent() {
       const data = await response.json();
       const generatedPosts = data.posts || [];
 
+      const groupedByDay = generatedPosts.reduce((acc: Record<string, any[]>, post: any) => {
+        const day = post.day || new Date(post.date).toLocaleDateString('en-us', { weekday: 'long' });
+        if (!acc[day]) {
+          acc[day] = [];
+        }
+        acc[day].push(post);
+        return acc;
+      }, {});
+
+      const newPlannerPosts: PlannerPost[] = Object.keys(groupedByDay).map(day => {
+        const postsForDay = groupedByDay[day];
+        const firstPost = postsForDay[0];
+
+        const variations = postsForDay.reduce((acc: Record<string, string>, post: any) => {
+          acc[post.platform] = post.caption;
+          return acc;
+        }, { instagram: '', linkedin: '', facebook: '', twitter: '' });
+
+        return {
+          id: `ai-${day}-${Date.now()}`,
+          date: firstPost.date || new Date().toISOString().split('T')[0],
+          dayName: day,
+          contentType: firstPost.tags || 'AI Generated',
+          content: {
+            title: firstPost.title || `${day} - AI Generated`,
+            description: firstPost.content || firstPost.caption,
+          },
+          variations,
+          status: 'draft',
+        };
+      });
+
       // Update weekly posts for the Day Planner view
-      setWeeklyPosts(generatedPosts);
-
-      // Convert generated posts to ScheduledContent format and add to scheduled content for dashboard/calendar
-      const scheduledPosts: ScheduledContent[] = generatedPosts.map((post: any, index: number) => ({
-        id: `ai-generated-${Date.now()}-${index}`,
-        title: post.title || `AI Generated Post ${index + 1}`,
-        content: post.content || post.caption || '',
-        date: post.date || new Date().toISOString().split('T')[0],
-        time: post.time || '09:00',
-        platform: post.platform || 'instagram',
-        status: 'draft' as const,
-        createdAt: new Date().toISOString()
-      }));
-
-      // Add to existing scheduled content
-      setScheduledContent(prev => [...prev, ...scheduledPosts]);
+      setWeeklyPosts(prev => [...prev, ...newPlannerPosts]);
 
     } catch (error) {
       console.error('Error generating weekly content:', error);
@@ -340,10 +374,10 @@ export default function SocialMediaAgent() {
         sunday: 'Create an engaging social media post for Sunday - focus on reflection, preparation, and self-care'
       };
 
-      const generatedPosts = [];
+      const generatedContent: Record<string, Record<string, string>> = {};
 
-      // Generate content for each combination of day and platform
       for (const day of daysToGenerate) {
+        generatedContent[day] = {};
         for (const platform of platformsToGenerate) {
           const prompt = weeklyPrompt || dayPrompts[day] || 'Create engaging social media content';
 
@@ -355,38 +389,34 @@ export default function SocialMediaAgent() {
 
           if (response.ok) {
             const data = await response.json();
-            generatedPosts.push({
-              id: `ai-${day}-${platform}-${Date.now()}`,
-              day: day.charAt(0).toUpperCase() + day.slice(1),
-              title: `${day.charAt(0).toUpperCase() + day.slice(1)} - ${platform.charAt(0).toUpperCase() + platform.slice(1)}`,
-              content: data.caption || '',
-              caption: data.caption || '',
-              date: new Date().toISOString().split('T')[0],
-              time: '09:00',
-              platform: platform,
-              tags: '#ProjectComfort'
-            });
+            generatedContent[day][platform] = data.caption || '';
           }
         }
       }
 
-      // Update weekly posts for the Day Planner view
-      setWeeklyPosts(prev => [...prev, ...generatedPosts]);
+      const newPlannerPosts: PlannerPost[] = Object.keys(generatedContent).map(day => {
+        const variations = {
+          instagram: generatedContent[day]['instagram'] || '',
+          linkedin: generatedContent[day]['linkedin'] || '',
+          facebook: generatedContent[day]['facebook'] || '',
+          twitter: generatedContent[day]['twitter'] || ''
+        };
 
-      // Convert to ScheduledContent format
-      const scheduledPosts: ScheduledContent[] = generatedPosts.map((post, index) => ({
-        id: `ai-generated-${Date.now()}-${index}`,
-        title: post.title,
-        content: post.content,
-        date: post.date,
-        time: post.time,
-        platform: post.platform,
-        status: 'draft' as const,
-        createdAt: new Date().toISOString()
-      }));
+        return {
+          id: `ai-${day}-${Date.now()}`,
+          date: new Date().toISOString().split('T')[0],
+          dayName: day.charAt(0).toUpperCase() + day.slice(1),
+          contentType: dayTopicSelections[day as keyof typeof dayTopicSelections],
+          content: {
+            title: `${day.charAt(0).toUpperCase() + day.slice(1)} - AI Generated`,
+            description: variations.instagram || variations.linkedin || variations.facebook || variations.twitter,
+          },
+          variations,
+          status: 'draft',
+        };
+      });
 
-      // Add to existing scheduled content
-      setScheduledContent(prev => [...prev, ...scheduledPosts]);
+      setWeeklyPosts(prev => [...prev, ...newPlannerPosts]);
 
       // Clear selected days after generation
       setSelectedDays({
@@ -404,7 +434,7 @@ export default function SocialMediaAgent() {
     } finally {
       setIsGeneratingWeek(false);
     }
-  }, [selectedDays, selectedPlatforms, weeklyPrompt]);
+  }, [selectedDays, selectedPlatforms, weeklyPrompt, dayTopicSelections]);
 
   const markContentAsUsed = useCallback((postId: string) => {
     // This would update the post's used status across all content arrays
@@ -1096,17 +1126,14 @@ export default function SocialMediaAgent() {
                 <div className="space-y-4">
                   {weeklyPosts.map((post, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-900 mb-2">{post.day} - {post.title}</h4>
-                      <p className="text-gray-700 mb-2">{post.content}</p>
-                      <p className="text-sm text-gray-500">{post.tags}</p>
+                      <h4 className="font-semibold text-gray-900 mb-2">{post.dayName} - {post.content.title}</h4>
+                      <p className="text-gray-700 mb-2">{post.content.description}</p>
+                      <p className="text-sm text-gray-500">{post.contentType}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-          </div>
-        )}
-            </div>
           </div>
         </div>
       </div>
