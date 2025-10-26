@@ -660,7 +660,7 @@ export default function SocialMediaAgent() {
                     <span className="text-sm font-medium text-planner-text">Add New Content</span>
                   </button>
                   <button
-                    onClick={() => setActiveTab('calendar')}
+                    onClick={() => setActiveTab('planner')}
                     className="w-full flex items-center gap-3 p-3 rounded-xl bg-planner-page hover:bg-planner-hover border border-planner-border transition-all group"
                   >
                     <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
