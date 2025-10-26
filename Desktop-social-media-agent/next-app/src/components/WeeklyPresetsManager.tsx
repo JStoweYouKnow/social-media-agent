@@ -401,7 +401,7 @@ export default function WeeklyPresetsManager({ presets, setPresets }: WeeklyPres
         <div>
           <div className="flex items-center space-x-3 mb-2">
             <Calendar className="w-6 h-6 text-planner-accent" />
-            <h2 className="text-2xl font-serif font-bold text-planner-text">Weekly Posting Presets</h2>
+            <h2 className="text-2xl font-serif font-bold text-planner-text">Weekly Topic Presets</h2>
           </div>
           <span className="text-sm text-planner-text-medium">Create and manage reusable weekly posting schedules</span>
         </div>

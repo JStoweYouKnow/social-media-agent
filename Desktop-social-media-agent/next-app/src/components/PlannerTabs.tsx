@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 import {
@@ -12,7 +12,10 @@ import {
   Home,
   Heart,
   Moon,
+  Link,
+  Loader2,
 } from "lucide-react";
+import Tooltip from "./Tooltip";
 
 const tabs = [
   { id: "monday", label: "Mon", icon: <Sun className="w-4 h-4" />, tooltip: "Monday - Weekly planning and priorities" },
@@ -27,6 +30,12 @@ const tabs = [
 export default function PlannerTabs() {
   const [activeTab, setActiveTab] = useState("monday");
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseUrl, setParseUrl] = useState("");
+  const [contentTitle, setContentTitle] = useState("");
+  const [contentCaption, setContentCaption] = useState("");
+  const [contentPlatform, setContentPlatform] = useState("Instagram");
+  const [contentTime, setContentTime] = useState("09:00");
 
   // Load saved notes on mount
   useEffect(() => {
@@ -42,6 +51,42 @@ export default function PlannerTabs() {
   const handleChange = (tab: string, value: string) => {
     setNotes((prev) => ({ ...prev, [tab]: value }));
   };
+
+  const handleParseUrl = useCallback(async () => {
+    if (!parseUrl.trim()) return;
+
+    setIsParsing(true);
+    try {
+      const response = await fetch('/api/parse-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: parseUrl,
+          contentType: 'general'
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'Failed to parse URL');
+        return;
+      }
+
+      const data = await response.json();
+
+      // Auto-fill the form with parsed data
+      setContentTitle(data.title || contentTitle);
+      setContentCaption(data.description || data.content || contentCaption);
+      setParseUrl(''); // Clear the parse URL input
+
+      console.log('✓ Successfully parsed URL and extracted content');
+    } catch (error) {
+      console.error('Error parsing URL:', error);
+      alert('Failed to parse URL. Please try again.');
+    } finally {
+      setIsParsing(false);
+    }
+  }, [parseUrl, contentTitle, contentCaption]);
 
   const renderPageContent = (day: string) => {
     switch (day) {
@@ -246,6 +291,115 @@ export default function PlannerTabs() {
     }
   };
 
+  const renderContentCreation = () => {
+    return (
+      <div className="mt-8 pt-6 border-t-2 border-planner-text/20">
+        <h4 className="planner-header text-xl mb-3">Create Content for {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h4>
+        <p className="text-planner-text-medium text-sm mb-4">
+          Quick-add content ideas, drafts, or import from URL
+        </p>
+
+        {/* URL Parser Section */}
+        <div className="border-2 border-planner-text/20 rounded-sm p-4 bg-planner-page/30 mb-4">
+          <div className="flex items-start gap-3">
+            <Link className="w-5 h-5 text-planner-text mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h5 className="text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">Quick Import from URL</h5>
+              <p className="text-xs text-planner-text-medium mb-3 leading-relaxed">
+                Paste any URL to automatically extract title and description
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={parseUrl}
+                  onChange={(e) => setParseUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleParseUrl()}
+                  className="w-full px-3 py-2 text-sm bg-white border-2 border-planner-text/30 rounded-sm font-caveat text-planner-text placeholder-planner-text-medium/50 focus:outline-none focus:border-planner-accent"
+                  placeholder="https://example.com/article"
+                  disabled={isParsing}
+                />
+                <button
+                  onClick={handleParseUrl}
+                  disabled={!parseUrl.trim() || isParsing}
+                  className="px-4 py-2 bg-planner-text text-white rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-text/90 transition-colors border-2 border-planner-text flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isParsing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Parsing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Link className="w-4 h-4" />
+                      <span>Parse</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="planner-divider mb-4"></div>
+
+        {/* Manual Content Creation */}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-bold text-planner-text mb-1 uppercase tracking-wider">Content Title</label>
+            <input
+              type="text"
+              value={contentTitle}
+              onChange={(e) => setContentTitle(e.target.value)}
+              placeholder="e.g., Morning motivation post..."
+              className="w-full px-3 py-2 text-sm bg-white border-2 border-planner-text/30 rounded-sm font-caveat text-planner-text placeholder-planner-text-medium/50 focus:outline-none focus:border-planner-accent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-planner-text mb-1 uppercase tracking-wider">Caption / Content</label>
+            <textarea
+              rows={4}
+              value={contentCaption}
+              onChange={(e) => setContentCaption(e.target.value)}
+              placeholder="Write your caption here..."
+              className="w-full px-3 py-2 text-sm bg-white border-2 border-planner-text/30 rounded-sm font-caveat text-planner-text placeholder-planner-text-medium/50 focus:outline-none focus:border-planner-accent resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-planner-text mb-1 uppercase tracking-wider">Platform</label>
+              <select
+                value={contentPlatform}
+                onChange={(e) => setContentPlatform(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-white border-2 border-planner-text/30 rounded-sm font-caveat text-planner-text focus:outline-none focus:border-planner-accent"
+              >
+                <option>Instagram</option>
+                <option>Facebook</option>
+                <option>LinkedIn</option>
+                <option>Twitter</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-planner-text mb-1 uppercase tracking-wider">Time</label>
+              <input
+                type="time"
+                value={contentTime}
+                onChange={(e) => setContentTime(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-white border-2 border-planner-text/30 rounded-sm font-caveat text-planner-text focus:outline-none focus:border-planner-accent"
+              />
+            </div>
+          </div>
+
+          <button className="w-full px-4 py-2 bg-planner-accent hover:bg-planner-accent-dark text-white font-bold uppercase tracking-wider text-xs rounded-sm transition-colors duration-200">
+            Save Content
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="planner-section overflow-hidden relative">
       {/* Bookmark Ribbon */}
@@ -258,9 +412,8 @@ export default function PlannerTabs() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              title={tab.tooltip}
               className={clsx(
-                "flex items-center gap-2 px-5 py-4 font-medium transition-all duration-200 relative uppercase tracking-wider text-xs",
+                "flex flex-col md:flex-row items-center gap-1 md:gap-2 px-3 md:px-5 py-3 md:py-4 font-medium transition-all duration-200 relative group",
                 "hover:bg-planner-page/50",
                 activeTab === tab.id
                   ? "bg-planner-page border-l-4 md:border-l-4 border-planner-text text-planner-text font-bold"
@@ -268,13 +421,13 @@ export default function PlannerTabs() {
               )}
             >
               {tab.icon}
-              {tab.label}
+              <span className="text-[10px] md:text-xs uppercase tracking-wider">{tab.label}</span>
             </button>
           ))}
         </div>
 
         {/* Page Content */}
-        <div className="flex-1 bg-planner-page p-6 md:p-10 relative overflow-hidden min-h-[500px]">
+        <div className="flex-1 bg-planner-page p-6 md:p-10 relative overflow-auto min-h-[500px] max-h-[800px]">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -285,6 +438,7 @@ export default function PlannerTabs() {
               className="relative z-10"
             >
               {renderPageContent(activeTab)}
+              {renderContentCreation()}
             </motion.div>
           </AnimatePresence>
         </div>

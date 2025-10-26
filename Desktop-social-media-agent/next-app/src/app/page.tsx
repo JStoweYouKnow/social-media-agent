@@ -8,6 +8,7 @@ import ContentManager from '@/components/ContentManager';
 import CalendarComponent from '@/components/CalendarComponent';
 import DayPlannerView from '@/components/DayPlannerView';
 import PlannerTabs from '@/components/PlannerTabs';
+import Tooltip from '@/components/Tooltip';
 import { contentLibrary } from '@/lib/contentLibrary';
 
 // API Base URL - uses environment variable in production, empty for dev (uses proxy)
@@ -96,12 +97,28 @@ export default function SocialMediaAgent() {
   const [weeklyPrompt, setWeeklyPrompt] = useState('');
   const [dayTopicSelections, setDayTopicSelections] = useState({
     monday: 'recipes',
-    tuesday: 'workouts', 
+    tuesday: 'workouts',
     wednesday: 'realestate',
     thursday: 'mindfulness',
     friday: 'travel',
     saturday: 'tech',
     sunday: 'finance'
+  });
+  const [generationType, setGenerationType] = useState<'week' | 'individual'>('week');
+  const [selectedDays, setSelectedDays] = useState({
+    monday: false,
+    tuesday: false,
+    wednesday: false,
+    thursday: false,
+    friday: false,
+    saturday: false,
+    sunday: false
+  });
+  const [selectedPlatforms, setSelectedPlatforms] = useState({
+    instagram: true,
+    facebook: false,
+    linkedin: false,
+    twitter: false
   });
   
   // API Integration states
@@ -256,16 +273,35 @@ export default function SocialMediaAgent() {
       const response = await fetch(`${API_BASE_URL}/api/ai/generate-week`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           prompt: weeklyPrompt || 'Create engaging social media content for Project Comfort',
           tone: 'casual'
         })
       });
-      
+
       if (!response.ok) throw new Error('Failed to generate weekly content');
-      
+
       const data = await response.json();
-      setWeeklyPosts(data.posts || []);
+      const generatedPosts = data.posts || [];
+
+      // Update weekly posts for the Day Planner view
+      setWeeklyPosts(generatedPosts);
+
+      // Convert generated posts to ScheduledContent format and add to scheduled content for dashboard/calendar
+      const scheduledPosts: ScheduledContent[] = generatedPosts.map((post: any, index: number) => ({
+        id: `ai-generated-${Date.now()}-${index}`,
+        title: post.title || `AI Generated Post ${index + 1}`,
+        content: post.content || post.caption || '',
+        date: post.date || new Date().toISOString().split('T')[0],
+        time: post.time || '09:00',
+        platform: post.platform || 'instagram',
+        status: 'draft' as const,
+        createdAt: new Date().toISOString()
+      }));
+
+      // Add to existing scheduled content
+      setScheduledContent(prev => [...prev, ...scheduledPosts]);
+
     } catch (error) {
       console.error('Error generating weekly content:', error);
     } finally {
@@ -273,46 +309,143 @@ export default function SocialMediaAgent() {
     }
   }, [weeklyPrompt]);
 
+  const generateIndividualDays = useCallback(async () => {
+    const daysToGenerate = Object.entries(selectedDays)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([day]) => day);
+
+    const platformsToGenerate = Object.entries(selectedPlatforms)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([platform]) => platform);
+
+    if (daysToGenerate.length === 0) {
+      alert('Please select at least one day to generate content for');
+      return;
+    }
+
+    if (platformsToGenerate.length === 0) {
+      alert('Please select at least one platform to generate content for');
+      return;
+    }
+
+    setIsGeneratingWeek(true);
+    try {
+      const dayPrompts: Record<string, string> = {
+        monday: 'Create an engaging social media post for Monday - focus on motivation, fresh starts, and weekly planning',
+        tuesday: 'Create an engaging social media post for Tuesday - focus on productivity, momentum, and getting things done',
+        wednesday: 'Create an engaging social media post for Wednesday - focus on midweek energy, staying focused, and progress',
+        thursday: 'Create an engaging social media post for Thursday - focus on perseverance, almost there, and finishing strong',
+        friday: 'Create an engaging social media post for Friday - focus on achievements, celebration, and weekend anticipation',
+        saturday: 'Create an engaging social media post for Saturday - focus on relaxation, fun activities, and personal time',
+        sunday: 'Create an engaging social media post for Sunday - focus on reflection, preparation, and self-care'
+      };
+
+      const generatedPosts = [];
+
+      // Generate content for each combination of day and platform
+      for (const day of daysToGenerate) {
+        for (const platform of platformsToGenerate) {
+          const prompt = weeklyPrompt || dayPrompts[day] || 'Create engaging social media content';
+
+          const response = await fetch(`${API_BASE_URL}/api/ai/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, tone: 'casual' })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            generatedPosts.push({
+              id: `ai-${day}-${platform}-${Date.now()}`,
+              day: day.charAt(0).toUpperCase() + day.slice(1),
+              title: `${day.charAt(0).toUpperCase() + day.slice(1)} - ${platform.charAt(0).toUpperCase() + platform.slice(1)}`,
+              content: data.caption || '',
+              caption: data.caption || '',
+              date: new Date().toISOString().split('T')[0],
+              time: '09:00',
+              platform: platform,
+              tags: '#ProjectComfort'
+            });
+          }
+        }
+      }
+
+      // Update weekly posts for the Day Planner view
+      setWeeklyPosts(prev => [...prev, ...generatedPosts]);
+
+      // Convert to ScheduledContent format
+      const scheduledPosts: ScheduledContent[] = generatedPosts.map((post, index) => ({
+        id: `ai-generated-${Date.now()}-${index}`,
+        title: post.title,
+        content: post.content,
+        date: post.date,
+        time: post.time,
+        platform: post.platform,
+        status: 'draft' as const,
+        createdAt: new Date().toISOString()
+      }));
+
+      // Add to existing scheduled content
+      setScheduledContent(prev => [...prev, ...scheduledPosts]);
+
+      // Clear selected days after generation
+      setSelectedDays({
+        monday: false,
+        tuesday: false,
+        wednesday: false,
+        thursday: false,
+        friday: false,
+        saturday: false,
+        sunday: false
+      });
+
+    } catch (error) {
+      console.error('Error generating individual day content:', error);
+    } finally {
+      setIsGeneratingWeek(false);
+    }
+  }, [selectedDays, selectedPlatforms, weeklyPrompt]);
+
   const markContentAsUsed = useCallback((postId: string) => {
     // This would update the post's used status across all content arrays
     // For now, we'll just log it
     console.log('Marking content as used:', postId);
   }, []);
 
-  // Load sample content on mount
-  useEffect(() => {
-    // Load sample content from contentLibrary
-    const sampleRecipes = contentLibrary.workouts.map((item, index) => ({
-      id: `recipe-${index}`,
-      title: item.title,
-      content: item.content,
-      tags: item.benefits || '',
-      createdAt: new Date().toISOString(),
-      used: false
-    }));
-    
-    const sampleMotivational = contentLibrary.motivational.map((item, index) => ({
-      id: `motivational-${index}`,
-      title: item.title,
-      content: item.content,
-      tags: item.insights || '',
-      createdAt: new Date().toISOString(),
-      used: false
-    }));
-    
-    const sampleEducational = contentLibrary.educational.map((item, index) => ({
-      id: `educational-${index}`,
-      title: item.title,
-      content: item.content,
-      tags: item.science || '',
-      createdAt: new Date().toISOString(),
-      used: false
-    }));
+  // Load sample content on mount - COMMENTED OUT TO START WITH EMPTY STATE
+  // useEffect(() => {
+  //   // Load sample content from contentLibrary
+  //   const sampleRecipes = contentLibrary.workouts.map((item, index) => ({
+  //     id: `recipe-${index}`,
+  //     title: item.title,
+  //     content: item.content,
+  //     tags: item.benefits || '',
+  //     createdAt: new Date().toISOString(),
+  //     used: false
+  //   }));
+  //
+  //   const sampleMotivational = contentLibrary.motivational.map((item, index) => ({
+  //     id: `motivational-${index}`,
+  //     title: item.title,
+  //     content: item.content,
+  //     tags: item.insights || '',
+  //     createdAt: new Date().toISOString(),
+  //     used: false
+  //   }));
+  //
+  //   const sampleEducational = contentLibrary.educational.map((item, index) => ({
+  //     id: `educational-${index}`,
+  //     title: item.title,
+  //     content: item.content,
+  //     tags: item.science || '',
+  //     createdAt: new Date().toISOString(),
+  //     used: false
+  //   }));
 
-    setRecipes(sampleRecipes);
-    setMotivationalContent(sampleMotivational);
-    setEducationalContent(sampleEducational);
-  }, []);
+  //   setRecipes(sampleRecipes);
+  //   setMotivationalContent(sampleMotivational);
+  //   setEducationalContent(sampleEducational);
+  // }, []);
 
   return (
     <div className="min-h-screen bg-planner-page" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
@@ -348,24 +481,23 @@ export default function SocialMediaAgent() {
           <div className="flex md:flex-col bg-planner-sidebar border-b md:border-b-0 md:border-r border-planner-border-dark" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
             {[
               { id: 'dashboard', label: 'Dashboard', icon: Home, tooltip: 'Dashboard - View stats and overview' },
-              { id: 'planner', label: 'Day Planner', icon: CalendarDays, tooltip: 'Day Planner - Weekly planning and notes' },
-              { id: 'presets', label: 'Presets', icon: Calendar, tooltip: 'Presets - Manage posting schedules' },
-              { id: 'content', label: 'Content', icon: FileText, tooltip: 'Content - Manage your content library' },
+              { id: 'planner', label: 'Daily Content Planner', icon: CalendarDays, tooltip: 'Daily Content Planner - Weekly planning and notes' },
+              { id: 'presets', label: 'Weekly Topic Presets', icon: Calendar, tooltip: 'Weekly Topic Presets - Manage posting schedules' },
+              { id: 'content', label: 'Create New Content', icon: FileText, tooltip: 'Create New Content - Add content to your library' },
               { id: 'calendar', label: 'Calendar', icon: Calendar, tooltip: 'Calendar - Schedule and view posts' },
-              { id: 'ai', label: 'AI Tools', icon: Sparkles, tooltip: 'AI Tools - Generate content with AI' }
+              { id: 'ai', label: 'AI Content Generation', icon: Sparkles, tooltip: 'AI Content Generation - Generate content with AI' }
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                title={tab.tooltip}
                 className={`flex items-center gap-3 px-6 py-4 font-medium transition-all duration-200 ease-smooth relative whitespace-nowrap group ${
                   activeTab === tab.id
                     ? 'bg-planner-page border-l-4 border-planner-accent-dark text-planner-text shadow-inner-planner'
                     : 'text-planner-text-muted hover:bg-planner-hover hover:text-planner-text'
                 }`}
               >
-                <tab.icon className={`w-4 h-4 transition-transform duration-200 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-105'}`} />
-                <span className="hidden sm:inline text-sm">{tab.label}</span>
+                <tab.icon className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-105'}`} />
+                <span className="text-sm">{tab.label}</span>
               </button>
             ))}
           </div>
@@ -574,7 +706,7 @@ export default function SocialMediaAgent() {
 
         {activeTab === 'planner' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Weekly Planner</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Daily Content Planner</h2>
 
             {/* Daily Planner with Page-Turning Effect */}
             <PlannerTabs />
@@ -808,31 +940,132 @@ export default function SocialMediaAgent() {
               <h2 className="text-2xl font-bold text-gray-900 mb-4">AI Content Generation</h2>
 
               <div className="space-y-4">
+                {/* Generation Type Toggle */}
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                  <button
+                    onClick={() => setGenerationType('week')}
+                    className={`flex-1 px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+                      generationType === 'week'
+                        ? 'bg-white text-planner-text shadow'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Full Week
+                  </button>
+                  <button
+                    onClick={() => setGenerationType('individual')}
+                    className={`flex-1 px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+                      generationType === 'individual'
+                        ? 'bg-white text-planner-text shadow'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Individual Days
+                  </button>
+                </div>
+
+                {/* Individual Day Selection */}
+                {generationType === 'individual' && (
+                  <div className="bg-planner-sidebar/30 border border-planner-border rounded-lg p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Select Days</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                        <label
+                          key={day}
+                          className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-colors ${
+                            selectedDays[day as keyof typeof selectedDays]
+                              ? 'border-planner-accent bg-planner-accent/10'
+                              : 'border-gray-200 hover:border-planner-accent/50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedDays[day as keyof typeof selectedDays]}
+                            onChange={(e) => setSelectedDays({
+                              ...selectedDays,
+                              [day]: e.target.checked
+                            })}
+                            className="w-4 h-4 text-planner-accent border-gray-300 rounded focus:ring-planner-accent"
+                          />
+                          <span className="text-sm font-medium capitalize">{day.slice(0, 3)}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Platform Selection */}
+                {generationType === 'individual' && (
+                  <div className="bg-planner-sidebar/30 border border-planner-border rounded-lg p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Select Platforms</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {[
+                        { key: 'instagram', label: 'Instagram', emoji: '📷' },
+                        { key: 'facebook', label: 'Facebook', emoji: '👍' },
+                        { key: 'linkedin', label: 'LinkedIn', emoji: '💼' },
+                        { key: 'twitter', label: 'Twitter', emoji: '🐦' }
+                      ].map((platform) => (
+                        <label
+                          key={platform.key}
+                          className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-colors ${
+                            selectedPlatforms[platform.key as keyof typeof selectedPlatforms]
+                              ? 'border-planner-accent bg-planner-accent/10'
+                              : 'border-gray-200 hover:border-planner-accent/50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedPlatforms[platform.key as keyof typeof selectedPlatforms]}
+                            onChange={(e) => setSelectedPlatforms({
+                              ...selectedPlatforms,
+                              [platform.key]: e.target.checked
+                            })}
+                            className="w-4 h-4 text-planner-accent border-gray-300 rounded focus:ring-planner-accent"
+                          />
+                          <span className="text-sm font-medium">{platform.emoji} {platform.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Weekly Prompt</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {generationType === 'week' ? 'Weekly Prompt' : 'Prompt for Selected Days'}
+                  </label>
                   <textarea
                     value={weeklyPrompt}
                     onChange={(e) => setWeeklyPrompt(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                     rows={3}
-                    placeholder="Describe what you want to post about this week..."
+                    placeholder={
+                      generationType === 'week'
+                        ? 'Describe what you want to post about this week...'
+                        : 'Describe what you want to post about (or leave blank for day-specific prompts)...'
+                    }
                   />
                 </div>
 
-                <div className="bg-planner-sidebar/50 border border-planner-border rounded-lg p-4">
-                  <p className="text-sm text-planner-text">
-                    <strong>Selected content types:</strong> {
-                      Object.entries(contentMix)
-                        .filter(([_, enabled]) => enabled)
-                        .map(([type]) => topicOptions.find(t => t.value === type)?.label)
-                        .join(', ') || 'None selected'
-                    }
-                  </p>
-                </div>
+                {generationType === 'week' && (
+                  <div className="bg-planner-sidebar/50 border border-planner-border rounded-lg p-4">
+                    <p className="text-sm text-planner-text">
+                      <strong>Selected content types:</strong> {
+                        Object.entries(contentMix)
+                          .filter(([_, enabled]) => enabled)
+                          .map(([type]) => topicOptions.find(t => t.value === type)?.label)
+                          .join(', ') || 'None selected'
+                      }
+                    </p>
+                  </div>
+                )}
 
                 <button
-                  onClick={generateWeeklyContent}
-                  disabled={isGeneratingWeek || Object.values(contentMix).every(v => !v)}
+                  onClick={generationType === 'week' ? generateWeeklyContent : generateIndividualDays}
+                  disabled={
+                    isGeneratingWeek ||
+                    (generationType === 'week' && Object.values(contentMix).every(v => !v)) ||
+                    (generationType === 'individual' && (Object.values(selectedDays).every(v => !v) || Object.values(selectedPlatforms).every(v => !v)))
+                  }
                   className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isGeneratingWeek ? (
@@ -843,10 +1076,16 @@ export default function SocialMediaAgent() {
                       </svg>
                       Generating...
                     </span>
-                  ) : 'Generate Weekly Content'}
+                  ) : generationType === 'week' ? 'Generate Weekly Content' : 'Generate Selected Days'}
                 </button>
-                {Object.values(contentMix).every(v => !v) && (
+                {generationType === 'week' && Object.values(contentMix).every(v => !v) && (
                   <p className="text-sm text-red-600">Please select at least one content type above</p>
+                )}
+                {generationType === 'individual' && Object.values(selectedDays).every(v => !v) && (
+                  <p className="text-sm text-red-600">Please select at least one day to generate content for</p>
+                )}
+                {generationType === 'individual' && Object.values(selectedPlatforms).every(v => !v) && (
+                  <p className="text-sm text-red-600">Please select at least one platform to generate content for</p>
                 )}
               </div>
             </div>
