@@ -556,7 +556,6 @@ export default function SocialMediaAgent() {
                     <div className="p-3 bg-planner-accent/20 rounded-xl">
                       <FileText className="w-6 h-6 text-planner-accent" />
                     </div>
-                    <span className="text-xs font-medium text-planner-text-medium bg-planner-page px-2 py-1 rounded-full">+12%</span>
                   </div>
                   <h3 className="text-sm font-medium text-planner-text-medium mb-1">Total Posts</h3>
                   <p className="text-3xl font-bold text-planner-text mb-2">{stats.totalPosts}</p>
@@ -1124,8 +1123,8 @@ export default function SocialMediaAgent() {
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Generated Weekly Posts</h3>
                 <div className="space-y-4">
-                  {weeklyPosts.map((post, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  {weeklyPosts.map((post) => (
+                    <div key={post.id} className="border border-gray-200 rounded-lg p-4">
                       <h4 className="font-semibold text-gray-900 mb-2">{post.dayName} - {post.content.title}</h4>
                       <p className="text-gray-700 mb-2">{post.content.description}</p>
                       <p className="text-sm text-gray-500">{post.contentType}</p>
@@ -1134,6 +1133,9 @@ export default function SocialMediaAgent() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+            </div>
           </div>
         </div>
       </div>
