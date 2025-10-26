@@ -923,6 +923,11 @@ export default function SocialMediaAgent() {
             <CalendarComponent
               scheduledContent={scheduledContent}
               setScheduledContent={setScheduledContent}
+              onDateClick={(date) => {
+                // Navigate to planner tab
+                setActiveTab('planner');
+                // Could also set the specific day in the planner view here if needed
+              }}
             />
           </div>
         )}

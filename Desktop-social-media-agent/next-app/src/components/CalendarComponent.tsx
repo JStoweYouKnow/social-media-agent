@@ -17,14 +17,15 @@ interface ScheduledContent {
 interface CalendarComponentProps {
   scheduledContent: ScheduledContent[];
   setScheduledContent: (content: ScheduledContent[]) => void;
+  onDateClick?: (date: Date) => void;
 }
 
-export default function CalendarComponent({ scheduledContent, setScheduledContent }: CalendarComponentProps) {
+export default function CalendarComponent({ scheduledContent, setScheduledContent, onDateClick }: CalendarComponentProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isAddingContent, setIsAddingContent] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'list'>('month');
   
   const [newContent, setNewContent] = useState({
     title: '',
@@ -348,6 +349,16 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
             >
               Day
             </button>
+            <button
+              onClick={() => setCalendarView('list')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                calendarView === 'list'
+                  ? 'bg-planner-accent text-white shadow-planner'
+                  : 'text-planner-text-medium hover:bg-planner-hover'
+              }`}
+            >
+              List
+            </button>
           </div>
 
           {/* Calendar Navigation */}
@@ -402,7 +413,12 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
                 } ${isTodayDate ? 'bg-planner-accent/10 border-l-4 border-l-planner-accent' : ''} ${isSelected ? 'bg-planner-accent/20 ring-2 ring-planner-accent ring-inset' : ''}`}
                 onClick={() => {
                   setSelectedDate(date);
-                  setIsAddingContent(true);
+                  // If onDateClick is provided and it's not today, navigate to planner
+                  if (onDateClick && !isTodayDate) {
+                    onDateClick(date);
+                  } else {
+                    setIsAddingContent(true);
+                  }
                 }}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -605,6 +621,94 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
             ))}
             {getContentForDate(selectedDate).length === 0 && (
               <p className="text-planner-text-muted text-center py-12 text-sm">No content scheduled for this date.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* List View */}
+      {calendarView === 'list' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-serif font-semibold text-planner-text">All Scheduled Content</h3>
+            <button
+              onClick={() => {
+                setSelectedDate(new Date());
+                setIsAddingContent(true);
+              }}
+              className="flex items-center gap-2 btn-primary"
+            >
+              <Plus className="w-4 h-4" />
+              Add Content
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {scheduledContent
+              .sort((a, b) => new Date(a.date + ' ' + a.time).getTime() - new Date(b.date + ' ' + b.time).getTime())
+              .map(content => (
+                <div
+                  key={content.id}
+                  className="card hover:shadow-planner transition-all cursor-pointer"
+                  onClick={() => {
+                    if (onDateClick) {
+                      onDateClick(new Date(content.date));
+                    }
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-lg font-semibold text-planner-text">{content.title}</h4>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                          content.status === 'published' ? 'bg-green-100 text-green-800 border border-green-200' :
+                          content.status === 'scheduled' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                          'bg-planner-page text-planner-text-medium border border-planner-border'
+                        }`}>
+                          {content.status}
+                        </span>
+                      </div>
+                      <p className="text-planner-text-medium text-sm mb-2">{content.content}</p>
+                      <div className="flex items-center gap-4 text-xs text-planner-text-muted">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(content.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          🕐 {content.time}
+                        </span>
+                        <span className="capitalize">{content.platform}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditContent(content);
+                        }}
+                        className="p-2 text-planner-text-muted hover:text-planner-accent rounded-lg hover:bg-planner-hover transition-all"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteContent(content.id);
+                        }}
+                        className="p-2 text-planner-text-muted hover:text-red-600 rounded-lg hover:bg-planner-hover transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            {scheduledContent.length === 0 && (
+              <div className="text-center py-16 bg-planner-border/10 rounded-xl">
+                <FileText className="w-16 h-16 text-planner-border mx-auto mb-4" />
+                <p className="text-planner-text/60 text-lg font-medium">No content scheduled yet</p>
+                <p className="text-planner-text/40 text-sm mt-2">Click the "Add Content" button to get started</p>
+              </div>
             )}
           </div>
         </div>
