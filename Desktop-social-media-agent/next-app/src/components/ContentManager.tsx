@@ -1,7 +1,15 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Plus, Save, Trash2, Edit, Eye, Copy, Check, ChefHat, Dumbbell, Building, Heart, Plane, Smartphone, DollarSign, Sparkles, Target, Coffee, GraduationCap, Zap, X, Link, Loader2, Hash, Wand2 } from 'lucide-react';
+import { Plus, Save, Trash2, Edit, Eye, Copy, Check, ChefHat, Dumbbell, Building, Heart, Plane, Smartphone, DollarSign, Sparkles, Target, Coffee, GraduationCap, Zap, X, Link, Loader2, Hash, Wand2, Image, Palette } from 'lucide-react';
+
+interface ImageRecommendation {
+  type: string;
+  elements: string;
+  style: string;
+  colors: string;
+  textOverlay: string;
+}
 
 interface ContentItem {
   id: string;
@@ -13,6 +21,7 @@ interface ContentItem {
   field2?: string;
   createdAt?: string;
   used?: boolean;
+  imageRecommendations?: ImageRecommendation[];
 }
 
 interface Post {
@@ -26,6 +35,7 @@ interface Post {
   createdAt: string;
   used?: boolean;
   items?: ContentItem[]; // Multiple content items per post
+  imageRecommendations?: ImageRecommendation[];
 }
 
 interface ContentManagerProps {
@@ -64,6 +74,11 @@ export default function ContentManager({ content, setContent, contentType }: Con
   const [multiContentMode, setMultiContentMode] = useState(false);
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
+  
+  // Image recommendations state
+  const [imageRecommendations, setImageRecommendations] = useState<ImageRecommendation[]>([]);
+  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
+  const [showImageRecommendations, setShowImageRecommendations] = useState(false);
 
   const [newItem, setNewItem] = useState({
     title: '',
@@ -88,7 +103,8 @@ export default function ContentManager({ content, setContent, contentType }: Con
         tags: contentItems.map(item => item.tags).join(' '),
         createdAt: new Date().toISOString(),
         used: false,
-        items: contentItems
+        items: contentItems,
+        imageRecommendations: imageRecommendations.length > 0 ? imageRecommendations : undefined
       };
 
       if (editingId) {
@@ -111,7 +127,8 @@ export default function ContentManager({ content, setContent, contentType }: Con
         field1: newItem.field1,
         field2: newItem.field2,
         createdAt: new Date().toISOString(),
-        used: false
+        used: false,
+        imageRecommendations: imageRecommendations.length > 0 ? imageRecommendations : undefined
       };
 
       if (editingId) {
@@ -123,8 +140,10 @@ export default function ContentManager({ content, setContent, contentType }: Con
     }
 
     setNewItem({ title: '', content: '', tags: '', url: '', field1: '', field2: '' });
+    setImageRecommendations([]);
+    setShowImageRecommendations(false);
     setIsAdding(false);
-  }, [newItem, editingId, content, setContent, multiContentMode, contentItems, contentType]);
+  }, [newItem, editingId, content, setContent, multiContentMode, contentItems, contentType, imageRecommendations]);
 
   const handleEdit = useCallback((post: Post) => {
     if (post.items && post.items.length > 0) {
@@ -288,6 +307,40 @@ export default function ContentManager({ content, setContent, contentType }: Con
       setIsGeneratingTags(false);
     }
   }, [newItem, tags, contentType]);
+
+  const generateImageRecommendations = useCallback(async () => {
+    if (!newItem.title && !newItem.content) {
+      alert('Please add a title or content first to generate image recommendations');
+      return;
+    }
+
+    setIsGeneratingImages(true);
+    try {
+      const response = await fetch('/api/ai/image-recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newItem.title,
+          content: newItem.content,
+          contentType: contentType,
+          platform: 'instagram' // Default platform
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate image recommendations');
+      }
+
+      const data = await response.json();
+      setImageRecommendations(data.recommendations || []);
+      setShowImageRecommendations(true);
+    } catch (error) {
+      console.error('Error generating image recommendations:', error);
+      alert('Failed to generate image recommendations. Please try again.');
+    } finally {
+      setIsGeneratingImages(false);
+    }
+  }, [newItem, contentType]);
 
   const handleParseUrl = useCallback(async () => {
     if (!parseUrl.trim()) return;
@@ -500,25 +553,46 @@ export default function ContentManager({ content, setContent, contentType }: Con
             <div className="planner-line">
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-xs font-bold text-planner-text uppercase tracking-wider">Tags</label>
-                <button
-                  type="button"
-                  onClick={generateAITags}
-                  disabled={isGeneratingTags || (!newItem.title && !newItem.content)}
-                  className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-sm bg-planner-text text-white hover:bg-planner-text/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-bold uppercase tracking-wider border-2 border-planner-text"
-                  title="Generate tags with AI"
-                >
-                  {isGeneratingTags ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Generating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-3 h-3" />
-                      <span>AI Generate</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={generateImageRecommendations}
+                    disabled={isGeneratingImages || (!newItem.title && !newItem.content)}
+                    className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-sm bg-planner-accent text-white hover:bg-planner-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-bold uppercase tracking-wider border-2 border-planner-accent"
+                    title="Generate image recommendations with AI"
+                  >
+                    {isGeneratingImages ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Image className="w-3 h-3" />
+                        <span>AI Images</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={generateAITags}
+                    disabled={isGeneratingTags || (!newItem.title && !newItem.content)}
+                    className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-sm bg-planner-text text-white hover:bg-planner-text/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-bold uppercase tracking-wider border-2 border-planner-text"
+                    title="Generate tags with AI"
+                  >
+                    {isGeneratingTags ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-3 h-3" />
+                        <span>AI Tags</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Tag Input with Chips */}
@@ -573,6 +647,67 @@ export default function ContentManager({ content, setContent, contentType }: Con
                 </div>
               )}
             </div>
+
+            {/* Image Recommendations Section */}
+            {showImageRecommendations && imageRecommendations.length > 0 && (
+              <div className="planner-line">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-xs font-bold text-planner-text uppercase tracking-wider">AI Image Recommendations</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowImageRecommendations(false)}
+                    className="p-1 text-planner-text-muted hover:text-planner-text rounded"
+                    title="Hide recommendations"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {imageRecommendations.map((rec, index) => (
+                    <div key={index} className="border border-planner-text/20 rounded-sm p-4 bg-planner-page/30">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-planner-accent/10 rounded-sm">
+                          <Palette className="w-4 h-4 text-planner-accent" />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <h5 className="font-semibold text-planner-text text-sm">{rec.type}</h5>
+                          
+                          {rec.elements && (
+                            <div>
+                              <span className="text-xs font-medium text-planner-text-medium">Visual Elements:</span>
+                              <p className="text-xs text-planner-text-muted mt-1">{rec.elements}</p>
+                            </div>
+                          )}
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                            {rec.style && (
+                              <div>
+                                <span className="font-medium text-planner-text-medium">Style:</span>
+                                <p className="text-planner-text-muted">{rec.style}</p>
+                              </div>
+                            )}
+                            {rec.colors && (
+                              <div>
+                                <span className="font-medium text-planner-text-medium">Colors:</span>
+                                <p className="text-planner-text-muted">{rec.colors}</p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {rec.textOverlay && (
+                            <div>
+                              <span className="text-xs font-medium text-planner-text-medium">Text Overlay:</span>
+                              <p className="text-xs text-planner-text-muted mt-1">{rec.textOverlay}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="planner-line">
               <label className="block text-xs font-bold text-planner-text mb-2 uppercase tracking-wider">URL (optional)</label>
@@ -676,6 +811,8 @@ export default function ContentManager({ content, setContent, contentType }: Con
                 setMultiContentMode(false);
                 setContentItems([]);
                 setCurrentItemIndex(0);
+                setImageRecommendations([]);
+                setShowImageRecommendations(false);
               }}
               className="px-6 py-2 bg-white text-planner-text rounded-sm font-bold text-xs uppercase tracking-wider hover:bg-planner-page transition-colors border-2 border-planner-text"
             >
@@ -696,11 +833,19 @@ export default function ContentManager({ content, setContent, contentType }: Con
             <div className="flex items-start justify-between mb-3 pb-3 border-b-2 border-planner-text">
               <div className="flex-1">
                 <h3 className="font-serif font-bold text-planner-text text-base">{post.title}</h3>
-                {post.items && post.items.length > 0 && (
-                  <span className="inline-block mt-1 bg-planner-accent/20 text-planner-accent px-2 py-0.5 rounded-full text-xs font-medium">
-                    {post.items.length} items
-                  </span>
-                )}
+                <div className="flex gap-2 mt-1">
+                  {post.items && post.items.length > 0 && (
+                    <span className="inline-block bg-planner-accent/20 text-planner-accent px-2 py-0.5 rounded-full text-xs font-medium">
+                      {post.items.length} items
+                    </span>
+                  )}
+                  {post.imageRecommendations && post.imageRecommendations.length > 0 && (
+                    <span className="inline-block bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1">
+                      <Image className="w-3 h-3" />
+                      {post.imageRecommendations.length} image ideas
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex gap-0.5">
                 <button
@@ -872,6 +1017,59 @@ export default function ContentManager({ content, setContent, contentType }: Con
                           {post.url}
                         </a>
                       </p>
+                    )}
+
+                    {/* Image Recommendations in Preview */}
+                    {post.imageRecommendations && post.imageRecommendations.length > 0 && (
+                      <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-planner-text flex items-center gap-2">
+                          <Image className="w-5 h-5" />
+                          Image Recommendations ({post.imageRecommendations.length})
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {post.imageRecommendations.map((rec, index) => (
+                            <div key={index} className="border border-planner-text/20 rounded-sm p-4 bg-planner-page/30">
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 bg-planner-accent/10 rounded-sm">
+                                  <Palette className="w-4 h-4 text-planner-accent" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  <h5 className="font-semibold text-planner-text text-sm">{rec.type}</h5>
+                                  
+                                  {rec.elements && (
+                                    <div>
+                                      <span className="text-xs font-medium text-planner-text-medium">Visual Elements:</span>
+                                      <p className="text-xs text-planner-text-muted mt-1">{rec.elements}</p>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="grid grid-cols-1 gap-2 text-xs">
+                                    {rec.style && (
+                                      <div>
+                                        <span className="font-medium text-planner-text-medium">Style:</span>
+                                        <p className="text-planner-text-muted">{rec.style}</p>
+                                      </div>
+                                    )}
+                                    {rec.colors && (
+                                      <div>
+                                        <span className="font-medium text-planner-text-medium">Colors:</span>
+                                        <p className="text-planner-text-muted">{rec.colors}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {rec.textOverlay && (
+                                    <div>
+                                      <span className="text-xs font-medium text-planner-text-medium">Text Overlay:</span>
+                                      <p className="text-xs text-planner-text-muted mt-1">{rec.textOverlay}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

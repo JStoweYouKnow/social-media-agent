@@ -18,6 +18,14 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 const DEBUG = process.env.NODE_ENV === 'development';
 const debug = (...args: any[]) => DEBUG && console.log(...args);
 
+interface ImageRecommendation {
+  type: string;
+  elements: string;
+  style: string;
+  colors: string;
+  textOverlay: string;
+}
+
 interface ContentItem {
   id: string;
   title: string;
@@ -26,6 +34,7 @@ interface ContentItem {
   url?: string;
   field1?: string;
   field2?: string;
+  imageRecommendations?: ImageRecommendation[];
 }
 
 interface Post {
@@ -39,6 +48,7 @@ interface Post {
   createdAt: string;
   used?: boolean;
   items?: ContentItem[]; // Multiple content items per post
+  imageRecommendations?: ImageRecommendation[];
 }
 
 interface Preset {
@@ -70,6 +80,7 @@ interface ScheduledContent {
   status: 'draft' | 'scheduled' | 'published';
   createdAt: string;
   items?: ContentItem[]; // Multiple content items per scheduled post
+  imageRecommendations?: ImageRecommendation[];
 }
 
 interface PlannerPost {
@@ -309,6 +320,25 @@ export default function SocialMediaAgent() {
       setIsGenerating(false);
     }
   }, [generateAIContent, selectedContentType]);
+
+  // Generate image recommendations
+  const generateImageRecommendations = useCallback(async (title: string, content: string, contentType: string, platform: string = 'instagram') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai/image-recommendations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content, contentType, platform })
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate image recommendations');
+      
+      const data = await response.json();
+      return data.recommendations || [];
+    } catch (error) {
+      console.error('Error generating image recommendations:', error);
+      return [];
+    }
+  }, []);
 
   // Add multiple items to a content collection
   const addMultipleItemsToCollection = useCallback((items: ContentItem[], contentType: string) => {

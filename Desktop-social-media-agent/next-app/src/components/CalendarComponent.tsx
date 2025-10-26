@@ -3,6 +3,14 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Plus, Edit, Trash2, Check, Download, FileText, Printer } from 'lucide-react';
 
+interface ImageRecommendation {
+  type: string;
+  elements: string;
+  style: string;
+  colors: string;
+  textOverlay: string;
+}
+
 interface ContentItem {
   id: string;
   title: string;
@@ -11,6 +19,7 @@ interface ContentItem {
   url?: string;
   field1?: string;
   field2?: string;
+  imageRecommendations?: ImageRecommendation[];
 }
 
 interface ScheduledContent {
