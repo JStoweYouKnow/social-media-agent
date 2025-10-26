@@ -413,11 +413,17 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
                 } ${isTodayDate ? 'bg-planner-accent/10 border-l-4 border-l-planner-accent' : ''} ${isSelected ? 'bg-planner-accent/20 ring-2 ring-planner-accent ring-inset' : ''}`}
                 onClick={() => {
                   setSelectedDate(date);
-                  // If onDateClick is provided and it's not today, navigate to planner
-                  if (onDateClick && !isTodayDate) {
-                    onDateClick(date);
+                  // If day has content, show list view for that day
+                  if (dayContent.length > 0) {
+                    // This will show the day's content in the existing view below
+                    setIsAddingContent(false);
                   } else {
-                    setIsAddingContent(true);
+                    // Open date - navigate to planner
+                    if (onDateClick && !isTodayDate) {
+                      onDateClick(date);
+                    } else {
+                      setIsAddingContent(true);
+                    }
                   }
                 }}
               >
@@ -579,11 +585,11 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
         </div>
       )}
 
-      {/* Content List for Selected Date */}
-      {selectedDate && !isAddingContent && (
+      {/* Content List for Selected Date - Only show if date has content */}
+      {selectedDate && !isAddingContent && getContentForDate(selectedDate).length > 0 && (
         <div className="card shadow-planner-xl">
           <h3 className="text-xl font-serif font-semibold text-planner-text mb-6">
-            Content for {selectedDate.toLocaleDateString()}
+            Content for {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </h3>
           <div className="space-y-3">
             {getContentForDate(selectedDate).map(content => (
@@ -619,9 +625,6 @@ export default function CalendarComponent({ scheduledContent, setScheduledConten
                 </div>
               </div>
             ))}
-            {getContentForDate(selectedDate).length === 0 && (
-              <p className="text-planner-text-muted text-center py-12 text-sm">No content scheduled for this date.</p>
-            )}
           </div>
         </div>
       )}
