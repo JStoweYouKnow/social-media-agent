@@ -7,7 +7,6 @@ import WeeklyPresetsManager from '@/components/WeeklyPresetsManager';
 import ContentManager from '@/components/ContentManager';
 import CalendarComponent from '@/components/CalendarComponent';
 import DayPlannerView from '@/components/DayPlannerView';
-import PlannerTabs from '@/components/PlannerTabs';
 import Tooltip from '@/components/Tooltip';
 import { contentLibrary } from '@/lib/contentLibrary';
 
@@ -658,9 +657,8 @@ export default function SocialMediaAgent() {
           <div className="flex md:flex-col bg-planner-sidebar border-b md:border-b-0 md:border-r border-planner-border-dark overflow-x-auto md:overflow-x-visible scrollbar-hide" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
             {[
               { id: 'dashboard', label: 'Dashboard', icon: Home, tooltip: 'Dashboard - View stats and overview' },
-              { id: 'planner', label: 'Daily Content Planner', icon: CalendarDays, tooltip: 'Daily Content Planner - Weekly planning and notes' },
+              { id: 'content', label: 'Content Planner', icon: FileText, tooltip: 'Content Planner - Create and manage your content' },
               { id: 'presets', label: 'Weekly Topic Presets', icon: Calendar, tooltip: 'Weekly Topic Presets - Manage posting schedules' },
-              { id: 'content', label: 'Create New Content', icon: FileText, tooltip: 'Create New Content - Add content to your library' },
               { id: 'calendar', label: 'Calendar', icon: Calendar, tooltip: 'Calendar - Schedule and view posts' },
               { id: 'ai', label: 'AI Content Generation', icon: Sparkles, tooltip: 'AI Content Generation - Generate content with AI' }
             ].map((tab) => (
@@ -808,7 +806,7 @@ export default function SocialMediaAgent() {
                     <span className="text-sm font-medium text-planner-text">Add New Content</span>
                   </button>
                   <button
-                    onClick={() => setActiveTab('planner')}
+                    onClick={() => setActiveTab('content')}
                     className="w-full flex items-center gap-3 p-3 rounded-xl bg-planner-page hover:bg-planner-hover border border-planner-border transition-all group"
                   >
                     <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
@@ -881,27 +879,27 @@ export default function SocialMediaAgent() {
           </div>
         )}
 
-        {activeTab === 'planner' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Daily Content Planner</h2>
-
-            {/* Daily Planner with Page-Turning Effect */}
-            <PlannerTabs />
-
-            {/* Content Calendar View */}
-            <div className="mt-8">
-              <h3 className="text-xl font-semibold mb-4 text-planner-text tracking-wide">Generated Content Schedule</h3>
-              <DayPlannerView
-                contentCalendar={weeklyPosts}
-                setContentCalendar={setWeeklyPosts}
-              />
-            </div>
-          </div>
-        )}
-
         {activeTab === 'content' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Content Library</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Content Planner</h2>
+            
+            {/* Daily Planner Section */}
+            <div className="space-y-6">
+              <h3 className="text-xl font-semibold text-planner-text tracking-wide">Daily Content Planner</h3>
+              
+              {/* Content Calendar View */}
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-planner-border">
+                <h4 className="text-lg font-semibold mb-4 text-planner-text">Generated Content Schedule</h4>
+                <DayPlannerView
+                  contentCalendar={weeklyPosts}
+                  setContentCalendar={setWeeklyPosts}
+                />
+              </div>
+            </div>
+
+            {/* Content Library Section */}
+            <div className="space-y-6">
+              <h3 className="text-xl font-semibold text-planner-text tracking-wide">Content Library</h3>
 
             {/* Content Type Selector */}
             <div className="bg-white rounded-lg shadow-sm p-6 border border-planner-border">
@@ -1132,6 +1130,7 @@ export default function SocialMediaAgent() {
                 setScheduledContent={setScheduledContent}
               />
             )}
+            </div>
           </div>
         )}
 
@@ -1141,8 +1140,8 @@ export default function SocialMediaAgent() {
               scheduledContent={scheduledContent}
               setScheduledContent={setScheduledContent}
               onDateClick={(date) => {
-                // Navigate to planner tab
-                setActiveTab('planner');
+                // Navigate to content planner tab
+                setActiveTab('content');
                 // Could also set the specific day in the planner view here if needed
               }}
             />
