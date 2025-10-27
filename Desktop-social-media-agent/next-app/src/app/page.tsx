@@ -657,10 +657,10 @@ export default function SocialMediaAgent() {
           <div className="flex md:flex-col bg-planner-sidebar border-b md:border-b-0 md:border-r border-planner-border-dark overflow-x-auto md:overflow-x-visible scrollbar-hide" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
             {[
               { id: 'dashboard', label: 'Dashboard', icon: Home, tooltip: 'Dashboard - View stats and overview' },
-              { id: 'content', label: 'Content Planner', icon: FileText, tooltip: 'Content Planner - Create and manage your content' },
-              { id: 'presets', label: 'Weekly Topic Presets', icon: Calendar, tooltip: 'Weekly Topic Presets - Manage posting schedules' },
+              { id: 'content', label: 'Daily Content', icon: FileText, tooltip: 'Daily Content - Create and manage your daily content' },
+              { id: 'presets', label: 'Daily Topic Presets', icon: Calendar, tooltip: 'Daily Topic Presets - Manage daily posting schedules' },
               { id: 'calendar', label: 'Calendar', icon: Calendar, tooltip: 'Calendar - Schedule and view posts' },
-              { id: 'ai', label: 'AI Content Generation', icon: Sparkles, tooltip: 'AI Content Generation - Generate content with AI' }
+              { id: 'ai', label: 'AI Content Generator', icon: Sparkles, tooltip: 'AI Content Generator - Generate content with AI' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -881,7 +881,7 @@ export default function SocialMediaAgent() {
 
         {activeTab === 'content' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Content Planner</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Daily Content</h2>
             
             {/* Daily Planner Section */}
             <div className="space-y-6">
@@ -1150,7 +1150,7 @@ export default function SocialMediaAgent() {
 
         {activeTab === 'ai' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">AI Content Generation</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">AI Content Generator</h2>
 
             {/* Content Mix Selection */}
             <div className="bg-white rounded-lg shadow-sm p-6 border border-planner-border">
@@ -1187,7 +1187,7 @@ export default function SocialMediaAgent() {
 
             {/* AI Generation */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">AI Content Generation</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">AI Content Generator</h2>
 
               <div className="space-y-4">
                 {/* Generation Type Toggle */}
