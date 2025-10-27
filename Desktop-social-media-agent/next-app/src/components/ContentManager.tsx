@@ -42,6 +42,21 @@ interface ContentManagerProps {
   content: Post[];
   setContent: (content: Post[]) => void;
   contentType: string;
+  scheduledContent?: ScheduledContent[];
+  setScheduledContent?: (content: ScheduledContent[]) => void;
+}
+
+interface ScheduledContent {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  time: string;
+  platform: string;
+  status: 'draft' | 'scheduled' | 'published';
+  createdAt: string;
+  items?: ContentItem[];
+  imageRecommendations?: ImageRecommendation[];
 }
 
 const topicOptions = [
@@ -59,7 +74,7 @@ const topicOptions = [
   { value: 'motivational', label: '⚡ Motivational', icon: Zap, fields: ['Theme', 'Audience'], suggestedTags: ['motivation', 'inspiration', 'mindset', 'goals', 'success', 'positivity', 'growth', 'believe'] }
 ];
 
-export default function ContentManager({ content, setContent, contentType }: ContentManagerProps) {
+export default function ContentManager({ content, setContent, contentType, scheduledContent, setScheduledContent }: ContentManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -79,6 +94,11 @@ export default function ContentManager({ content, setContent, contentType }: Con
   const [imageRecommendations, setImageRecommendations] = useState<ImageRecommendation[]>([]);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [showImageRecommendations, setShowImageRecommendations] = useState(false);
+  
+  // Day assignment state
+  const [assignToDay, setAssignToDay] = useState<string>('');
+  const [assignTime, setAssignTime] = useState('09:00');
+  const [assignPlatform, setAssignPlatform] = useState('instagram');
 
   const [newItem, setNewItem] = useState({
     title: '',
@@ -91,12 +111,47 @@ export default function ContentManager({ content, setContent, contentType }: Con
 
   const currentTopic = topicOptions.find(topic => topic.value === contentType);
 
+  const scheduleToCalendar = useCallback((post: Post) => {
+    if (!assignToDay || !setScheduledContent || !scheduledContent) return;
+
+    // Calculate the next occurrence of the selected day
+    const today = new Date();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const targetDayIndex = dayNames.indexOf(assignToDay.toLowerCase());
+    const currentDayIndex = today.getDay();
+    
+    let daysUntilTarget = targetDayIndex - currentDayIndex;
+    if (daysUntilTarget <= 0) {
+      daysUntilTarget += 7; // Next week
+    }
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + daysUntilTarget);
+    
+    const scheduledItem: ScheduledContent = {
+      id: `scheduled-${Date.now()}`,
+      title: post.title,
+      content: post.content,
+      date: targetDate.toISOString().split('T')[0],
+      time: assignTime,
+      platform: assignPlatform,
+      status: 'draft',
+      createdAt: new Date().toISOString(),
+      items: post.items,
+      imageRecommendations: post.imageRecommendations
+    };
+
+    setScheduledContent([...scheduledContent, scheduledItem]);
+  }, [assignToDay, assignTime, assignPlatform, scheduledContent, setScheduledContent]);
+
   const handleSave = useCallback(() => {
     if (!newItem.title.trim()) return;
 
+    let savedPost: Post;
+
     if (multiContentMode) {
       // Save as multiple items in a single post
-      const post: Post = {
+      savedPost = {
         id: editingId || `multi-${Date.now()}`,
         title: `Multiple ${contentType}`,
         content: `Collection of ${contentItems.length} ${contentType}`,
@@ -108,17 +163,17 @@ export default function ContentManager({ content, setContent, contentType }: Con
       };
 
       if (editingId) {
-        setContent(content.map(c => c.id === editingId ? post : c));
+        setContent(content.map(c => c.id === editingId ? savedPost : c));
         setEditingId(null);
       } else {
-        setContent([...content, post]);
+        setContent([...content, savedPost]);
       }
 
       setContentItems([]);
       setMultiContentMode(false);
     } else {
       // Save as single item
-      const post: Post = {
+      savedPost = {
         id: editingId || Date.now().toString(),
         title: newItem.title,
         content: newItem.content,
@@ -132,18 +187,26 @@ export default function ContentManager({ content, setContent, contentType }: Con
       };
 
       if (editingId) {
-        setContent(content.map(c => c.id === editingId ? post : c));
+        setContent(content.map(c => c.id === editingId ? savedPost : c));
         setEditingId(null);
       } else {
-        setContent([...content, post]);
+        setContent([...content, savedPost]);
       }
+    }
+
+    // Schedule to calendar if day is assigned
+    if (assignToDay && !editingId) {
+      scheduleToCalendar(savedPost);
     }
 
     setNewItem({ title: '', content: '', tags: '', url: '', field1: '', field2: '' });
     setImageRecommendations([]);
     setShowImageRecommendations(false);
+    setAssignToDay('');
+    setAssignTime('09:00');
+    setAssignPlatform('instagram');
     setIsAdding(false);
-  }, [newItem, editingId, content, setContent, multiContentMode, contentItems, contentType, imageRecommendations]);
+  }, [newItem, editingId, content, setContent, multiContentMode, contentItems, contentType, imageRecommendations, assignToDay, scheduleToCalendar]);
 
   const handleEdit = useCallback((post: Post) => {
     if (post.items && post.items.length > 0) {
@@ -719,6 +782,69 @@ export default function ContentManager({ content, setContent, contentType }: Con
                 placeholder="https://example.com"
               />
             </div>
+
+            {/* Day Assignment Section */}
+            {!editingId && (
+              <div className="planner-line">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-xs font-bold text-planner-text uppercase tracking-wider">Schedule to Calendar (optional)</label>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-planner-text-medium mb-2">Day of Week</label>
+                    <select
+                      value={assignToDay}
+                      onChange={(e) => setAssignToDay(e.target.value)}
+                      className="w-full border border-planner-text/30 rounded-sm px-3 py-2 text-planner-text bg-white focus:outline-none focus:border-planner-accent transition-colors"
+                    >
+                      <option value="">Don't schedule</option>
+                      <option value="monday">Monday</option>
+                      <option value="tuesday">Tuesday</option>
+                      <option value="wednesday">Wednesday</option>
+                      <option value="thursday">Thursday</option>
+                      <option value="friday">Friday</option>
+                      <option value="saturday">Saturday</option>
+                      <option value="sunday">Sunday</option>
+                    </select>
+                  </div>
+                  
+                  {assignToDay && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-medium text-planner-text-medium mb-2">Time</label>
+                        <input
+                          type="time"
+                          value={assignTime}
+                          onChange={(e) => setAssignTime(e.target.value)}
+                          className="w-full border border-planner-text/30 rounded-sm px-3 py-2 text-planner-text bg-white focus:outline-none focus:border-planner-accent transition-colors"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-planner-text-medium mb-2">Platform</label>
+                        <select
+                          value={assignPlatform}
+                          onChange={(e) => setAssignPlatform(e.target.value)}
+                          className="w-full border border-planner-text/30 rounded-sm px-3 py-2 text-planner-text bg-white focus:outline-none focus:border-planner-accent transition-colors"
+                        >
+                          <option value="instagram">Instagram</option>
+                          <option value="facebook">Facebook</option>
+                          <option value="linkedin">LinkedIn</option>
+                          <option value="twitter">Twitter</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {assignToDay && (
+                  <p className="text-xs text-planner-text-muted mt-2">
+                    Content will be scheduled for next {assignToDay} at {assignTime} on {assignPlatform}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="planner-divider"></div>

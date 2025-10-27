@@ -340,6 +340,29 @@ export default function SocialMediaAgent() {
     }
   }, []);
 
+  // Update content with proper date references
+  const updateContentWithDate = useCallback((content: string, targetDate: Date) => {
+    const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+    const monthDay = targetDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const fullDate = targetDate.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    // Replace common date placeholders
+    let updatedContent = content
+      .replace(/\[DAY\]/g, dayName)
+      .replace(/\[DATE\]/g, monthDay)
+      .replace(/\[FULL_DATE\]/g, fullDate)
+      .replace(/today/gi, `this ${dayName}`)
+      .replace(/tomorrow/gi, `${dayName}`)
+      .replace(/this week/gi, `this ${dayName}`);
+
+    return updatedContent;
+  }, []);
+
   // Add multiple items to a content collection
   const addMultipleItemsToCollection = useCallback((items: ContentItem[], contentType: string) => {
     const collection = contentCollections[contentType];
@@ -429,6 +452,36 @@ export default function SocialMediaAgent() {
 
       // Update weekly posts for the Day Planner view
       setWeeklyPosts(prev => [...prev, ...newPlannerPosts]);
+
+      // Also populate the calendar with scheduled content
+      const newScheduledContent: ScheduledContent[] = newPlannerPosts.map(post => {
+        // Calculate the next occurrence of this day
+        const today = new Date();
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const targetDayIndex = dayNames.indexOf(post.dayName.toLowerCase());
+        const currentDayIndex = today.getDay();
+        
+        let daysUntilTarget = targetDayIndex - currentDayIndex;
+        if (daysUntilTarget <= 0) {
+          daysUntilTarget += 7; // Next week
+        }
+        
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + daysUntilTarget);
+
+        return {
+          id: `ai-scheduled-${post.id}`,
+          title: post.content.title,
+          content: updateContentWithDate(post.content.description || '', targetDate),
+          date: targetDate.toISOString().split('T')[0],
+          time: '09:00', // Default time
+          platform: 'instagram', // Default platform
+          status: 'draft' as const,
+          createdAt: new Date().toISOString(),
+        };
+      });
+
+      setScheduledContent(prev => [...prev, ...newScheduledContent]);
 
     } catch (error) {
       console.error('Error generating weekly content:', error);
@@ -602,7 +655,7 @@ export default function SocialMediaAgent() {
           <div className="absolute right-6 top-0 w-3 h-16 bg-planner-accent rounded-b-md shadow-planner-lg z-10"></div>
 
           {/* Side Tabs Navigation */}
-          <div className="flex md:flex-col bg-planner-sidebar border-b md:border-b-0 md:border-r border-planner-border-dark" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
+          <div className="flex md:flex-col bg-planner-sidebar border-b md:border-b-0 md:border-r border-planner-border-dark overflow-x-auto md:overflow-x-visible scrollbar-hide" style={{ backgroundImage: 'url(/paper-fibers.png)' }}>
             {[
               { id: 'dashboard', label: 'Dashboard', icon: Home, tooltip: 'Dashboard - View stats and overview' },
               { id: 'planner', label: 'Daily Content Planner', icon: CalendarDays, tooltip: 'Daily Content Planner - Weekly planning and notes' },
@@ -614,14 +667,15 @@ export default function SocialMediaAgent() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-6 py-4 font-medium transition-all duration-200 ease-smooth relative whitespace-nowrap group ${
+                className={`flex items-center gap-3 px-4 md:px-6 py-4 font-medium transition-all duration-200 ease-smooth relative whitespace-nowrap group flex-shrink-0 ${
                   activeTab === tab.id
-                    ? 'bg-planner-page border-l-4 border-planner-accent-dark text-planner-text shadow-inner-planner'
+                    ? 'bg-planner-page border-l-4 md:border-l-4 border-b-4 md:border-b-0 border-planner-accent-dark text-planner-text shadow-inner-planner'
                     : 'text-planner-text-muted hover:bg-planner-hover hover:text-planner-text'
                 }`}
               >
                 <tab.icon className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-105'}`} />
-                <span className="text-sm">{tab.label}</span>
+                <span className="text-sm hidden sm:inline">{tab.label}</span>
+                <span className="text-xs sm:hidden">{tab.label.split(' ')[0]}</span>
               </button>
             ))}
           </div>
@@ -1074,6 +1128,8 @@ export default function SocialMediaAgent() {
                 content={contentCollections[selectedContentType].data}
                 setContent={contentCollections[selectedContentType].setter}
                 contentType={selectedContentType}
+                scheduledContent={scheduledContent}
+                setScheduledContent={setScheduledContent}
               />
             )}
           </div>
