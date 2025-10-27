@@ -672,8 +672,7 @@ export default function SocialMediaAgent() {
                 }`}
               >
                 <tab.icon className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-105'}`} />
-                <span className="text-sm hidden sm:inline">{tab.label}</span>
-                <span className="text-xs sm:hidden">{tab.label.split(' ')[0]}</span>
+                <span className="text-sm">{tab.label}</span>
               </button>
             ))}
           </div>
@@ -881,15 +880,12 @@ export default function SocialMediaAgent() {
 
         {activeTab === 'content' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold mb-6 text-planner-text tracking-wide">Daily Content</h2>
-            
             {/* Daily Planner Section */}
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-planner-text tracking-wide">Daily Content Planner</h3>
+              <h2 className="text-2xl font-semibold text-planner-text tracking-wide">Generated Content Schedule</h2>
               
               {/* Content Calendar View */}
               <div className="bg-white rounded-lg shadow-sm p-6 border border-planner-border">
-                <h4 className="text-lg font-semibold mb-4 text-planner-text">Generated Content Schedule</h4>
                 <DayPlannerView
                   contentCalendar={weeklyPosts}
                   setContentCalendar={setWeeklyPosts}
@@ -899,7 +895,7 @@ export default function SocialMediaAgent() {
 
             {/* Content Library Section */}
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-planner-text tracking-wide">Content Library</h3>
+              <h2 className="text-2xl font-semibold text-planner-text tracking-wide">Content Library</h2>
 
             {/* Content Type Selector */}
             <div className="bg-white rounded-lg shadow-sm p-6 border border-planner-border">
