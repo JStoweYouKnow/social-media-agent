@@ -401,9 +401,9 @@ export default function WeeklyPresetsManager({ presets, setPresets }: WeeklyPres
         <div>
           <div className="flex items-center space-x-3 mb-2">
             <Calendar className="w-6 h-6 text-planner-accent" />
-            <h2 className="text-2xl font-serif font-bold text-planner-text">Weekly Topic Presets</h2>
+            <h2 className="text-2xl font-serif font-bold text-planner-text">Daily Topic Presets</h2>
           </div>
-          <span className="text-sm text-planner-text-medium">Create and manage reusable weekly posting schedules</span>
+          <span className="text-sm text-planner-text-medium">Create and manage reusable daily posting schedules</span>
         </div>
 
         {/* Import/Export Buttons */}
@@ -464,7 +464,7 @@ export default function WeeklyPresetsManager({ presets, setPresets }: WeeklyPres
               value={currentPreset.name}
               onChange={(e) => setCurrentPreset({ ...currentPreset, name: e.target.value })}
               className="w-full border-b-2 border-planner-text bg-transparent px-0 py-2 text-planner-text text-lg focus:outline-none focus:border-planner-accent transition-colors font-serif"
-              placeholder="e.g., Weekly Content Plan"
+              placeholder="e.g., Daily Content Plan"
             />
           </div>
           <div className="planner-line">
@@ -481,7 +481,7 @@ export default function WeeklyPresetsManager({ presets, setPresets }: WeeklyPres
 
         <div className="planner-divider"></div>
 
-        <h4 className="planner-subheader text-planner-text">Weekly Schedule</h4>
+        <h4 className="planner-subheader text-planner-text">Daily Schedule</h4>
         <div className="planner-grid grid-cols-1 sm:grid-cols-2">
           {days.map((day) => (
             <div key={day} className="planner-cell">
