@@ -1,0 +1,250 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    color: #3A3A3A;
+    font-family: var(--font-caveat), cursive;
+    font-weight: 500;
+    font-size: 1.125rem;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-playfair), Georgia, serif;
+    color: #3A3A3A;
+    letter-spacing: -0.01em;
+  }
+
+  p, span, label, input, textarea, button, div {
+    font-family: var(--font-caveat), cursive;
+  }
+
+  /* Better focus styles */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #F6F3EE, 0 0 0 4px #C4A484;
+  }
+}
+
+/* Day Planner Aesthetic Classes */
+.planner-section {
+  border: 2px solid #3A3A3A;
+  border-radius: 4px;
+  background-color: white;
+  position: relative;
+}
+
+.planner-header {
+  font-family: var(--font-playfair), Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  border-bottom: 3px solid #3A3A3A;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.planner-subheader {
+  font-family: var(--font-playfair), Georgia, serif;
+  font-weight: 600;
+  border-bottom: 2px solid #D5D0C9;
+  padding-bottom: 0.375rem;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+.planner-line {
+  border-bottom: 1px solid #E2DDD5;
+  padding: 0.75rem 0;
+}
+
+.planner-checkbox {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #3A3A3A;
+  border-radius: 0.125rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.planner-checkbox:checked {
+  background-color: #3A3A3A;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+  background-size: 100%;
+  background-position: center;
+}
+
+.planner-divider {
+  height: 2px;
+  background: linear-gradient(to right, #3A3A3A 50%, transparent 50%);
+  background-size: 8px 2px;
+  margin: 1.5rem 0;
+}
+
+.planner-grid {
+  display: grid;
+  gap: 1px;
+  background-color: #D5D0C9;
+  border: 2px solid #3A3A3A;
+}
+
+.planner-cell {
+  background-color: white;
+  padding: 0.75rem;
+  min-height: 3rem;
+}
+
+.planner-ruled-bg {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 1.75rem,
+    #E2DDD5 1.75rem,
+    #E2DDD5 calc(1.75rem + 1px)
+  );
+}
+
+/* Professional utility classes - defined without @apply to avoid build issues */
+.btn-primary {
+  background-color: #C4A484;
+  color: white;
+  font-weight: 500;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary:hover {
+  background-color: #B7A28A;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: white;
+  color: #3A3A3A;
+  font-weight: 500;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #E2DDD5;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-secondary:hover {
+  background-color: #E3DDD5;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.card {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  border: 1px solid #E2DDD5;
+  padding: 1.5rem;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.input-planner {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #D5D0C9;
+  background-color: #F6F3EE;
+  color: #3A3A3A;
+  font-family: var(--font-caveat), cursive;
+  font-size: 1.125rem;
+  font-weight: 500;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-planner::placeholder {
+  color: #7C756B;
+  font-family: var(--font-caveat), cursive;
+  font-weight: 400;
+}
+
+.input-planner:focus {
+  outline: none;
+  ring: 2px solid #C4A484;
+  border-color: transparent;
+}
+
+.textarea-planner {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #D5D0C9;
+  background-color: #F6F3EE;
+  color: #3A3A3A;
+  font-family: var(--font-caveat), cursive;
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.75rem;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  resize: none;
+}
+
+.textarea-planner::placeholder {
+  color: #7C756B;
+  font-family: var(--font-caveat), cursive;
+  font-weight: 400;
+}
+
+.textarea-planner:focus {
+  outline: none;
+  ring: 2px solid #C4A484;
+  border-color: transparent;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .font-handwritten {
+    font-family: var(--font-caveat), cursive;
+    font-weight: 500;
+  }
+
+  .font-handwritten-light {
+    font-family: var(--font-caveat), cursive;
+    font-weight: 400;
+  }
+
+  .font-handwritten-bold {
+    font-family: var(--font-caveat), cursive;
+    font-weight: 700;
+  }
+
+  /* Hide scrollbar for mobile navigation */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Safari and Chrome */
+  }
+}
