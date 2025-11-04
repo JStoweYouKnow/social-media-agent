@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
           subscriptionId: session.subscription,
         });
 
-        // TODO: Update user record in Convex/Firebase with subscription details
+        // TODO: Update user record in Convex with subscription details
         // await updateUserSubscription({
         //   userId: session.metadata?.userId,
         //   customerId: session.customer as string,
