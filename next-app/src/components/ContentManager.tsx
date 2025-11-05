@@ -332,6 +332,7 @@ export default function ContentManager({ content, setContent, contentType, sched
       content: item.content,
       tags: item.tags,
       url: item.url || '',
+      imageUrl: item.imageUrl || '',
       field1: item.field1 || '',
       field2: item.field2 || ''
     });

@@ -1,6 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
+
+/**
+ * Validate URL to prevent SSRF attacks
+ */
+function isUrlSafe(urlString: string): { safe: boolean; error?: string } {
+  try {
+    const url = new URL(urlString);
+
+    // Only allow HTTP and HTTPS protocols
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return { safe: false, error: 'Only HTTP and HTTPS protocols are allowed' };
+    }
+
+    // Block localhost and private IP ranges to prevent SSRF
+    const hostname = url.hostname.toLowerCase();
+
+    // Block localhost variations
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('127.') ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.localhost')
+    ) {
+      return { safe: false, error: 'Cannot fetch from localhost or local network' };
+    }
+
+    // Block private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+    const ipMatch = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (ipMatch) {
+      const [, a, b] = ipMatch.map(Number);
+
+      // Check private IP ranges
+      if (
+        a === 10 || // 10.0.0.0/8
+        (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
+        (a === 192 && b === 168) || // 192.168.0.0/16
+        (a === 169 && b === 254) || // 169.254.0.0/16 (link-local)
+        a === 0 || // 0.0.0.0/8
+        a >= 224 // Multicast and reserved
+      ) {
+        return { safe: false, error: 'Cannot fetch from private IP ranges' };
+      }
+    }
+
+    // Block cloud metadata endpoints
+    const blockedHosts = [
+      'metadata.google.internal',
+      '169.254.169.254', // AWS, GCP, Azure metadata
+      'metadata.azure.com',
+      'metadata',
+    ];
+
+    if (blockedHosts.some(blocked => hostname.includes(blocked))) {
+      return { safe: false, error: 'Cannot fetch from cloud metadata endpoints' };
+    }
+
+    return { safe: true };
+  } catch {
+    return { safe: false, error: 'Invalid URL format' };
+  }
+}
 
 export async function POST(request: NextRequest) {
+  // Protect this API route - require authentication
+  const { error } = await requireAuth();
+  if (error) return error;
+
   try {
     const { url, contentType } = await request.json();
 
@@ -8,95 +76,125 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
-    // Validate URL format
-    try {
-      new URL(url);
-    } catch {
-      return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
-    }
-
-    // Fetch the URL content
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; PostPlannerBot/1.0)',
-      },
-    });
-
-    if (!response.ok) {
+    // Validate URL for SSRF protection
+    const urlValidation = isUrlSafe(url);
+    if (!urlValidation.safe) {
       return NextResponse.json(
-        { error: `Failed to fetch URL: ${response.statusText}` },
-        { status: response.status }
+        { error: urlValidation.error || 'Invalid URL' },
+        { status: 400 }
       );
     }
 
-    const html = await response.text();
+    // Fetch the URL content with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    // Parse HTML to extract metadata
-    const title = extractMetadata(html, [
-      /<meta property="og:title" content="([^"]+)"/,
-      /<meta name="twitter:title" content="([^"]+)"/,
-      /<title>([^<]+)<\/title>/,
-    ]) || '';
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; PostPlannerBot/1.0)',
+        },
+        signal: controller.signal,
+      });
 
-    const description = extractMetadata(html, [
-      /<meta property="og:description" content="([^"]+)"/,
-      /<meta name="twitter:description" content="([^"]+)"/,
-      /<meta name="description" content="([^"]+)"/,
-    ]) || '';
+      clearTimeout(timeoutId);
 
-    const image = extractMetadata(html, [
-      /<meta property="og:image" content="([^"]+)"/,
-      /<meta name="twitter:image" content="([^"]+)"/,
-    ]) || '';
-
-    const siteName = extractMetadata(html, [
-      /<meta property="og:site_name" content="([^"]+)"/,
-    ]) || new URL(url).hostname;
-
-    // Extract main content text (simplified - gets first paragraph)
-    const contentMatch = html.match(/<p[^>]*>([^<]+)<\/p>/);
-    const content = contentMatch ? contentMatch[1].trim() : description;
-
-    // Detect content type and extract specialized data
-    let field1 = '';
-    let field2 = '';
-    let detectedType = contentType;
-
-    // Auto-detect type if not provided
-    if (!detectedType) {
-      if (isRecipe(html, url)) {
-        detectedType = 'recipes';
-      } else if (isWorkout(html, url)) {
-        detectedType = 'workouts';
+      if (!response.ok) {
+        return NextResponse.json(
+          { error: `Failed to fetch URL: ${response.statusText}` },
+          { status: response.status }
+        );
       }
-    }
 
-    // Extract type-specific data
-    if (detectedType === 'recipes') {
-      const recipeData = extractRecipeData(html);
-      field1 = recipeData.ingredients;
-      field2 = recipeData.cookTime;
-    } else if (detectedType === 'workouts') {
-      const workoutData = extractWorkoutData(html);
-      field1 = workoutData.duration;
-      field2 = workoutData.difficulty;
-    }
+      // Check content type to ensure we're getting HTML
+      const contentTypeHeader = response.headers.get('content-type') || '';
+      if (!contentTypeHeader.includes('text/html') && !contentTypeHeader.includes('application/xhtml')) {
+        return NextResponse.json(
+          { error: 'URL must return HTML content' },
+          { status: 400 }
+        );
+      }
 
-    return NextResponse.json({
-      title: cleanText(title),
-      content: cleanText(content),
-      description: cleanText(description),
-      image,
-      siteName,
-      url,
-      field1,
-      field2,
-      detectedType,
-    });
-  } catch (error) {
+      const html = await response.text();
+
+      // Parse HTML to extract metadata
+      const title = extractMetadata(html, [
+        /<meta property="og:title" content="([^"]+)"/,
+        /<meta name="twitter:title" content="([^"]+)"/,
+        /<title>([^<]+)<\/title>/,
+      ]) || '';
+
+      const description = extractMetadata(html, [
+        /<meta property="og:description" content="([^"]+)"/,
+        /<meta name="twitter:description" content="([^"]+)"/,
+        /<meta name="description" content="([^"]+)"/,
+      ]) || '';
+
+      const image = extractMetadata(html, [
+        /<meta property="og:image" content="([^"]+)"/,
+        /<meta name="twitter:image" content="([^"]+)"/,
+      ]) || '';
+
+      const siteName = extractMetadata(html, [
+        /<meta property="og:site_name" content="([^"]+)"/,
+      ]) || new URL(url).hostname;
+
+      // Extract main content text (simplified - gets first paragraph)
+      const contentMatch = html.match(/<p[^>]*>([^<]+)<\/p>/);
+      const content = contentMatch ? contentMatch[1].trim() : description;
+
+      // Detect content type and extract specialized data
+      let field1 = '';
+      let field2 = '';
+      let detectedType = contentType;
+
+      // Auto-detect type if not provided
+      if (!detectedType) {
+        if (isRecipe(html, url)) {
+          detectedType = 'recipes';
+        } else if (isWorkout(html, url)) {
+          detectedType = 'workouts';
+        }
+      }
+
+      // Extract type-specific data
+      if (detectedType === 'recipes') {
+        const recipeData = extractRecipeData(html);
+        field1 = recipeData.ingredients;
+        field2 = recipeData.cookTime;
+      } else if (detectedType === 'workouts') {
+        const workoutData = extractWorkoutData(html);
+        field1 = workoutData.duration;
+        field2 = workoutData.difficulty;
+      }
+
+      return NextResponse.json({
+        title: cleanText(title),
+        content: cleanText(content),
+        description: cleanText(description),
+        image,
+        siteName,
+        url,
+        field1,
+        field2,
+        detectedType,
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+
+      if (fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          { error: 'Request timeout - URL took too long to respond' },
+          { status: 408 }
+        );
+      }
+
+      throw fetchError;
+    }
+  } catch (error: any) {
     console.error('Error parsing URL:', error);
     return NextResponse.json(
-      { error: 'Failed to parse URL. Please try again.' },
+      { error: error.message || 'Failed to parse URL. Please try again.' },
       { status: 500 }
     );
   }

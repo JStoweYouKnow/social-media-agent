@@ -75,6 +75,8 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '2mb',
     },
+    // Note: instrumentationHook is enabled by default in Next.js 16+
+    // instrumentation.ts will run automatically at startup
   },
 
   // Environment variables validation

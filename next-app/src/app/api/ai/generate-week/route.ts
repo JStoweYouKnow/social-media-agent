@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
 import OpenAI from 'openai';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
 export async function POST(request: Request) {
+  // Protect this API route - require authentication
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+
   const { prompt, tone = 'casual' } = await request.json();
 
   if (!prompt) {

@@ -1,0 +1,14 @@
+{
+  "extends": "../next-app/tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2021"],
+    "target": "ES2021",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "strict": true
+  },
+  "include": ["./**/*"]
+}

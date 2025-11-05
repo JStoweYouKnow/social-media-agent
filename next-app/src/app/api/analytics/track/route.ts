@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
+  // Protect this API route - require authentication
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+
   try {
     const data = await req.json();
 

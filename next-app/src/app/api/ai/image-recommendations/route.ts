@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
 import OpenAI from 'openai';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
@@ -6,6 +7,10 @@ const openai = process.env.OPENAI_API_KEY ? new OpenAI({
 }) : null;
 
 export async function POST(request: NextRequest) {
+  // Protect this API route - require authentication
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+
   try {
     const { title, content, contentType, platform } = await request.json();
 
@@ -122,5 +127,7 @@ Format as a JSON array of recommendation objects.`;
     );
   }
 }
+
+
 
 

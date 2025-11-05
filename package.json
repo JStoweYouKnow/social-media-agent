@@ -1,0 +1,14 @@
+{
+  "name": "post-planner",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix next-app",
+    "build": "npm run build --prefix next-app",
+    "convex:dev": "npx convex dev",
+    "convex:deploy": "npx convex deploy"
+  },
+  "dependencies": {
+    "convex": "^1.28.0"
+  }
+}
