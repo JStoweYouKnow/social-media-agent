@@ -10,6 +10,11 @@
 export async function register() {
   // Only run on server
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // Initialize Sentry on server startup
+    if (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN) {
+      await import('../sentry.server.config');
+    }
+
     const { validateEnvOrThrow } = await import('./lib/env-validation');
 
     console.log('🚀 Starting server...');

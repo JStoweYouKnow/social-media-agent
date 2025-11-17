@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PricingTierId, getTierLimits } from './pricing';
+import { rateLimitResponse } from './api-response';
 
 // In-memory rate limiting (for production, use Redis or similar)
 interface RateLimitStore {
@@ -157,22 +158,7 @@ export async function checkRateLimit(
   const result = await limiter.check(identifier);
 
   if (!result.success) {
-    return NextResponse.json(
-      {
-        error: 'Rate limit exceeded',
-        limit: result.limit,
-        remaining: result.remaining,
-        reset: result.reset,
-      },
-      {
-        status: 429,
-        headers: {
-          'X-RateLimit-Limit': result.limit.toString(),
-          'X-RateLimit-Remaining': result.remaining.toString(),
-          'X-RateLimit-Reset': result.reset.toString(),
-        },
-      }
-    );
+    return rateLimitResponse(result.limit, result.remaining, result.reset);
   }
 
   return null; // No error, continue

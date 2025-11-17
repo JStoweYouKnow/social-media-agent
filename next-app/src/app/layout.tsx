@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display, Caveat } from 'next/font/google';
 import { ConvexClientProvider } from '@/components/ConvexClientProvider';
 import { WebVitals } from '@/components/WebVitals';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { SentryInit } from '@/components/SentryInit';
 import "./globals.css";
 
 const inter = Inter({
@@ -89,10 +91,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable} ${caveat.variable}`}>
       <body className="antialiased font-sans">
-        <WebVitals />
-        <ConvexClientProvider>
-          {children}
-        </ConvexClientProvider>
+        <SentryInit />
+        <ErrorBoundary>
+          <WebVitals />
+          <ConvexClientProvider>
+            {children}
+          </ConvexClientProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

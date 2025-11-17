@@ -12,7 +12,7 @@ export async function requireAuth() {
     return {
       userId: null,
       error: NextResponse.json(
-        { success: false, message: 'Unauthorized. Please sign in.' },
+        { error: 'Unauthorized. Please sign in to use this feature.' },
         { status: 401 }
       ),
     };

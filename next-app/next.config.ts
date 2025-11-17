@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -85,4 +86,33 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Wrap Next.js config with Sentry
+export default withSentryConfig(nextConfig, {
+  // For all available options, see:
+  // https://github.com/getsentry/sentry-webpack-plugin#options
+
+  // Suppresses source map uploading logs during build
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  
+  // Upload source maps to Sentry
+  widenClientFileUpload: true,
+  
+  // Automatically annotate React components to show their props/state in Sentry
+  reactComponentAnnotation: {
+    enabled: true,
+  },
+  
+  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
+  tunnelRoute: "/monitoring",
+  
+  // Automatically tree-shake Sentry logger statements to reduce bundle size
+  disableLogger: true,
+  
+  // Source maps configuration
+  sourcemaps: {
+    // Don't include source maps in production bundles (they're uploaded to Sentry)
+    assets: process.env.NODE_ENV === 'production' ? [] : undefined,
+  },
+});

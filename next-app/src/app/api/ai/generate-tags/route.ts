@@ -1,4 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { successResponse, errorResponse, badRequestResponse } from '@/lib/api-response';
 import OpenAI from 'openai';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
@@ -6,21 +9,26 @@ const openai = process.env.OPENAI_API_KEY ? new OpenAI({
 }) : null;
 
 export async function POST(request: NextRequest) {
+  // Protect this API route - require authentication
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+
+  // Rate limiting - 10 requests per minute per user
+  const rateLimitError = await checkRateLimit(request, userId || 'anonymous', {
+    interval: 60 * 1000,
+    uniqueTokenPerInterval: 10,
+  });
+  if (rateLimitError) return rateLimitError;
+
   try {
     const { title, content, contentType } = await request.json();
 
     if (!title && !content) {
-      return NextResponse.json(
-        { error: 'Title or content is required' },
-        { status: 400 }
-      );
+      return badRequestResponse('Title or content is required');
     }
 
     if (!openai) {
-      return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
-        { status: 500 }
-      );
+      return errorResponse('OpenAI API key not configured', 500, 'CONFIG_ERROR');
     }
 
     // Create a context-aware prompt
@@ -52,7 +60,7 @@ export async function POST(request: NextRequest) {
     let tags: string[] = [];
     try {
       tags = JSON.parse(response);
-    } catch (e) {
+    } catch {
       // Fallback: try to extract tags from text
       const matches = response.match(/["']([a-z0-9]+)["']/gi);
       if (matches) {
@@ -66,13 +74,11 @@ export async function POST(request: NextRequest) {
       .filter(tag => tag.length > 2 && tag.length < 25)
       .slice(0, 8);
 
-    return NextResponse.json({ tags });
-  } catch (error: any) {
+    return successResponse({ tags });
+  } catch (error: unknown) {
     console.error('Error generating tags:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate tags' },
-      { status: 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate tags';
+    return errorResponse(errorMessage, 500, 'TAG_GENERATION_ERROR');
   }
 }
 

@@ -1,15 +1,20 @@
-import { NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
+import { successResponse, errorResponse, badRequestResponse } from '@/lib/api-response';
 import fetch from 'node-fetch';
 
 export async function POST(request: Request) {
+  // Protect this API route - require authentication
+  const { error } = await requireAuth();
+  if (error) return error;
+
   const { templateId, postData, day } = await request.json();
 
   if (!templateId || !postData) {
-    return NextResponse.json({ success: false, message: 'Template ID and post data are required' }, { status: 400 });
+    return badRequestResponse('Template ID and post data are required');
   }
 
   try {
-    const variables: Record<string, any> = {
+    const variables: Record<string, unknown> = {
       caption: postData.caption || '',
       hashtags: postData.hashtags || '#ProjectComfort',
       date: postData.date || new Date().toLocaleDateString(),
@@ -33,13 +38,18 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const errorData = await response.json() as { message?: string };
-      return NextResponse.json({ success: false, message: errorData.message || `Canva API error: ${response.status}` }, { status: 500 });
+      return errorResponse(
+        errorData.message || `Canva API error: ${response.status}`,
+        500,
+        'CANVA_API_ERROR'
+      );
     }
 
     const data = await response.json() as { url: string };
-    return NextResponse.json({ success: true, designLink: data.url, variables, day });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return successResponse({ designLink: data.url, variables, day });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Canva API error';
+    return errorResponse(errorMessage, 500, 'CANVA_ERROR');
   }
 }
 

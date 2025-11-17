@@ -1,22 +1,40 @@
-import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import OpenAI from 'openai';
-
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+import { checkRateLimit } from '@/lib/rate-limit';
+import { successResponse, errorResponse, badRequestResponse } from '@/lib/api-response';
+import { generateContent } from '@/lib/aiModels';
+import {
+  getTimeContext,
+  enhancePromptWithContext,
+  analyzeSentiment,
+  calculateEngagementScore,
+  validateResponse,
+  CaptionResponseSchema,
+} from '@/lib/dynamicContent';
 
 export async function POST(request: Request) {
   // Protect this API route - require authentication
   const { userId, error } = await requireAuth();
   if (error) return error;
 
-  const { prompt, day, tone = 'casual' } = await request.json();
+  // Rate limiting - 10 requests per minute per user
+  const rateLimitError = await checkRateLimit(request, userId || 'anonymous', {
+    interval: 60 * 1000, // 1 minute
+    uniqueTokenPerInterval: 10, // 10 requests per minute
+  });
+  if (rateLimitError) return rateLimitError;
+
+  const { 
+    prompt, 
+    day, 
+    tone = 'casual',
+    model = 'openai',
+    includeTrending = false,
+    includeTimeContext = true,
+    urlContext,
+  } = await request.json();
 
   if (!prompt) {
-    return NextResponse.json({ success: false, message: 'Prompt is required' }, { status: 400 });
-  }
-
-  if (!openai) {
-    return NextResponse.json({ success: false, message: 'OpenAI API key not configured' }, { status: 500 });
+    return badRequestResponse('Prompt is required');
   }
 
   const dayContext: Record<string, string> = {
@@ -30,22 +48,80 @@ export async function POST(request: Request) {
   };
 
   const context = day ? dayContext[day] || '' : '';
+  const timeContext = includeTimeContext ? getTimeContext(new Date()) : null;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: `You are a social media content creator for Project Comfort. ${context ? `Today is ${day}, focus on ${context}.` : ''} Always include relevant hashtags including #ProjectComfort.` },
-        { role: 'user', content: `Create a ${tone} social media caption about: ${prompt}` }
-      ],
-      temperature: 0.9,
-      max_tokens: 600
+    // Enhance prompt with dynamic context
+    const enhancedPrompt = await enhancePromptWithContext(
+      `Create a ${tone} social media caption about: ${prompt}`,
+      {
+        includeTrending,
+        includeTimeContext,
+        urlContext,
+      }
+    );
+
+    // Build system prompt with all context
+    let systemPrompt = `You are a social media content creator for Project Comfort.`;
+    if (context) {
+      systemPrompt += ` Today is ${day}, focus on ${context}.`;
+    }
+    if (timeContext) {
+      systemPrompt += ` It's ${timeContext.dayOfWeek} ${timeContext.timeOfDay}, ${timeContext.weekContext} week.`;
+    }
+    systemPrompt += ` Always include relevant hashtags including #ProjectComfort. Make the content engaging and authentic.`;
+
+    // Generate content with selected model
+    const result = await generateContent({
+      prompt: enhancedPrompt,
+      systemPrompt,
+      model: model as 'openai' | 'anthropic' | 'both',
+      temperature: tone === 'professional' ? 0.7 : tone === 'funny' ? 0.95 : 0.9,
+      maxTokens: 600,
     });
 
-    const caption = response.choices?.[0]?.message?.content || '';
-    return NextResponse.json({ success: true, caption, day, tone });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message || 'OpenAI error' }, { status: 500 });
+    const caption = result.content;
+    
+    // Extract hashtags from caption
+    const hashtagMatches = caption.match(/#\w+/g) || [];
+    const hashtags = hashtagMatches.map(tag => tag.replace('#', ''));
+
+    // Analyze sentiment
+    const sentimentAnalysis = analyzeSentiment(caption);
+    
+    // Calculate engagement score
+    const engagementScore = calculateEngagementScore(caption, hashtags);
+
+    // Validate response structure
+    const validation = validateResponse(
+      { caption, hashtags, sentiment: sentimentAnalysis.positive ? 'positive' : sentimentAnalysis.negative ? 'negative' : 'neutral', engagementScore },
+      CaptionResponseSchema
+    );
+
+    return successResponse({
+      caption,
+      day,
+      tone,
+      model: result.model,
+      hashtags,
+      sentiment: {
+        score: sentimentAnalysis.score,
+        comparative: sentimentAnalysis.comparative,
+        type: sentimentAnalysis.positive ? 'positive' : sentimentAnalysis.negative ? 'negative' : 'neutral',
+      },
+      engagementScore,
+      tokens: result.tokens,
+      timeContext: timeContext ? {
+        timeOfDay: timeContext.timeOfDay,
+        dayOfWeek: timeContext.dayOfWeek,
+        weekContext: timeContext.weekContext,
+      } : null,
+      validation: validation.success ? 'valid' : 'invalid',
+    });
+  } catch (error: unknown) {
+    console.error('AI generation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'AI generation error';
+    return errorResponse(errorMessage, 500, 'AI_GENERATION_ERROR', error);
   }
 }
 

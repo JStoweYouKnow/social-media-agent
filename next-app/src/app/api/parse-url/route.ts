@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { successResponse, errorResponse, badRequestResponse } from '@/lib/api-response';
 
 /**
  * Validate URL to prevent SSRF attacks
@@ -66,23 +68,27 @@ function isUrlSafe(urlString: string): { safe: boolean; error?: string } {
 
 export async function POST(request: NextRequest) {
   // Protect this API route - require authentication
-  const { error } = await requireAuth();
+  const { userId, error } = await requireAuth();
   if (error) return error;
+
+  // Rate limiting - 10 requests per minute per user
+  const rateLimitError = await checkRateLimit(request, userId || 'anonymous', {
+    interval: 60 * 1000,
+    uniqueTokenPerInterval: 10,
+  });
+  if (rateLimitError) return rateLimitError;
 
   try {
     const { url, contentType } = await request.json();
 
     if (!url) {
-      return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+      return badRequestResponse('URL is required');
     }
 
     // Validate URL for SSRF protection
     const urlValidation = isUrlSafe(url);
     if (!urlValidation.safe) {
-      return NextResponse.json(
-        { error: urlValidation.error || 'Invalid URL' },
-        { status: 400 }
-      );
+      return badRequestResponse(urlValidation.error || 'Invalid URL');
     }
 
     // Fetch the URL content with timeout
@@ -100,19 +106,17 @@ export async function POST(request: NextRequest) {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        return NextResponse.json(
-          { error: `Failed to fetch URL: ${response.statusText}` },
-          { status: response.status }
+        return errorResponse(
+          `Failed to fetch URL: ${response.statusText}`,
+          response.status,
+          'FETCH_ERROR'
         );
       }
 
       // Check content type to ensure we're getting HTML
       const contentTypeHeader = response.headers.get('content-type') || '';
       if (!contentTypeHeader.includes('text/html') && !contentTypeHeader.includes('application/xhtml')) {
-        return NextResponse.json(
-          { error: 'URL must return HTML content' },
-          { status: 400 }
-        );
+        return badRequestResponse('URL must return HTML content');
       }
 
       const html = await response.text();
@@ -168,7 +172,7 @@ export async function POST(request: NextRequest) {
         field2 = workoutData.difficulty;
       }
 
-      return NextResponse.json({
+      return successResponse({
         title: cleanText(title),
         content: cleanText(content),
         description: cleanText(description),
@@ -179,24 +183,23 @@ export async function POST(request: NextRequest) {
         field2,
         detectedType,
       });
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       clearTimeout(timeoutId);
 
-      if (fetchError.name === 'AbortError') {
-        return NextResponse.json(
-          { error: 'Request timeout - URL took too long to respond' },
-          { status: 408 }
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return errorResponse(
+          'Request timeout - URL took too long to respond',
+          408,
+          'TIMEOUT_ERROR'
         );
       }
 
       throw fetchError;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error parsing URL:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to parse URL. Please try again.' },
-      { status: 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : 'Failed to parse URL. Please try again.';
+    return errorResponse(errorMessage, 500, 'PARSE_ERROR');
   }
 }
 

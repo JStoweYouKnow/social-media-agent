@@ -1,22 +1,37 @@
-import { NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
+import { successResponse, errorResponse, badRequestResponse, notFoundResponse } from '@/lib/api-response';
 import { getScheduleForDay } from '@/lib/contentSchedule';
 import { generatePost } from '@/lib/postGenerator';
 
 export async function POST(request: Request) {
+  // Protect this API route - require authentication
+  const { error } = await requireAuth();
+  if (error) return error;
+
   const { day, data } = await request.json();
   if (!day || !data) {
-    return NextResponse.json({ success: false, message: 'Day and data are required' }, { status: 400 });
+    return badRequestResponse('Day and data are required');
   }
 
   try {
     const schedule = getScheduleForDay(day);
     if (!schedule) {
-      return NextResponse.json({ success: false, message: `No schedule found for day: ${day}` }, { status: 404 });
+      return notFoundResponse(`No schedule found for day: ${day}`);
     }
     const caption = generatePost(day, data);
-    return NextResponse.json({ success: true, post: { day: schedule.day, caption, type: schedule.type, template: schedule.template, source: schedule.source, description: schedule.description } });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return successResponse({
+      post: {
+        day: schedule.day,
+        caption,
+        type: schedule.type,
+        template: schedule.template,
+        source: schedule.source,
+        description: schedule.description,
+      },
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate post';
+    return errorResponse(errorMessage, 500, 'GENERATION_ERROR');
   }
 }
 

@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { successResponse, errorResponse, badRequestResponse } from '@/lib/api-response';
 import OpenAI from 'openai';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
@@ -11,21 +13,22 @@ export async function POST(request: NextRequest) {
   const { userId, error } = await requireAuth();
   if (error) return error;
 
+  // Rate limiting - 10 requests per minute per user
+  const rateLimitError = await checkRateLimit(request, userId || 'anonymous', {
+    interval: 60 * 1000,
+    uniqueTokenPerInterval: 10,
+  });
+  if (rateLimitError) return rateLimitError;
+
   try {
     const { title, content, contentType, platform } = await request.json();
 
     if (!title && !content) {
-      return NextResponse.json(
-        { error: 'Title or content is required' },
-        { status: 400 }
-      );
+      return badRequestResponse('Title or content is required');
     }
 
     if (!openai) {
-      return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
-        { status: 500 }
-      );
+      return errorResponse('OpenAI API key not configured', 500, 'CONFIG_ERROR');
     }
 
     const prompt = `Based on this ${contentType || 'social media'} post for ${platform || 'social media'}, suggest 3-5 specific image/graphic recommendations that would enhance engagement and visual appeal.
@@ -69,16 +72,33 @@ Format as a JSON array of recommendation objects.`;
     try {
       // Try to parse as JSON first
       const recommendations = JSON.parse(recommendationsText);
-      return NextResponse.json({ 
-        success: true, 
+      return successResponse({ 
         recommendations: Array.isArray(recommendations) ? recommendations : [recommendations]
       });
-    } catch (parseError) {
+    } catch {
       // If JSON parsing fails, create structured recommendations from text
       const lines = recommendationsText.split('\n').filter(line => line.trim());
-      const recommendations = [];
+      const recommendations: Array<{
+        type: string;
+        elements: string;
+        style: string;
+        colors: string;
+        textOverlay: string;
+      }> = [];
       
-      let currentRec: any = {};
+      let currentRec: {
+        type: string;
+        elements: string;
+        style: string;
+        colors: string;
+        textOverlay: string;
+      } = {
+        type: '',
+        elements: '',
+        style: '',
+        colors: '',
+        textOverlay: ''
+      };
       for (const line of lines) {
         if (line.includes('Image type:') || line.includes('1.')) {
           if (Object.keys(currentRec).length > 0) {
@@ -106,8 +126,7 @@ Format as a JSON array of recommendation objects.`;
         recommendations.push(currentRec);
       }
 
-      return NextResponse.json({ 
-        success: true, 
+      return successResponse({ 
         recommendations: recommendations.length > 0 ? recommendations : [
           {
             type: 'High-quality photo',
@@ -119,12 +138,10 @@ Format as a JSON array of recommendation objects.`;
         ]
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error generating image recommendations:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate image recommendations' },
-      { status: 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate image recommendations';
+    return errorResponse(errorMessage, 500, 'IMAGE_RECOMMENDATION_ERROR');
   }
 }
 

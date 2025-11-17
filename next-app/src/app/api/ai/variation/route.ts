@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { successResponse, errorResponse, badRequestResponse } from '@/lib/api-response';
 import OpenAI from 'openai';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
@@ -9,14 +10,21 @@ export async function POST(request: Request) {
   const { userId, error } = await requireAuth();
   if (error) return error;
 
+  // Rate limiting - 10 requests per minute per user
+  const rateLimitError = await checkRateLimit(request, userId || 'anonymous', {
+    interval: 60 * 1000,
+    uniqueTokenPerInterval: 10,
+  });
+  if (rateLimitError) return rateLimitError;
+
   const { baseCaption, tone } = await request.json();
 
   if (!baseCaption || !tone) {
-    return NextResponse.json({ success: false, message: 'Both baseCaption and tone are required' }, { status: 400 });
+    return badRequestResponse('Both baseCaption and tone are required');
   }
 
   if (!openai) {
-    return NextResponse.json({ success: false, message: 'OpenAI API key not configured' }, { status: 500 });
+    return errorResponse('OpenAI API key not configured', 500, 'CONFIG_ERROR');
   }
 
   try {
@@ -31,9 +39,10 @@ export async function POST(request: Request) {
     });
 
     const newCaption = response.choices?.[0]?.message?.content || '';
-    return NextResponse.json({ success: true, caption: newCaption, tone, originalLength: baseCaption.length, newLength: newCaption.length });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message || 'OpenAI error' }, { status: 500 });
+    return successResponse({ caption: newCaption, tone, originalLength: baseCaption.length, newLength: newCaption.length });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'OpenAI error';
+    return errorResponse(errorMessage, 500, 'OPENAI_ERROR');
   }
 }
 
