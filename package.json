@@ -10,5 +10,8 @@
   },
   "dependencies": {
     "convex": "^1.28.0"
+  },
+  "devDependencies": {
+    "baseline-browser-mapping": "^2.8.32"
   }
 }

@@ -6,15 +6,16 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SentryInit } from '@/components/SentryInit';
 import "./globals.css";
 
-// Professional serif for headings - warm, elegant, planner-like
+// Warm, elegant serif for headings - professional day planner aesthetic
 const lora = Lora({
   subsets: ['latin'],
   variable: '--font-lora',
   display: 'swap',
   weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
 });
 
-// Clean sans-serif for body - modern, professional, highly readable
+// Clean, professional sans-serif for body - highly readable, modern
 const workSans = Work_Sans({
   subsets: ['latin'],
   variable: '--font-work-sans',
@@ -31,7 +32,7 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://post-planner.vercel.app'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://postplanner.projcomfort.com'),
   title: {
     default: "Post Planner - AI-Powered Social Media Management",
     template: "%s | Post Planner"
@@ -60,7 +61,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: process.env.NEXT_PUBLIC_APP_URL || 'https://post-planner.vercel.app',
+    url: process.env.NEXT_PUBLIC_APP_URL || 'https://postplanner.projcomfort.com',
     title: "Post Planner - AI-Powered Social Media Management",
     description: "AI-powered social media content planning and scheduling for Instagram, Facebook, LinkedIn & Twitter.",
     siteName: "Post Planner",

@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,8 @@
         "NSCameraUsageDescription": "We need camera access to capture images for your posts.",
         "NSPhotoLibraryUsageDescription": "We need photo library access to add images to your posts.",
         "NSPhotoLibraryAddUsageDescription": "We need permission to save images to your photo library.",
-        "NSUserTrackingUsageDescription": "This allows us to provide you with personalized content and improve your experience."
+        "NSUserTrackingUsageDescription": "This allows us to provide you with personalized content and improve your experience.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

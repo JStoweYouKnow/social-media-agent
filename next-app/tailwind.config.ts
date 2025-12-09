@@ -25,9 +25,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        serif: ['var(--font-playfair)', 'Georgia', 'serif'],
-        planner: ['var(--font-inter)', 'sans-serif'],
+        sans: ['var(--font-work-sans)', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-lora)', 'Georgia', 'serif'],
+        planner: ['var(--font-work-sans)', 'sans-serif'],
       },
       boxShadow: {
         'planner': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',

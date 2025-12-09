@@ -82,7 +82,7 @@ const nextConfig: NextConfig = {
 
   // Environment variables validation
   env: {
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://post-planner.vercel.app',
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://postplanner.projcomfort.com',
   },
 };
 

@@ -51,7 +51,7 @@ export default function PricingPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-playfair font-bold text-planner-charcoal mb-4">
+          <h1 className="text-5xl font-serif font-bold text-planner-charcoal mb-4">
             Choose Your Plan
           </h1>
           <p className="text-xl text-planner-charcoal/70 max-w-2xl mx-auto">
@@ -85,7 +85,7 @@ export default function PricingPage() {
 
                 {/* Tier Name */}
                 <div className="text-center mb-6">
-                  <h3 className="text-2xl font-playfair font-bold text-planner-charcoal mb-2">
+                  <h3 className="text-2xl font-serif font-bold text-planner-charcoal mb-2">
                     {tier.name}
                   </h3>
                   <div className="flex items-baseline justify-center gap-1">
@@ -131,7 +131,7 @@ export default function PricingPage() {
 
         {/* FAQ Section */}
         <div className="mt-24 max-w-3xl mx-auto">
-          <h2 className="text-3xl font-playfair font-bold text-center text-planner-charcoal mb-12">
+          <h2 className="text-3xl font-serif font-bold text-center text-planner-charcoal mb-12">
             Frequently Asked Questions
           </h2>
 

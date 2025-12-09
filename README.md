@@ -4,7 +4,7 @@ A modern Next.js application for managing and scheduling social media content wi
 
 ## 🚀 Live Demo
 
-**Production URL**: https://next-na7kpgnic-james-stowes-projects.vercel.app
+**Production URL**: https://postplanner.projcomfort.com
 
 ## ✨ Features
 

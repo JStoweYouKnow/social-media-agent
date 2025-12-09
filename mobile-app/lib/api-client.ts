@@ -11,10 +11,10 @@ import type {
   HashtagsResponse,
   ImageRecommendationsRequest,
   ImageRecommendationsResponse,
-} from '@shared/lib/content-types';
+} from '@/lib/content-types';
 
 // Get API URL from environment or use local development
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
 
 class ApiClient {
   private baseUrl: string;
@@ -52,8 +52,20 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      // Try to get error message from response
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        // If JSON parsing fails, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+      
+      // Log the full error for debugging
+      console.error(`API Error [${response.status}]:`, errorMessage, `URL: ${this.baseUrl}${endpoint}`);
+      
+      throw new Error(errorMessage);
     }
 
     return response.json();

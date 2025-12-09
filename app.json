@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "570d0574-4d17-4c13-a852-2a8aeaac5ceb"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.pjcdev.postplanner",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

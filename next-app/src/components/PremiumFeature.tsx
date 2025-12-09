@@ -49,7 +49,7 @@ export function PremiumFeature({
             </div>
           </div>
 
-          <h3 className="font-playfair font-bold text-xl text-planner-charcoal mb-2">
+          <h3 className="font-serif font-bold text-xl text-planner-charcoal mb-2">
             {featureName}
           </h3>
 

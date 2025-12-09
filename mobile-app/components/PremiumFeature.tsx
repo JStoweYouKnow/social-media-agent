@@ -5,7 +5,7 @@
 
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Link } from 'expo-router';
-import type { SubscriptionTier } from '@shared/lib/subscription-types';
+import type { SubscriptionTier } from '@/lib/subscription-types';
 
 interface PremiumFeatureProps {
   children: React.ReactNode;
